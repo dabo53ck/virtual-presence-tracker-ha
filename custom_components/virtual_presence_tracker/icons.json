@@ -1,0 +1,20 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "default": "mdi:home-outline",
+        "state": {
+          "on": "mdi:home-account"
+        }
+      }
+    },
+    "switch": {
+      "at_home": {
+        "default": "mdi:home-account",
+        "state": {
+          "off": "mdi:home-outline"
+        }
+      }
+    }
+  }
+}

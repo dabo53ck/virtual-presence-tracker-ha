@@ -14,12 +14,16 @@ from custom_components.virtual_presence_tracker.const import (
     SUBENTRY_TYPE_TRACKER,
 )
 from custom_components.virtual_presence_tracker.manager import HouseholdManager
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 ENTRY_ID = "01JVPT0000000000000000ENTRY"
 STORE_KEY = f"{STORAGE_KEY_PREFIX}.{ENTRY_ID}"
 TRACKER_A = "01JVPT000000000000000TRACKA"
+TRACKER_B = "01JVPT000000000000000TRACKB"
+
+TRACKER_A_ENTITIES = ("device_tracker.kid", "switch.kid_at_home")
 
 
 def make_entry_with_tracker() -> MockConfigEntry:
@@ -78,6 +82,60 @@ async def test_reload_keeps_the_tracker_state(hass: HomeAssistant) -> None:
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data.manager is not manager
     assert entry.runtime_data.manager.is_home(TRACKER_A) is True
+
+
+async def test_adding_a_tracker_creates_its_entities(hass: HomeAssistant) -> None:
+    """A new subentry reloads the entry and brings its own entities."""
+    entry = make_entry_with_tracker()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    hass.config_entries.async_add_subentry(
+        entry,
+        ConfigSubentry(
+            data={},
+            subentry_id=TRACKER_B,
+            subentry_type=SUBENTRY_TYPE_TRACKER,
+            title="Granny",
+            unique_id=None,
+        ),
+    )
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    entity_entry = registry.async_get("switch.granny_at_home")
+    assert entity_entry is not None
+    assert entity_entry.config_subentry_id == TRACKER_B
+    assert registry.async_get("device_tracker.granny") is not None
+
+
+async def test_removing_a_tracker_removes_its_entities(hass: HomeAssistant) -> None:
+    """Removing a subentry takes its entities and its device with it."""
+    entry = make_entry_with_tracker()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    devices = dr.async_get(hass)
+    identifier = (DOMAIN, TRACKER_A)
+    assert devices.async_get_device_by_identifier(identifier, ENTRY_ID) is not None
+
+    hass.config_entries.async_remove_subentry(entry, TRACKER_A)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    for entity_id in TRACKER_A_ENTITIES:
+        assert registry.async_get(entity_id) is None
+        assert hass.states.get(entity_id) is None
+    assert devices.async_get_device_by_identifier(identifier, ENTRY_ID) is None
+    # The household sensor is not bound to a tracker and stays.
+    assert (
+        registry.async_get(
+            "binary_sensor.virtual_presence_tracker_only_virtual_trackers_home"
+        )
+        is not None
+    )
 
 
 async def test_removing_a_tracker_prunes_its_state(

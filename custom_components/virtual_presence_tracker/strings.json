@@ -71,5 +71,17 @@
         "reconfigure_successful": "The tracker was updated."
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "name": "Only virtual trackers home"
+      }
+    },
+    "switch": {
+      "at_home": {
+        "name": "At home"
+      }
+    }
   }
 }

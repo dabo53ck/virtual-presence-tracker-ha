@@ -1,8 +1,8 @@
 """The Virtual Presence Tracker integration.
 
 Presence for household members without a phone. This module wires up the config
-entry lifecycle and the household manager; entities, the prompt state machine
-and services are added in later milestones (see docs/DESIGN.md).
+entry lifecycle, the household manager and the entity platforms; the prompt
+state machine and services are added in later milestones (see docs/DESIGN.md).
 """
 
 from __future__ import annotations
@@ -10,9 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .manager import HouseholdManager
+
+PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SWITCH, Platform.BINARY_SENSOR]
 
 
 @dataclass
@@ -30,7 +33,8 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Virtual Presence Tracker from a config entry."""
     manager = HouseholdManager(hass, entry)
-    # The stored states must be there before any platform is set up.
+    # The stored states must be there before any platform is set up, so that
+    # the first state an entity writes is already the restored one.
     await manager.async_load()
     manager.async_start()
     entry.runtime_data = VirtualPresenceTrackerData(manager=manager)
@@ -39,6 +43,7 @@ async def async_setup_entry(
     # reloads the entry by itself. Without the reload the manager would keep
     # watching the old persons and would not know the new trackers.
     entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
@@ -54,8 +59,12 @@ async def async_unload_entry(
 ) -> bool:
     """Unload a config entry.
 
-    No platforms are forwarded yet; stopping the manager unsubscribes it and
-    flushes pending state to disk.
+    The platforms go first: their entities unsubscribe from the manager while
+    it is still there. Stopping the manager afterwards unsubscribes it from the
+    persons and flushes pending state to disk. If a platform refuses to unload,
+    the entry stays loaded and the manager has to keep running.
     """
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     await entry.runtime_data.manager.async_stop()
     return True

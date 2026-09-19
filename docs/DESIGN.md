@@ -65,8 +65,13 @@ restore its last state immediately; cover with a test in M1.
 4. **Safety net**: max duration → notify.
 5. **Events** with a fixed contract (names TBD before M2), e.g. prompt sent,
    only-virtual-home.
-6. **Repairs**: issue if a tracker is not assigned to any `person` (the most
-   common pitfall of the approach); issue if a configured real `person` is gone.
+6. **Repairs / validation** (M1e): issue if a tracker is not assigned to any
+   `person` (the most common pitfall of the approach); issue if a configured
+   real `person` is gone; **self-reset hazard**: a person that has one of *our*
+   virtual trackers attached must not be a *real* person — switching the tracker
+   on would look like a real arrival and reset every tracker at once. The config
+   flow (user + reconfigure) rejects such persons, and a repair covers the case
+   where the assignment happens afterwards.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -77,12 +82,53 @@ restore its last state immediately; cover with a test in M1.
   entity options), `not_home` otherwise, `None` when `is_connected` is `None`.
   `source_type` must be set; `SourceType` has no "virtual" member
   (GPS / ROUTER / BLUETOOTH / BLUETOOTH_LE) → `ROUTER` is the closest.
+  `state_attributes` is `@final` there: extra attributes of a tracker would
+  have to go through `extra_state_attributes`.
 - **Devices**: tracker entities never get a device (`_attr_device_info: None`);
   the switch may. `BaseTrackerEntity` defaults to `EntityCategory.DIAGNOSTIC`
-  — decide whether to override.
+  — **overridden to `None`** (M1c): the tracker is the entity the user assigns
+  to a person, picks in the person dialog and puts on a dashboard, and it has
+  no device to be a diagnostic part of. A category would only keep it out of
+  default dashboards and of the default exposure to voice assistants
+  (`_is_default_exposed` skips every entity with a category). Core's own
+  trackers keep the diagnostic default, so this is a deliberate deviation.
+- **Entities per config entry** (M1c). Names are only used for display, never
+  for identity — unique IDs are built from the subentry or entry ID.
+  | Entity | Unique ID | Device |
+  |---|---|---|
+  | `device_tracker.<title>` | `<subentry_id>_tracker` | none |
+  | `switch.<title>_at_home` | `<subentry_id>_at_home` | one per tracker, `(DOMAIN, subentry_id)`, named after the tracker |
+  | `binary_sensor.virtual_presence_tracker_only_virtual_trackers_home` | `<entry_id>_only_virtual_home` | household, `(DOMAIN, entry_id)` |
+
+  The tracker sets `_attr_name` and leaves `has_entity_name` off: it has no
+  device, so its own name is the full name and the entity ID follows the title
+  (`device_tracker.kid`). The switch and the sensor use `has_entity_name` with
+  a `translation_key`, so their name is the device name plus the translated
+  entity name ("Kid At home"). Renaming a tracker renames the entities and the
+  device but never the entity IDs — Home Assistant only regenerates an entity
+  ID when the user asks it to.
+- **No `via_device`** between the tracker devices and the household device:
+  `DeviceInfo.via_device` is deprecated in 2026.9 (removed in 2027.8) in favour
+  of `via_device_id`, which needs the target device to exist before the
+  platforms are forwarded. Not worth the coupling for a cosmetic link.
+- **Icons**: the switch and the sensor have `translation_key`s and entries in
+  `icons.json`. The tracker deliberately has neither, so it falls back to the
+  `device_tracker` component icons (`mdi:account` / `mdi:account-arrow-right`),
+  which are exactly right for a person.
+- **Platform order**: platforms are forwarded after `async_load()` /
+  `async_start()` and unloaded before `async_stop()`, so entities never read an
+  unloaded manager and the store is flushed last.
 - **person**: connected scanner trackers with a non-empty `in_zones` attribute
   take precedence over every other tracker of that person, so a connected
-  virtual tracker reliably makes the `person` `home`.
+  virtual tracker reliably makes the `person` `home`. Precisely: `person`
+  prefers a tracker whose capability attribute `tracking_type` is `connection`
+  *and* whose `in_zones` is non-empty, then a legacy `home`, then GPS, then the
+  rest. `BaseScannerEntity` sets `tracking_type` to `connection` and reports
+  `in_zones == ["zone.home"]` while connected and `[]` while not, so a switched
+  on tracker wins and a switched off one does not veto a GPS tracker.
+- **zone**: a zone counts a `person` when the person's own `in_zones` attribute
+  contains the zone's entity ID (`zone.home` counts nothing else — no distance
+  maths for persons). The person copies `in_zones` from the tracker it follows.
 - **Persistence**: manager-owned `Store` (key `virtual_presence_tracker.
   <entry_id>`, version 1), loaded before platform setup, so the first state
   written after a restart is already correct (avoids the `person` → `unknown`
