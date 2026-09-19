@@ -23,7 +23,8 @@
       }
     },
     "error": {
-      "no_persons": "Select at least one real person."
+      "no_persons": "Select at least one real person.",
+      "person_has_virtual_tracker": "A virtual tracker of this integration is attached to {persons}. Switching that tracker on would look like a real person coming home and reset every virtual tracker, so pick somebody else."
     },
     "abort": {
       "single_instance_allowed": "Already configured. Only a single configuration is possible.",
@@ -82,6 +83,20 @@
       "at_home": {
         "name": "At home"
       }
+    }
+  },
+  "issues": {
+    "tracker_not_assigned": {
+      "title": "The virtual tracker {name} is not assigned to a person",
+      "description": "Nobody counts as being at home when {name} is switched on: the device tracker `{entity_id}` is not part of any person, so Home Assistant has nobody to place at home.\n\nGo to Settings > People, open the person {name} stands for (or add one, no login needed) and pick `{entity_id}` in the list of device trackers of that person. If you do not need the tracker any more, delete it in Settings > Devices & services > Virtual Presence Tracker."
+    },
+    "real_person_has_virtual_tracker": {
+      "title": "The real person {person} has a virtual tracker attached",
+      "description": "{person} is one of the real persons of Virtual Presence Tracker, and the virtual tracker `{tracker}` is attached to that person. Switching that tracker on therefore looks like a real person coming home, which switches every virtual tracker off again.\n\nFix it in one of two ways: remove `{tracker}` from {person} in Settings > People, or take {person} out of the real persons in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    },
+    "real_person_missing": {
+      "title": "The real person {person} no longer exists",
+      "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone - deleted or renamed. Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
     }
   }
 }

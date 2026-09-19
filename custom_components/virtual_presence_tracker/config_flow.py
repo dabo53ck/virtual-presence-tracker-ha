@@ -37,6 +37,7 @@ from .const import (
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
+from .issues import async_persons_with_virtual_tracker
 
 TITLE = "Virtual Presence Tracker"
 
@@ -78,6 +79,24 @@ def _suggested_persons(hass: HomeAssistant) -> list[str]:
 
 
 @callback
+def _person_error(
+    hass: HomeAssistant, entry: ConfigEntry | None, persons: list[str]
+) -> tuple[str, dict[str, str]] | None:
+    """Return the error and its placeholders for a selection of real persons.
+
+    A person that carries one of our own virtual trackers must not become a
+    real person: switching that tracker on would look like a real arrival and
+    reset every tracker. During the initial setup no tracker exists yet, so
+    that check can only ever fire on reconfigure.
+    """
+    if not persons:
+        return ("no_persons", {})
+    if offenders := async_persons_with_virtual_tracker(hass, entry, persons):
+        return ("person_has_virtual_tracker", {"persons": ", ".join(offenders)})
+    return None
+
+
+@callback
 def _tracker_names(entry: ConfigEntry, skip: str | None = None) -> set[str]:
     """Return the case-folded names of the trackers of an entry."""
     return {
@@ -105,13 +124,15 @@ class VirtualPresenceTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            if persons := user_input[CONF_PERSONS]:
+            persons = user_input[CONF_PERSONS]
+            if (error := _person_error(self.hass, None, persons)) is None:
                 return self.async_create_entry(
                     title=TITLE, data={CONF_PERSONS: persons}
                 )
-            errors[CONF_PERSONS] = "no_persons"
+            errors[CONF_PERSONS], placeholders = error
 
         suggested: dict[str, Any] = user_input or {
             CONF_PERSONS: _suggested_persons(self.hass)
@@ -120,6 +141,7 @@ class VirtualPresenceTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(PERSONS_SCHEMA, suggested),
             errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_reconfigure(
@@ -128,15 +150,17 @@ class VirtualPresenceTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle a change of the real persons."""
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
 
         if user_input is not None:
-            if persons := user_input[CONF_PERSONS]:
+            persons = user_input[CONF_PERSONS]
+            if (error := _person_error(self.hass, entry, persons)) is None:
                 # The update listener reloads the entry, so the manager picks
                 # the new persons up.
                 return self.async_update_and_abort(
                     entry, data_updates={CONF_PERSONS: persons}
                 )
-            errors[CONF_PERSONS] = "no_persons"
+            errors[CONF_PERSONS], placeholders = error
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -144,6 +168,7 @@ class VirtualPresenceTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
                 PERSONS_SCHEMA, user_input or entry.data
             ),
             errors=errors,
+            description_placeholders=placeholders,
         )
 
 

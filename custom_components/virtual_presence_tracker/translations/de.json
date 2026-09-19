@@ -23,7 +23,8 @@
       }
     },
     "error": {
-      "no_persons": "Wähle mindestens eine echte Person aus."
+      "no_persons": "Wähle mindestens eine echte Person aus.",
+      "person_has_virtual_tracker": "An {persons} hängt ein virtueller Tracker dieser Integration. Diesen Tracker einzuschalten sähe wie eine echte Heimkehr aus und würde alle virtuellen Tracker zurücksetzen – wähle jemand anderen aus."
     },
     "abort": {
       "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich.",
@@ -82,6 +83,20 @@
       "at_home": {
         "name": "Zuhause"
       }
+    }
+  },
+  "issues": {
+    "tracker_not_assigned": {
+      "title": "Der virtuelle Tracker {name} ist keiner Person zugewiesen",
+      "description": "Wenn du {name} einschaltest, gilt trotzdem niemand als zu Hause: Der Device-Tracker `{entity_id}` gehört zu keiner Person, Home Assistant hat also niemanden, den er nach Hause setzen könnte.\n\nGeh zu Einstellungen > Personen, öffne die Person, für die {name} steht (oder lege sie neu an, ganz ohne Login), und wähle `{entity_id}` in der Liste der Device-Tracker dieser Person aus. Brauchst du den Tracker nicht mehr, lösche ihn unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker."
+    },
+    "real_person_has_virtual_tracker": {
+      "title": "Die echte Person {person} hat einen virtuellen Tracker",
+      "description": "{person} ist eine der echten Personen von Virtual Presence Tracker, und der virtuelle Tracker `{tracker}` hängt an dieser Person. Diesen Tracker einzuschalten sieht damit wie eine echte Heimkehr aus – und schaltet alle virtuellen Tracker wieder aus.\n\nZwei Wege: Entferne `{tracker}` unter Einstellungen > Personen bei {person}, oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren aus den echten Personen heraus."
+    },
+    "real_person_missing": {
+      "title": "Die echte Person {person} gibt es nicht mehr",
+      "description": "{person} ist als echte Person von Virtual Presence Tracker eingetragen, aber diese Entität existiert nicht mehr – gelöscht oder umbenannt. Ihre Anwesenheit zählt damit nicht mehr mit, und virtuelle Tracker werden womöglich nicht mehr zurückgesetzt, wenn jemand heimkommt.\n\nWähle deine echten Personen neu aus: Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren."
     }
   }
 }

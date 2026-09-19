@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
+from .issues import HouseholdIssues
 from .manager import HouseholdManager
 
 PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SWITCH, Platform.BINARY_SENSOR]
@@ -44,6 +45,13 @@ async def async_setup_entry(
     # watching the old persons and would not know the new trackers.
     entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # After the platforms: the repair issues look the tracker entities up in
+    # the entity registry, which only knows them once they are added. Stopping
+    # on unload clears the issues of this entry, and setting the entry up again
+    # raises the ones that still apply.
+    issues = HouseholdIssues(hass, entry)
+    issues.async_start()
+    entry.async_on_unload(issues.async_stop)
     return True
 
 

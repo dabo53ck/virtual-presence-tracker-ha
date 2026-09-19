@@ -26,6 +26,7 @@ PERSON_KID = "person.kid"
 
 TRACKER_A = "01JVPT000000000000000TRACKA"
 TRACKER_B = "01JVPT000000000000000TRACKB"
+TRACKER_A_ENTITY = "device_tracker.kid"
 
 
 def make_subentry(subentry_id: str, title: str, **data: Any) -> dict[str, Any]:
@@ -207,6 +208,45 @@ async def test_reconfigure_needs_a_person(
     assert result["step_id"] == "reconfigure"
     assert result["errors"] == {CONF_PERSONS: "no_persons"}
     assert config_entry.data == {CONF_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK]}
+
+
+async def test_reconfigure_rejects_a_person_with_a_virtual_tracker(
+    hass: HomeAssistant,
+) -> None:
+    """A person that carries one of our trackers cannot be a real person.
+
+    Switching that tracker on would look like a real arrival and reset every
+    tracker at once.
+    """
+    add_persons(hass)
+    hass.states.async_set(
+        PERSON_KID, STATE_NOT_HOME, {ATTR_DEVICE_TRACKERS: [TRACKER_A_ENTITY]}
+    )
+    entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PERSONS: [PERSON_DABO53CK, PERSON_KID]}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    assert result["errors"] == {CONF_PERSONS: "person_has_virtual_tracker"}
+    # The message names the person that has to go.
+    assert result["description_placeholders"] == {"persons": PERSON_KID}
+    assert entry.data == {CONF_PERSONS: [PERSON_DABO53CK]}
+
+    # Taking the tracker off the person makes the same selection acceptable.
+    hass.states.async_set(PERSON_KID, STATE_NOT_HOME, {ATTR_DEVICE_TRACKERS: []})
+    await hass.async_block_till_done()
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PERSONS: [PERSON_DABO53CK, PERSON_KID]}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data == {CONF_PERSONS: [PERSON_DABO53CK, PERSON_KID]}
 
 
 async def test_subentry_adds_a_tracker(
