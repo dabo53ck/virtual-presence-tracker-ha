@@ -4,9 +4,11 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 step 1 done** — repo skeleton only (manifest, CI, placeholder config
-flow, one smoke test); no entities or logic yet, nothing committed. Design lives
-in [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
+Status: **M1 step 1 done** — repo skeleton only (manifest with
+`single_config_entry`, CI, placeholder config flow, smoke tests); no entities or
+logic yet. Pushed to the **private** repo `dabo53ck/virtual-presence-tracker-ha`
+(branch `dev`), CI green. Design lives in [`docs/DESIGN.md`](docs/DESIGN.md) —
+read it before changing anything.
 
 ## Working rules (dabo53ck)
 
@@ -65,7 +67,14 @@ public contract; changing them breaks blueprints silently. Define them in
 
 ## Repo setup still to do
 
-- Done: local `git init` on `dev`, noreply identity set. No commits, no remote yet.
-- Naming: domain `virtual_presence_tracker`, repo/folder `virtual-presence-tracker-ha`.
+- Done: `git init` on `dev`, noreply identity, private GitHub repo created
+  (`origin`), `dev` pushed, CI green. Only `dev` exists; `main` is not created
+  yet (default branch is currently `dev`).
+- **HACS validation is skipped while the repo is private** (`validate.yml`:
+  the HACS action downloads `hacs.json`/`manifest.json` unauthenticated from
+  raw.githubusercontent.com, which fails for private repos). The job starts
+  automatically once the repo is public — `hacs.json` / manifest are therefore
+  **not yet validated by HACS**; check that run when going public.
+- Naming (GitHub name collision check done 2026-09-19: name is free): domain `virtual_presence_tracker`, repo/folder `virtual-presence-tracker-ha`.
   Collision check so far was only via HACS default list + web search —
   verify once on GitHub before creating the remote.
