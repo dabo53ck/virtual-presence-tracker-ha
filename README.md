@@ -22,8 +22,8 @@ milestone plan.
 
 ## Requirements
 
-Home Assistant 2025.3 or newer (the floor is re-checked before the first
-release).
+Home Assistant **2026.6.0** or newer. The virtual trackers are built on
+`BaseScannerEntity`, which first shipped with that release.
 
 ## License
 
