@@ -2,12 +2,74 @@
   "config": {
     "step": {
       "user": {
-        "title": "Virtuelle Anwesenheit",
-        "description": "Legt den Eintrag für Virtual Presence Tracker an. Es gibt noch nichts einzustellen: Die zu beobachtenden echten Personen und die einzelnen virtuellen Tracker kommen in einer späteren Version dazu."
+        "title": "Echte Personen",
+        "description": "Echte Personen sind die Leute, an denen sich entscheidet, ob jemand zu Hause ist, der kein virtueller Tracker ist. Home Assistant muss ihre Anwesenheit selbst erkennen können, jede von ihnen braucht also einen Device-Tracker.",
+        "data": {
+          "persons": "Echte Personen"
+        },
+        "data_description": {
+          "persons": "Mindestens eine Person wird gebraucht. Vorgeschlagen werden die Personen, die aktuell einen Device-Tracker haben – wer keinen hat, ist meist genau die Person, für die ein virtueller Tracker gedacht ist."
+        }
+      },
+      "reconfigure": {
+        "title": "Echte Personen",
+        "description": "Ändere die Leute, an denen sich entscheidet, ob jemand zu Hause ist, der kein virtueller Tracker ist. Home Assistant muss ihre Anwesenheit selbst erkennen können, jede von ihnen braucht also einen Device-Tracker.",
+        "data": {
+          "persons": "Echte Personen"
+        },
+        "data_description": {
+          "persons": "Mindestens eine Person wird gebraucht. Nimm keine Person auf, der ein virtueller Tracker zugewiesen ist: Diesen Tracker einzuschalten sähe dann wie eine echte Heimkehr aus."
+        }
       }
     },
+    "error": {
+      "no_persons": "Wähle mindestens eine echte Person aus."
+    },
     "abort": {
-      "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich."
+      "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich.",
+      "reconfigure_successful": "Die echten Personen wurden aktualisiert."
+    }
+  },
+  "config_subentries": {
+    "tracker": {
+      "initiate_flow": {
+        "user": "Virtuellen Tracker hinzufügen",
+        "reconfigure": "Virtuellen Tracker bearbeiten"
+      },
+      "entry_type": "Virtueller Tracker",
+      "step": {
+        "user": {
+          "title": "Virtuellen Tracker hinzufügen",
+          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Weise ihn anschließend einer eigenen Person zu – diese Person gilt dann als zu Hause, solange der Tracker eingeschaltet ist.",
+          "data": {
+            "name": "Name",
+            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt"
+          },
+          "data_description": {
+            "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
+            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann."
+          }
+        },
+        "reconfigure": {
+          "title": "Virtuellen Tracker bearbeiten",
+          "description": "Benenne den Tracker um oder ändere, wann er zurückgesetzt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "data": {
+            "name": "Name",
+            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt"
+          },
+          "data_description": {
+            "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
+            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Gib einen Namen für den Tracker ein.",
+        "name_exists": "Ein Tracker mit diesem Namen existiert bereits."
+      },
+      "abort": {
+        "reconfigure_successful": "Der Tracker wurde aktualisiert."
+      }
     }
   }
 }

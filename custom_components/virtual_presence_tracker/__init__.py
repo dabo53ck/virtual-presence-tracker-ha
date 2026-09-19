@@ -34,7 +34,19 @@ async def async_setup_entry(
     await manager.async_load()
     manager.async_start()
     entry.runtime_data = VirtualPresenceTrackerData(manager=manager)
+    # Home Assistant notifies update listeners when the real persons change and
+    # when a tracker subentry is added, changed or removed, but it never
+    # reloads the entry by itself. Without the reload the manager would keep
+    # watching the old persons and would not know the new trackers.
+    entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
     return True
+
+
+async def _async_entry_updated(
+    hass: HomeAssistant, entry: VirtualPresenceTrackerConfigEntry
+) -> None:
+    """Reload the entry after its persons or trackers changed."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(

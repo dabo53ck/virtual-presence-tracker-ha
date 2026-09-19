@@ -6,6 +6,13 @@ from typing import Final
 
 DOMAIN: Final = "virtual_presence_tracker"
 
+# Domain of the entities the real persons are picked from. Spelled out instead
+# of imported, so the integration does not depend on the person component.
+PERSON_DOMAIN: Final = "person"
+
+# State attribute of a person entity listing the device trackers assigned to it.
+ATTR_DEVICE_TRACKERS: Final = "device_trackers"
+
 # Config entry data: the real persons whose presence decides whether somebody
 # who is not a virtual tracker is at home.
 CONF_PERSONS: Final = "persons"

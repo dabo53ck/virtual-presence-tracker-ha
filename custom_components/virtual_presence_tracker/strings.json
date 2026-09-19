@@ -2,12 +2,74 @@
   "config": {
     "step": {
       "user": {
-        "title": "Virtual presence",
-        "description": "Creates the Virtual Presence Tracker entry. There is nothing to configure yet: the real persons to watch and the individual virtual trackers are added in a later version."
+        "title": "Real persons",
+        "description": "Real persons are the people whose presence decides whether somebody is at home who is not a virtual tracker. Home Assistant has to be able to locate them on its own, so each of them needs a device tracker.",
+        "data": {
+          "persons": "Real persons"
+        },
+        "data_description": {
+          "persons": "At least one person is required. Suggested are the persons that currently have a device tracker; a person without one is usually the person a virtual tracker is meant for."
+        }
+      },
+      "reconfigure": {
+        "title": "Real persons",
+        "description": "Change the people whose presence decides whether somebody is at home who is not a virtual tracker. Home Assistant has to be able to locate them on its own, so each of them needs a device tracker.",
+        "data": {
+          "persons": "Real persons"
+        },
+        "data_description": {
+          "persons": "At least one person is required. Do not add a person that a virtual tracker is assigned to: switching that tracker on would look like a real arrival."
+        }
       }
     },
+    "error": {
+      "no_persons": "Select at least one real person."
+    },
     "abort": {
-      "single_instance_allowed": "Already configured. Only a single configuration is possible."
+      "single_instance_allowed": "Already configured. Only a single configuration is possible.",
+      "reconfigure_successful": "The real persons were updated."
+    }
+  },
+  "config_subentries": {
+    "tracker": {
+      "initiate_flow": {
+        "user": "Add virtual tracker",
+        "reconfigure": "Edit virtual tracker"
+      },
+      "entry_type": "Virtual tracker",
+      "step": {
+        "user": {
+          "title": "Add a virtual tracker",
+          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. Assign it to a person of its own afterwards, and that person counts as being at home for as long as the tracker is switched on.",
+          "data": {
+            "name": "Name",
+            "reset_on_return": "Reset when a real person comes home"
+          },
+          "data_description": {
+            "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
+            "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit the virtual tracker",
+          "description": "Rename the tracker or change when it is reset. Renaming is safe: the entities of the tracker keep their identity.",
+          "data": {
+            "name": "Name",
+            "reset_on_return": "Reset when a real person comes home"
+          },
+          "data_description": {
+            "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
+            "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Enter a name for the tracker.",
+        "name_exists": "A tracker with this name already exists."
+      },
+      "abort": {
+        "reconfigure_successful": "The tracker was updated."
+      }
     }
   }
 }

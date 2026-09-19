@@ -370,7 +370,11 @@ async def test_reset_after_an_arrival_through_unavailable(hass: HomeAssistant) -
 
 
 async def test_without_configured_persons(hass: HomeAssistant) -> None:
-    """An entry without persons (the placeholder flow) still works."""
+    """The manager tolerates an entry without persons.
+
+    The config flow requires at least one real person, so such an entry cannot
+    be created any more; the manager must not depend on that.
+    """
     manager = await start_manager(hass, make_entry())
 
     assert manager.real_home is None
