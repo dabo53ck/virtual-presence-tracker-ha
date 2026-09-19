@@ -129,6 +129,8 @@ restore its last state immediately; cover with a test in M1.
 - **zone**: a zone counts a `person` when the person's own `in_zones` attribute
   contains the zone's entity ID (`zone.home` counts nothing else — no distance
   maths for persons). The person copies `in_zones` from the tracker it follows.
+  Both behaviours are covered end to end against the real components in
+  `tests/test_end_to_end.py` (M1d), including the reset chain.
 - **Persistence**: manager-owned `Store` (key `virtual_presence_tracker.
   <entry_id>`, version 1), loaded before platform setup, so the first state
   written after a restart is already correct (avoids the `person` → `unknown`
