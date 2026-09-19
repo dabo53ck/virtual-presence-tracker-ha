@@ -4,11 +4,12 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 step 1 done** — repo skeleton only (manifest with
-`single_config_entry`, CI, placeholder config flow, smoke tests); no entities or
-logic yet. Pushed to the **private** repo `dabo53ck/virtual-presence-tracker-ha`
-(branch `dev`), CI green. Design lives in [`docs/DESIGN.md`](docs/DESIGN.md) —
-read it before changing anything.
+Status: **M1a done** — skeleton (manifest with `single_config_entry`, CI,
+placeholder config flow) plus the household manager (`manager.py`: persisted
+tracker states, real-person presence, reset on return) and its tests. Still no
+entities and no real config flow. Pushed to the **private** repo
+`dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
+[`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
 
 ## Working rules (dabo53ck)
 
