@@ -34,7 +34,7 @@ restore its last state immediately; cover with a test in M1.
   persons (`person` multi-select) whose presence decides "someone real is home",
   notification options, global defaults. Only one household per HA instance;
   relaxing this later is easy, tightening it would not be.
-- **Config subentry per virtual tracker** (HA ≥ 2025.3 subentries): free-form
+- **Config subentry per virtual tracker** (config subentries): free-form
   name, per-tracker options (ask on last departure, reset on return, max
   duration). Any number of trackers.
 - Per tracker: `switch` + `device_tracker` (`BaseScannerEntity`, mirrors the
@@ -91,6 +91,14 @@ restore its last state immediately; cover with a test in M1.
 - **Subentries**: entities are added per subentry with `config_subentry_id`, so
   removing a subentry removes its entities; entity unique IDs are built from
   `subentry_id` (stable across renames), never from the name.
+- **Reload on change**: Home Assistant notifies update listeners when the entry
+  data or a subentry changes, but it never reloads the entry by itself — and
+  adding or removing a subentry has no flow result that could reload it. The
+  entry therefore registers an update listener that reloads. As a consequence
+  both reconfigure flows must finish with `async_update_and_abort()`:
+  `ConfigSubentryFlow.async_update_reload_and_abort()` raises while an update
+  listener exists, and the `ConfigFlow` variant reports a deprecation that
+  breaks in HA 2026.12.
 
 ## Milestones
 
@@ -128,6 +136,13 @@ Confirmed by dabo53ck (2026-09-19):
 
 - **HA floor 2026.6.0 accepted** (needs `BaseScannerEntity`); older HA versions
   cannot install the integration.
+- **`binary_sensor` "only virtual trackers home" reports `unknown` while
+  `manager.real_home is None`** (no real-person state known yet, e.g. right
+  after HA start). The config flow requires at least one real person, so an
+  entry without persons cannot exist from M1b on.
+- **Manager save delay 5 s** (flushed on unload/shutdown) is fine.
+- Known gap (M3 repair): a configured real person whose entity is deleted keeps
+  its last known value until the next restart.
 - **Repair "tracker not assigned to any person" is part of M1** (step M1e, last),
   not M3: without the person assignment nothing visible happens in a live test.
 - **Live-test path: SSH** — start the *Advanced SSH & Web Terminal* add-on

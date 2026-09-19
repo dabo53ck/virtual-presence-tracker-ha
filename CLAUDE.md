@@ -4,10 +4,11 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1a done** — skeleton (manifest with `single_config_entry`, CI,
-placeholder config flow) plus the household manager (`manager.py`: persisted
-tracker states, real-person presence, reset on return) and its tests. Still no
-entities and no real config flow. Pushed to the **private** repo
+Status: **M1b done** — skeleton (manifest with `single_config_entry`, CI), the
+household manager (`manager.py`: persisted tracker states, real-person
+presence, reset on return) and the config flow (real persons, reconfigure) plus
+the subentry flow per virtual tracker, with translations en/de. Still no
+entities and no platforms. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
 
@@ -69,13 +70,13 @@ public contract; changing them breaks blueprints silently. Define them in
 ## Repo setup still to do
 
 - Done: `git init` on `dev`, noreply identity, private GitHub repo created
-  (`origin`), `dev` pushed, CI green. Only `dev` exists; `main` is not created
-  yet (default branch is currently `dev`).
+  (`origin`), `dev` pushed, CI green. `main` exists and is the default branch
+  (created from `dev` on 2026-09-19); work happens on `dev` → PR → `main`.
 - **HACS validation is skipped while the repo is private** (`validate.yml`:
   the HACS action downloads `hacs.json`/`manifest.json` unauthenticated from
   raw.githubusercontent.com, which fails for private repos). The job starts
   automatically once the repo is public — `hacs.json` / manifest are therefore
   **not yet validated by HACS**; check that run when going public.
-- Naming (GitHub name collision check done 2026-09-19: name is free): domain `virtual_presence_tracker`, repo/folder `virtual-presence-tracker-ha`.
-  Collision check so far was only via HACS default list + web search —
-  verify once on GitHub before creating the remote.
+- Naming: domain `virtual_presence_tracker`, repo/folder
+  `virtual-presence-tracker-ha`. Collision check done 2026-09-19 (HACS default
+  list, web search, GitHub): the name is free.
