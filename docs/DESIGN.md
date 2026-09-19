@@ -65,13 +65,16 @@ restore its last state immediately; cover with a test in M1.
 4. **Safety net**: max duration → notify.
 5. **Events** with a fixed contract (names TBD before M2), e.g. prompt sent,
    only-virtual-home.
-6. **Repairs / validation** (M1e): issue if a tracker is not assigned to any
-   `person` (the most common pitfall of the approach); issue if a configured
-   real `person` is gone; **self-reset hazard**: a person that has one of *our*
-   virtual trackers attached must not be a *real* person — switching the tracker
-   on would look like a real arrival and reset every tracker at once. The config
-   flow (user + reconfigure) rejects such persons, and a repair covers the case
-   where the assignment happens afterwards.
+6. **Repairs / validation** (M1e, done): three repair issues. `tracker_not_
+   assigned` — a tracker that no `person` follows, the most common pitfall of
+   the approach. `real_person_has_virtual_tracker` — the **self-reset hazard**:
+   a person that has one of *our* virtual trackers attached must not be a
+   *real* person, because switching that tracker on would look like a real
+   arrival and reset every tracker at once. `real_person_missing` — a
+   configured real `person` whose entity is gone. The config flow (user +
+   reconfigure) rejects a person that carries one of our trackers
+   (`person_has_virtual_tracker`); the issue covers the case where the
+   assignment happens afterwards.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -139,6 +142,22 @@ restore its last state immediately; cover with a test in M1.
 - **Subentries**: entities are added per subentry with `config_subentry_id`, so
   removing a subentry removes its entities; entity unique IDs are built from
   `subentry_id` (stable across renames), never from the name.
+- **Repair issues** (`issues.py`, M1e): the checks run from
+  `async_at_started()`. At startup the `person` states do not exist yet, so
+  checking any earlier would report every tracker as unassigned and every real
+  person as gone. Afterwards a domain-filtered listener
+  (`async_track_state_change_filtered` on `person`) re-checks whenever a person
+  appears, disappears or changes its `device_trackers`; a person that only
+  comes or goes is ignored, and persons change state a lot. Issue IDs are
+  `<entry_id>_<translation_key>[_<subentry_id|person|tracker>]`, so all issues
+  of an entry can be found by prefix: the check deletes every issue of the
+  entry it did not just raise, which covers a fixed cause, a removed tracker
+  subentry (the entry reloads) and the unload. All issues are non-fixable
+  warnings with `is_persistent=False`, so there is no `repairs.py` — a fix flow
+  could only repeat what the description already says. Our own trackers are
+  recognised through the entity registry (platform `DOMAIN`, domain
+  `device_tracker`, entities of this entry), which is also what the config flow
+  checks a selected person against.
 - **Reload on change**: Home Assistant notifies update listeners when the entry
   data or a subentry changes, but it never reloads the entry by itself — and
   adding or removing a subentry has no flow result that could reload it. The

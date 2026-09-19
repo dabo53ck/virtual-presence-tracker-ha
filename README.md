@@ -143,6 +143,34 @@ tracker with the option **Reset when a real person comes home** switches off.
 - The option is per tracker. Turn it off for a tracker you always set by hand,
   for example one for a guest who stays a week.
 
+## Troubleshooting: repair issues
+
+The integration checks its own setup and reports what it cannot fix by itself
+under **Settings → Devices & services → Repairs**. Every issue disappears on its
+own as soon as its cause is gone; the checks run once Home Assistant has
+started and again whenever a person changes.
+
+**"The virtual tracker … is not assigned to a person"**
+The tracker's `device_tracker` is not part of any person, so switching it on
+makes nobody count as being at home. This is the step that is easy to forget.
+Go to **Settings → People**, open the person the tracker stands for (or add one,
+no login needed) and pick `device_tracker.<name>` in its list of device
+trackers. If you do not need the tracker any more, delete it on the
+integration's page.
+
+**"The real person … has a virtual tracker attached"**
+A person you configured as a *real* person carries one of the virtual trackers.
+Switching that tracker on then looks like a real person coming home and resets
+every virtual tracker. Either remove the tracker from that person in
+**Settings → People**, or take the person out of the real persons with
+**Reconfigure** on the integration's page.
+
+**"The real person … no longer exists"**
+A person you configured as a real person was deleted or renamed, so their
+presence is no longer taken into account and the automatic reset may not
+happen any more. Use **Reconfigure** on the integration's page and select your
+real persons again.
+
 ## Limitations and FAQ
 
 **Does it ask me whether somebody is at home?**

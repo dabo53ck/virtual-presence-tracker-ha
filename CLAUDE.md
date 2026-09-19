@@ -4,14 +4,16 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1d done** — skeleton (manifest with `single_config_entry`, CI), the
-household manager (`manager.py`: persisted tracker states, real-person
-presence, reset on return), the config flow (real persons, reconfigure) plus
-the subentry flow per virtual tracker, the entities (`device_tracker` + `switch`
-per tracker, the "only virtual trackers home" `binary_sensor` per entry) with
-translations en/de, an end-to-end test against the real `person` and `zone`
-components, and a README for users. Missing from M1: **M1e** (repairs /
-validation). Pushed to the **private** repo
+Status: **M1 complete except the live test** — skeleton (manifest with
+`single_config_entry`, CI), the household manager (`manager.py`: persisted
+tracker states, real-person presence, reset on return), the config flow (real
+persons, reconfigure) plus the subentry flow per virtual tracker, the entities
+(`device_tracker` + `switch` per tracker, the "only virtual trackers home"
+`binary_sensor` per entry), the repair issues and the person validation
+(`issues.py`, M1e) with translations en/de, an end-to-end test against the real
+`person` and `zone` components, and a README for users. Still open from M1: the
+**live test** on dabo53ck's instance (SSH add-on, restart by dabo53ck). Pushed to the
+**private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
 
