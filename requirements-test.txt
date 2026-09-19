@@ -1,0 +1,9 @@
+# Test toolchain. Installed by CI (.github/workflows/tests.yml) and for local dev
+# (`pip install -r requirements-test.txt`, Python 3.14 — HA 2026.9 needs >=3.14.2).
+#
+# homeassistant and pytest-homeassistant-custom-component are intentionally
+# unpinned: CI runs against the latest release so a breaking HA change surfaces
+# here rather than in users' installs. phccc resolves to match the HA version.
+homeassistant
+pytest-homeassistant-custom-component
+pytest-cov>=7.1.0

@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      test-deps:
+        patterns: ["*"]
+    # HA version is deliberately unpinned here; the floor is tested in CI.
+    ignore:
+      - dependency-name: homeassistant
+    open-pull-requests-limit: 5

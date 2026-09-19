@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Virtuelle Anwesenheit",
+        "description": "Legt den Eintrag für Virtual Presence Tracker an. Es gibt noch nichts einzustellen: Die zu beobachtenden echten Personen und die einzelnen virtuellen Tracker kommen in einer späteren Version dazu."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich."
+    }
+  }
+}

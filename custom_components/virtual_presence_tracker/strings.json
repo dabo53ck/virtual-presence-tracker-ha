@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Virtual presence",
+        "description": "Creates the Virtual Presence Tracker entry. There is nothing to configure yet: the real persons to watch and the individual virtual trackers are added in a later version."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured. Only a single configuration is possible."
+    }
+  }
+}
