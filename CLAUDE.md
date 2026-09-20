@@ -4,7 +4,7 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c and M2d complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d and M2e complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
 machine), the config flow (real persons, reconfigure) plus the subentry flow
@@ -14,11 +14,14 @@ trackers home" `binary_sensor` per entry), the `answer_prompt` entity service
 on the switches, the built-in delivery of the prompt to the Companion App
 (`delivery.py` + `messages.py`, M2b: actionable notification per recipient,
 answers from the buttons, clearing on every ending, optional expiry notice;
-M2c: the integration's brand icon as the picture of the message;
+M2c: the integration's brand icon on the message;
 M2d: the `open_prompt` entity service, which opens a prompt on demand —
 ignoring the real persons, the `ask_on_departure` option and the delay — so the
 chain can be tried out without leaving the house, with the `manual` flag that
-keeps such a prompt alive across a restart),
+keeps such a prompt alive across a restart;
+M2e: that icon moved from the picture of the message (`data.image`) to the icon
+beside it (`data.icon_url`), where it replaces the app icon — a communication
+notification on iOS, the large icon on Android),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -29,8 +32,9 @@ sensor has no device any more (rule: every device belongs to a subentry,
 entry-level entities are device-less), with a one-off clean-up of the device of
 older installs in `migration.py`. M2b was live-tested on 2026-09-20 (HA
 2026.9.3, iPhone): the push arrives, its buttons answer the prompt and
-`answered_by` follows the phone's user. M1f, M1g, M2c and M2d are not
-live-tested yet. Pushed to the **private** repo
+`answered_by` follows the phone's user. The M2c live test on the same day showed
+the icon, but as a thumbnail on the right of the message — which is what M2e
+fixes. M1f, M1g, M2d and M2e are not live-tested yet. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.

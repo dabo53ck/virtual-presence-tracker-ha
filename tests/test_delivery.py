@@ -24,8 +24,8 @@ from custom_components.virtual_presence_tracker.const import (
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
     MOBILE_APP_DOMAIN,
-    NOTIFICATION_IMAGE,
-    NOTIFICATION_IMAGE_FILE,
+    NOTIFICATION_ICON,
+    NOTIFICATION_ICON_FILE,
     NOTIFY_DOMAIN,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
@@ -199,26 +199,31 @@ async def test_the_message_carries_the_integration_icon(hass: HomeAssistant) -> 
 
     await empty_the_house(hass)
 
-    assert calls[0].data["data"]["image"] == NOTIFICATION_IMAGE
+    # The icon stands beside the message in place of the app's own. It is not
+    # an attachment, so no `image` goes along with it - that would show the
+    # very same picture a second time.
+    assert calls[0].data["data"]["icon_url"] == NOTIFICATION_ICON
+    assert "image" not in calls[0].data["data"]
 
     await answer_from_phone(hass, f"VPT_YES_{prompt_id_of(calls[0])}")
 
-    # Taking a message off a phone is not a message with a picture.
+    # Taking a message off a phone is not a message with an icon.
+    assert "icon_url" not in calls[1].data["data"]
     assert "image" not in calls[1].data["data"]
 
 
 def test_the_icon_of_the_message_is_served_by_home_assistant() -> None:
-    """The picture names a brand image that is really there.
+    """The icon names a brand image that is really there.
 
     Home Assistant serves the `brand` folder of a custom integration under
     /api/brands, but only under the file names the brands component knows.
     """
-    assert NOTIFICATION_IMAGE_FILE in ALLOWED_IMAGES
+    assert NOTIFICATION_ICON_FILE in ALLOWED_IMAGES
     assert (
-        NOTIFICATION_IMAGE
-        == f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_IMAGE_FILE}"
+        NOTIFICATION_ICON
+        == f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_ICON_FILE}"
     )
-    assert (BRAND_DIR / NOTIFICATION_IMAGE_FILE).is_file()
+    assert (BRAND_DIR / NOTIFICATION_ICON_FILE).is_file()
 
 
 async def test_the_prompt_is_sent_in_german(hass: HomeAssistant) -> None:
@@ -668,7 +673,7 @@ async def test_an_expired_prompt_clears_the_phone(
         # question did.
         assert calls[1].data["data"] == {
             "tag": "vpt_info_abc",
-            "image": NOTIFICATION_IMAGE,
+            "icon_url": NOTIFICATION_ICON,
         }
     else:
         assert len(calls) == 1
