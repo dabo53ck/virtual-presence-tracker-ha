@@ -23,18 +23,19 @@ are at home but carry no tracked device.
   at least one virtual tracker is at home and none of your real persons is.
 - **Automatic reset**: when the first real person comes back to an empty house,
   the trackers switch off again, so nobody stays "at home" for days by mistake.
-- An optional **prompt** when the last real person leaves: an **event entity**
-  per tracker announces the question, and the action **Answer prompt** answers
-  it. Asking is up to you — a phone notification, a TTS announcement, a
-  dashboard button — the integration only runs the question.
+- An optional **prompt** when the last real person leaves: "is Kid at home?",
+  sent to the phones of the people you pick as a **notification with Yes and No
+  buttons**. Every prompt is also announced by an **event entity** and can be
+  answered with the action **Answer prompt**, so any other channel — a speaker,
+  a dashboard, Telegram — can carry the question instead.
 
 ## What it does not do
 
 - It does not detect anything by itself. A virtual tracker only knows what you,
   an automation or an answered prompt tell it.
-- It does not send the prompt anywhere by itself yet. Delivering it to a phone
-  takes an automation of your own (there is a ready-made example below);
-  built-in notifications are the next milestone.
+- It does not deliver the prompt anywhere except to the Home Assistant
+  Companion App. Any other channel is an automation of your own on the event
+  entity (there is a ready-made example below).
 - It does not simulate presence, and it does not change what your automations
   do — it only changes who counts as being at home.
 - It does not manage your persons. Creating the person and assigning the
@@ -47,13 +48,12 @@ Home Assistant **2026.6.0** or newer. The virtual trackers are built on
 
 ## Status
 
-**Pre-release / in development.** The trackers, switches, the household sensor
-and the prompt on the last departure work. What the prompt still lacks is
-built-in delivery: it is announced through an event entity and answered through
-an action, and an automation of yours connects the two to a phone. The
-safety-net notification for a tracker that has been on for very long is not
-built yet either. See [`docs/DESIGN.md`](docs/DESIGN.md) for the design and the
-milestone plan.
+**Pre-release / in development.** The trackers, switches, the household sensor,
+the prompt on the last departure and its delivery to the Companion App work.
+The safety-net notification for a tracker that has been on for very long is not
+built yet, and neither are the evidence sources (BLE tag, tablet Wi-Fi, door
+contact) that could set a tracker home by themselves. See
+[`docs/DESIGN.md`](docs/DESIGN.md) for the design and the milestone plan.
 
 ## Installation
 
@@ -182,10 +182,47 @@ virtual tracker**:
 | Ask when the house becomes empty | off | Whether this tracker asks at all. |
 | Time to answer | 10 min | How long the prompt stays open (1–120). |
 | Delay before asking | 0 s | How long to wait after the last departure (0–600). |
+| Who is asked? | nobody | The real persons whose phones get the question. |
+| Tell me when nobody answered | off | Sends a short note when the prompt expires. |
 
-The integration only **runs** the question; it does not deliver it anywhere
-yet. That is the job of an automation, and it is deliberate: the same prompt
-can go to a phone, a speaker, a dashboard or Telegram.
+## Ask a phone: the built-in notification
+
+Pick one or more of your **real persons** under **Who is asked?** and the
+question is sent to their phones — no automation needed:
+
+> **Is Kid home alone?**
+> Nobody else is home. Answer within 10 minutes.
+> \[ Yes, home ] \[ No ]
+
+**Yes** switches the tracker on, **No** leaves everything as it is, and either
+way the message disappears from *every* phone that was asked: the first answer
+counts, the rest is ignored. The same happens when somebody comes home, when
+you switch the tracker on yourself and when the time runs out — the question is
+never left sitting on a phone.
+
+What it needs:
+
+- the **Home Assistant Companion App** on that person's phone, signed in with
+  **that person's own user account** (Settings → People shows which user a
+  person belongs to);
+- nothing else. A person with two phones is asked on both.
+
+If Home Assistant has no phone for somebody you picked, a repair issue says so
+(see below) — the prompt itself still runs.
+
+**Tell me when nobody answered** adds a short note when the prompt expires
+("No answer: Kid counts as not at home."). It is off by default, and it is only
+ever sent on an expiry — never when somebody answers or when the question is
+withdrawn.
+
+**Leaving "Who is asked?" empty means the integration sends nothing at all.**
+The prompt still opens, the event entity still announces it and the action
+still answers it, so your own automation stays in charge. Both ways can be
+combined: the event entity fires whether or not the built-in notification goes
+out, so an extra announcement on a speaker is just another automation.
+
+The message is in English or in German, depending on the language of your Home
+Assistant instance.
 
 ### The event entity
 
@@ -224,11 +261,15 @@ Target the tracker's **switch** (or its device). If that tracker has no open
 prompt, the action fails with "there is no open prompt" — an answer that
 arrives too late does not switch anything on by accident.
 
-### Example: ask a phone
+### Example: ask somewhere else
 
-Two automations: one turns the prompt into an actionable notification, the
-other turns the tapped button back into an answer. Replace
-`notify.mobile_app_<your_phone>` with your own notify action.
+You do not need this to ask a phone — that is what **Who is asked?** does. It
+is the pattern for every *other* channel, and it is what a Telegram message, a
+TTS announcement or a dashboard button looks like. Two automations: one turns
+the prompt into an actionable notification, the other turns the tapped button
+back into an answer. Replace `notify.mobile_app_<your_phone>` with your own
+notify action, and use a tag and action names of your own — the ones starting
+with `VPT_` belong to the built-in delivery.
 
 ```yaml
 automation:
@@ -275,7 +316,7 @@ automation editor, which does the same thing in one step.
 
 Buttons in a notification only work through the classic `notify.mobile_app_*`
 actions; the notify *entities* of the companion app carry only a title and a
-message.
+message. The built-in delivery uses the classic actions for the same reason.
 
 ### How the timing works
 
@@ -304,14 +345,16 @@ A prompt that was still waiting for its **Delay before asking** is forgotten
 instead: it had not been announced yet, so there is nothing to take back.
 Changing a tracker's options reloads the integration, and switching the prompt
 option off while a prompt is open withdraws it with the reason
-`option_disabled`.
+`option_disabled`. A message that is still on a phone is taken off it in every
+one of these cases, including the ones that happen while Home Assistant starts
+up again.
 
 ## Troubleshooting: repair issues
 
 The integration checks its own setup and reports what it cannot fix by itself
 under **Settings → Devices & services → Repairs**. Every issue disappears on its
 own as soon as its cause is gone; the checks run once Home Assistant has
-started and again whenever a person changes.
+started and again whenever a person or a notify action changes.
 
 **"No virtual tracker has been added yet"**
 The integration is set up but has no virtual tracker, so nothing happens. Add
@@ -333,6 +376,13 @@ every virtual tracker. Either remove the tracker from that person in
 **Settings → People**, or take the person out of the real persons with
 **Reconfigure** on the integration's page.
 
+**"… has no phone to be asked on"**
+Somebody you picked under **Who is asked?** has no Companion App registered for
+their user account, so the question cannot reach them. Install the Home
+Assistant Companion App on that person's phone and sign in with **their own**
+user account, or take them out of **Who is asked?** on the tracker. The prompt
+itself keeps working through the event entity and the action.
+
 **"The real person … no longer exists"**
 A person you configured as a real person was deleted or renamed, so their
 presence is no longer taken into account and the automatic reset may not
@@ -343,10 +393,10 @@ real persons again.
 
 **Does it ask me whether somebody is at home?**
 Yes, if you switch that on for the tracker — see "Ask when the house becomes
-empty". It does not deliver the question to your phone by itself yet: an
-automation of yours does that, and the example above is ready to copy. The
-safety-net notification for a tracker that has been on for very long is still
-to come.
+empty". Pick who is asked and the question goes to their phone by itself; leave
+that empty and an automation of yours delivers it, with the example above as a
+starting point. The safety-net notification for a tracker that has been on for
+very long is still to come.
 
 **Why is the tracker's `source_type` "router"?**
 Home Assistant's device trackers have to declare where their information comes

@@ -4,13 +4,16 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a complete** — skeleton (manifest
-with `single_config_entry`, CI), the household manager (`manager.py`: persisted
-tracker states, real-person presence, reset on return, prompt state machine),
-the config flow (real persons, reconfigure) plus the subentry flow per virtual
-tracker (name, reset, prompt options), the entities (`device_tracker` +
-`switch` + prompt `event` per tracker, the "only virtual trackers home"
-`binary_sensor` per entry), the `answer_prompt` entity service on the switches,
+Status: **M1 complete (incl. M1f and M1g), M2a and M2b complete** — skeleton
+(manifest with `single_config_entry`, CI), the household manager (`manager.py`:
+persisted tracker states, real-person presence, reset on return, prompt state
+machine), the config flow (real persons, reconfigure) plus the subentry flow
+per virtual tracker (name, reset, prompt options, recipients), the entities
+(`device_tracker` + `switch` + prompt `event` per tracker, the "only virtual
+trackers home" `binary_sensor` per entry), the `answer_prompt` entity service
+on the switches, the built-in delivery of the prompt to the Companion App
+(`delivery.py` + `messages.py`, M2b: actionable notification per recipient,
+answers from the buttons, clearing on every ending, optional expiry notice),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -19,8 +22,8 @@ components, and a README for users. The first live test passed (2026-09-20, HA
 tracker" form, plus a `no_tracker` repair issue). M1g followed: the household
 sensor has no device any more (rule: every device belongs to a subentry,
 entry-level entities are device-less), with a one-off clean-up of the device of
-older installs in `migration.py`. M1f, M1g and M2a are not live-tested yet.
-Pushed to the **private** repo
+older installs in `migration.py`. M1f, M1g, M2a and M2b are not live-tested
+yet. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.

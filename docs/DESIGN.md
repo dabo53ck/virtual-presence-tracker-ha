@@ -394,6 +394,54 @@ answered_yes / answered_no / expired / cancelled -> idle.
 - **Issue severity**: `IssueSeverity` has `CRITICAL`, `ERROR` and `WARNING` and
   no informational level, so even a pure hint like `no_tracker` is a
   `WARNING` — the alternative would be no repair issue at all.
+- **Notify service naming** (checked against the HA 2026.9.3 sources, M2b):
+  `mobile_app` loads the legacy notify platform with
+  `discovery.async_load_platform(hass, Platform.NOTIFY, DOMAIN, {}, config)`
+  and no `name` in the discovery info, so `notify/legacy.py` uses the
+  integration name as the prefix and registers one service per target as
+  `slugify(f"{prefix}_{name}")` - with `MobileAppNotificationService.targets`
+  returning `{device_name: webhook_id}` for every push-capable registration.
+  The service of a phone is therefore `notify.<slugify("mobile_app_" +
+  device_name)>`; "dabo53ck's Phone" becomes `notify.mobile_app_dabo53ck_s_phone`.
+  Registrations without push support have no service at all, which is why
+  `hass.services.has_service()` decides and not the entry alone.
+- **Person -> phone**: `mobile_app` stores `user_id` in its config entry data
+  (`const.CONF_USER_ID`), and the `person` entity exposes the same value as the
+  state attribute `user_id` - only when the person has a user, which is exactly
+  the condition for having a Companion App. Both are read at send time; caching
+  would survive a re-registration of the app with a new `device_name`.
+- **Who answered**: the Companion App fires `mobile_app_notification_action`
+  through the `fire_event` webhook, and `webhook.py` gives that event the
+  context of the registration (`helpers.registration_context()` =
+  `Context(user_id=registration[CONF_USER_ID])`). `context.user_id` is
+  therefore set by Home Assistant, not by the app, and the person with that
+  user is `answered_by`. The event *data* is app-provided and carries the
+  `action`, `reply_text`, iOS `action_data` and, on Android, the data of the
+  notification (documented in `companion.home-assistant`,
+  `docs/notifications/actionable.md`); nothing but `action` is trusted.
+- **Delivery hints**: `ttl: 0` and `priority: high` are what the companion docs
+  prescribe to reach an idle Android phone (`docs/notifications/critical.md`),
+  `timeout` drops the message when the answer time is over
+  (`docs/notifications/basic.md`), and `push.interruption-level:
+  time-sensitive` is the iOS counterpart. The payload carries all of them at
+  once: each platform ignores the keys of the other, and the integration would
+  otherwise have to guess the platform from the registration.
+- **No `mobile_app` dependency in the manifest**: nothing of it is imported -
+  the domain, the entry keys and the event name are spelled out, as the
+  `person` domain already was - and the integration is fully usable without a
+  Companion App. A `dependencies` entry would force `mobile_app` to be set up,
+  an `after_dependencies` entry would only affect the *load order*, which the
+  repair issue solves better: it is evaluated after the start and re-evaluated
+  whenever a `notify` service appears or disappears (`EVENT_SERVICE_REGISTERED`
+  / `EVENT_SERVICE_REMOVED`), so a phone that registers later clears it.
+- **Sending happens in background tasks of the config entry**
+  (`entry.async_create_background_task()`): a notify service can block for
+  seconds, and the prompt state machine is a chain of `@callback`s that must
+  not wait for a phone. The tasks are cancelled and awaited when the entry
+  unloads; tests wait for them with
+  `async_block_till_done(wait_background_tasks=True)`. Every call is wrapped in
+  its own `try`, so one unreachable phone neither stops the other recipients
+  nor touches the prompt.
 - **Reload on change**: Home Assistant notifies update listeners when the entry
   data or a subentry changes, but it never reloads the entry by itself — and
   adding or removing a subentry has no flow result that could reload it. The
@@ -411,7 +459,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
 | **M1g** (done) | The household sensor loses its device (2026-09-20), so the entry row no longer shows "Devices that do not belong to a sub-entry"; one-off clean-up of the device of older installs. |
 | **M2a** (done) | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events; the contract is frozen above. |
-| **M2b** | Built-in delivery: actionable `mobile_app` notification, per-tracker choice of *which real persons are asked*, person → phone mapping (derived from `mobile_app` entries, overridable), options flow. |
+| **M2b** (done) | Built-in delivery: actionable `mobile_app` notification to the real persons chosen per tracker, person → phone mapping derived from the `mobile_app` entries at send time, answers from the notification buttons, clearing on every ending, optional expiry notice, `recipient_without_phone` repair issue. Not live-tested yet. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -511,4 +559,8 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
   timers must survive an HA restart. Event names and payload keys are fixed as
   of M2a — see "Event & service contract" (public contract, see CLAUDE.md).
 
-Still open: nothing blocking M2b.
+Still open: the live test of M2b (does the notification arrive on dabo53ck's phone,
+do the buttons answer, is the message taken off the phone again) and, with it,
+whether the delivery hints behave as the companion documentation promises. The
+recipient for the first test is dabo53ck only; king53ck stays a real person without
+being asked. Nothing blocks M3.
