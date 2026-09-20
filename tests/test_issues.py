@@ -4,17 +4,28 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
+    ATTR_USER_ID,
+    CONF_ASK_ON_DEPARTURE,
+    CONF_DEVICE_NAME,
+    CONF_NOTIFY_PERSONS,
+    CONF_USER_ID,
     DOMAIN,
+    MOBILE_APP_DOMAIN,
+    NOTIFY_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
 from custom_components.virtual_presence_tracker.issues import (
     ISSUE_NO_TRACKER,
     ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER,
     ISSUE_REAL_PERSON_MISSING,
+    ISSUE_RECIPIENT_WITHOUT_PHONE,
     ISSUE_TRACKER_NOT_ASSIGNED,
 )
 from homeassistant.config_entries import ConfigSubentry
@@ -22,12 +33,23 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, STATE_HOME, STATE_N
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, TRACKER_B, make_entry
+from .conftest import (
+    ENTRY_ID,
+    PERSON_A,
+    PERSON_B,
+    TRACKER_A,
+    TRACKER_B,
+    make_entry,
+    make_subentry,
+)
 
 TRACKER_A_ENTITY = "device_tracker.kid"
 
 PERSON_KID = "person.kid"
 DABO53CK_PHONE = "device_tracker.dabo53ck_phone"
+
+USER_A = "user-dabo53ck"
+PHONE_A = "mobile_app_dabo53ck_s_phone"
 
 
 def issue_id(translation_key: str, *parts: str) -> str:
@@ -56,10 +78,38 @@ async def set_person(
     entity_id: str,
     trackers: Iterable[str] = (),
     state: str = STATE_NOT_HOME,
+    user_id: str | None = None,
 ) -> None:
-    """Set a person state with the device trackers assigned to it."""
-    hass.states.async_set(entity_id, state, {ATTR_DEVICE_TRACKERS: list(trackers)})
+    """Set a person state with the device trackers and the user of it."""
+    attributes: dict[str, object] = {ATTR_DEVICE_TRACKERS: list(trackers)}
+    if user_id is not None:
+        attributes[ATTR_USER_ID] = user_id
+    hass.states.async_set(entity_id, state, attributes)
     await hass.async_block_till_done()
+
+
+def add_phone(hass: HomeAssistant, device_name: str, user_id: str) -> None:
+    """Register a Companion App phone of a user."""
+    MockConfigEntry(
+        domain=MOBILE_APP_DOMAIN,
+        title=device_name,
+        data={CONF_DEVICE_NAME: device_name, CONF_USER_ID: user_id},
+    ).add_to_hass(hass)
+
+
+def asking_entry(*recipients: str, asking: bool = True) -> MockConfigEntry:
+    """Return an entry with one tracker that asks the given persons."""
+    return make_entry(
+        make_subentry(
+            TRACKER_A,
+            "Kid",
+            **{
+                CONF_ASK_ON_DEPARTURE: asking,
+                CONF_NOTIFY_PERSONS: list(recipients),
+            },
+        ),
+        persons=[PERSON_A, PERSON_B],
+    )
 
 
 async def test_an_entry_without_a_tracker_is_reported(hass: HomeAssistant) -> None:
@@ -249,6 +299,76 @@ async def test_unloading_clears_the_issues(
 
     assert await hass.config_entries.async_unload(tracker_entry.entry_id)
     await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+
+
+async def test_a_recipient_without_a_phone_is_reported(hass: HomeAssistant) -> None:
+    """Somebody who is asked but cannot be reached is reported, once.
+
+    The issue goes away as soon as the phone registers: a Companion App that
+    is set up after Home Assistant started brings its notify service with it.
+    """
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+    await setup_entry(hass, asking_entry(PERSON_A))
+
+    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A)
+    current = issues(hass)
+    assert reported in current
+    issue = current[reported]
+    assert issue.translation_key == ISSUE_RECIPIENT_WITHOUT_PHONE
+    assert issue.translation_placeholders == {"person": PERSON_A, "tracker": "Kid"}
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert issue.is_fixable is False
+    assert issue.is_persistent is False
+
+    add_phone(hass, "dabo53ck's Phone", USER_A)
+    async_mock_service(hass, NOTIFY_DOMAIN, PHONE_A)
+    await hass.async_block_till_done()
+
+    assert reported not in issues(hass)
+
+
+async def test_a_recipient_with_a_phone_is_not_reported(hass: HomeAssistant) -> None:
+    """A person whose phone can be reached is fine."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+    add_phone(hass, "dabo53ck's Phone", USER_A)
+    async_mock_service(hass, NOTIFY_DOMAIN, PHONE_A)
+
+    await setup_entry(hass, asking_entry(PERSON_A))
+
+    assert issues(hass) == {}
+
+
+async def test_a_recipient_of_a_tracker_that_does_not_ask_is_not_reported(
+    hass: HomeAssistant,
+) -> None:
+    """Without the prompt nothing is ever sent, so nothing is missing."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+
+    await setup_entry(hass, asking_entry(PERSON_A, asking=False))
+
+    assert issues(hass) == {}
+
+
+async def test_a_recipient_who_is_not_a_real_person_is_not_reported(
+    hass: HomeAssistant,
+) -> None:
+    """A recipient who is not a real person is dropped, not reported."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+    add_phone(hass, "dabo53ck's Phone", USER_A)
+    async_mock_service(hass, NOTIFY_DOMAIN, PHONE_A)
+
+    entry = asking_entry(PERSON_A, PERSON_KID)
+    await setup_entry(hass, entry)
 
     assert issues(hass) == {}
 

@@ -6,12 +6,22 @@ from typing import Final
 
 DOMAIN: Final = "virtual_presence_tracker"
 
-# Domain of the entities the real persons are picked from. Spelled out instead
-# of imported, so the integration does not depend on the person component.
+# Domains of the components the integration talks to. All of them are spelled
+# out instead of imported: the integration works without any of them, and an
+# import of homeassistant.components.<x> would make it a manifest dependency.
 PERSON_DOMAIN: Final = "person"
+NOTIFY_DOMAIN: Final = "notify"
+MOBILE_APP_DOMAIN: Final = "mobile_app"
 
-# State attribute of a person entity listing the device trackers assigned to it.
+# State attributes of a person entity: the device trackers assigned to it and
+# the Home Assistant user it belongs to, if any.
 ATTR_DEVICE_TRACKERS: Final = "device_trackers"
+ATTR_USER_ID: Final = "user_id"
+
+# Keys of a mobile_app config entry: the user the phone is signed in with and
+# the name the notify service of that phone is built from.
+CONF_USER_ID: Final = "user_id"
+CONF_DEVICE_NAME: Final = "device_name"
 
 # Config entry data: the real persons whose presence decides whether somebody
 # who is not a virtual tracker is at home.
@@ -34,6 +44,12 @@ CONF_PROMPT_DELAY: Final = "prompt_delay"
 DEFAULT_PROMPT_DELAY: Final = 0
 MIN_PROMPT_DELAY: Final = 0
 MAX_PROMPT_DELAY: Final = 600
+
+# Per-tracker delivery options. Without a recipient the integration sends
+# nothing at all and the prompt stays what it was before: events and an action.
+CONF_NOTIFY_PERSONS: Final = "notify_persons"
+CONF_NOTIFY_ON_EXPIRY: Final = "notify_on_expiry"
+DEFAULT_NOTIFY_ON_EXPIRY: Final = False
 
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"
@@ -68,6 +84,16 @@ ATTR_REASON: Final = "reason"
 REASON_PERSON_HOME: Final = "person_home"
 REASON_SWITCHED_ON: Final = "switched_on"
 REASON_OPTION_DISABLED: Final = "option_disabled"
+
+# Built-in delivery through the Companion App (see docs/DESIGN.md). The action
+# IDs and the tags are internal, but they have to stay stable: an answer or a
+# clearing may name a prompt that a previous Home Assistant run started.
+EVENT_NOTIFICATION_ACTION: Final = "mobile_app_notification_action"
+NOTIFICATION_TAG_PREFIX: Final = "vpt_"
+NOTIFICATION_INFO_TAG_PREFIX: Final = "vpt_info_"
+ACTION_YES_PREFIX: Final = "VPT_YES_"
+ACTION_NO_PREFIX: Final = "VPT_NO_"
+CLEAR_NOTIFICATION: Final = "clear_notification"
 
 # Entity service on the switches of this integration.
 SERVICE_ANSWER_PROMPT: Final = "answer_prompt"

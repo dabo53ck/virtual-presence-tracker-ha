@@ -17,6 +17,11 @@ from typing import TYPE_CHECKING
 
 from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    ATTR_DOMAIN,
+    EVENT_SERVICE_REGISTERED,
+    EVENT_SERVICE_REMOVED,
+)
 from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
@@ -30,11 +35,15 @@ from homeassistant.helpers.start import async_at_started
 
 from .const import (
     ATTR_DEVICE_TRACKERS,
+    CONF_ASK_ON_DEPARTURE,
     CONF_PERSONS,
+    DEFAULT_ASK_ON_DEPARTURE,
     DOMAIN,
+    NOTIFY_DOMAIN,
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
+from .delivery import async_notify_services, async_recipients
 
 if TYPE_CHECKING:
     from . import VirtualPresenceTrackerConfigEntry
@@ -43,6 +52,7 @@ ISSUE_NO_TRACKER = "no_tracker"
 ISSUE_TRACKER_NOT_ASSIGNED = "tracker_not_assigned"
 ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER = "real_person_has_virtual_tracker"
 ISSUE_REAL_PERSON_MISSING = "real_person_missing"
+ISSUE_RECIPIENT_WITHOUT_PHONE = "recipient_without_phone"
 
 
 @callback
@@ -131,14 +141,27 @@ class HouseholdIssues:
 
     @callback
     def _async_started(self, hass: HomeAssistant) -> None:
-        """Check once and follow the person entities from here on."""
+        """Check once and follow the persons and the notify services."""
         tracker = async_track_state_change_filtered(
             hass,
             TrackStates(False, set(), {PERSON_DOMAIN}),
             self._async_person_changed,
         )
         self._unsubs.append(tracker.async_remove)
+        # A phone that registers with the Companion App brings a notify service
+        # with it, and unregistering takes it away again. Both decide whether a
+        # chosen recipient can be reached, so both re-check.
+        for event_type in (EVENT_SERVICE_REGISTERED, EVENT_SERVICE_REMOVED):
+            self._unsubs.append(
+                hass.bus.async_listen(event_type, self._async_service_changed)
+            )
         self._async_check()
+
+    @callback
+    def _async_service_changed(self, event: Event[dict[str, str]]) -> None:
+        """Re-check after a notify service appeared or disappeared."""
+        if event.data.get(ATTR_DOMAIN) == NOTIFY_DOMAIN:
+            self._async_check()
 
     @callback
     def _async_person_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -187,6 +210,22 @@ class HouseholdIssues:
             issues[self._issue_id(ISSUE_TRACKER_NOT_ASSIGNED, subentry.subentry_id)] = (
                 ISSUE_TRACKER_NOT_ASSIGNED,
                 {"name": subentry.title, "entity_id": entity_id},
+            )
+
+        # A recipient without a phone is reported once per person: the same
+        # person is usually chosen for several trackers, and one issue that
+        # names them all is one notification instead of three.
+        without_phone: dict[str, list[str]] = {}
+        for subentry in subentries:
+            if not subentry.data.get(CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE):
+                continue
+            for person in async_recipients(self.entry, subentry.subentry_id):
+                if not async_notify_services(self.hass, person):
+                    without_phone.setdefault(person, []).append(subentry.title)
+        for person, names in without_phone.items():
+            issues[self._issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person)] = (
+                ISSUE_RECIPIENT_WITHOUT_PHONE,
+                {"person": person, "tracker": ", ".join(names)},
             )
 
         for person in self.entry.data.get(CONF_PERSONS, []):

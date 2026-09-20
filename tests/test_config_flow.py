@@ -12,11 +12,14 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_NOTIFY_ON_EXPIRY,
+    CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_ASK_ON_DEPARTURE,
+    DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
@@ -43,6 +46,8 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
         CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
         CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
         CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+        CONF_NOTIFY_PERSONS: [],
+        CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
     } | overrides
 
 
@@ -395,6 +400,113 @@ async def test_subentry_stores_the_prompt_options(
     )
     assert isinstance(subentry.data[CONF_ANSWER_TIMEOUT], int)
     assert isinstance(subentry.data[CONF_PROMPT_DELAY], int)
+
+
+async def test_subentry_stores_the_delivery_options(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """The recipients and the expiry notice are stored as chosen."""
+    add_persons(hass)
+    await setup_entry(hass, config_entry)
+
+    await add_tracker(
+        hass,
+        config_entry,
+        {
+            CONF_NAME: "Kid",
+            CONF_RESET_ON_RETURN: True,
+            CONF_ASK_ON_DEPARTURE: True,
+            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
+            CONF_NOTIFY_ON_EXPIRY: True,
+        },
+    )
+    await hass.async_block_till_done()
+
+    subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
+    assert dict(subentry.data) == tracker_data(
+        **{
+            CONF_ASK_ON_DEPARTURE: True,
+            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
+            CONF_NOTIFY_ON_EXPIRY: True,
+        }
+    )
+
+
+async def test_subentry_offers_only_the_real_persons(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """Only a real person of this household can be picked as a recipient."""
+    add_persons(hass)
+    await setup_entry(hass, config_entry)
+
+    result = await hass.config_entries.subentries.async_init(
+        (config_entry.entry_id, SUBENTRY_TYPE_TRACKER), context={"source": SOURCE_USER}
+    )
+    schema: vol.Schema = result["data_schema"]
+    selector = next(
+        value for key, value in schema.schema.items() if key == CONF_NOTIFY_PERSONS
+    )
+    assert selector.config["include_entities"] == [PERSON_DABO53CK, PERSON_KING53CK]
+    assert selector.config["multiple"] is True
+
+
+async def test_subentry_rejects_a_recipient_who_is_not_real(
+    hass: HomeAssistant,
+) -> None:
+    """A recipient who lost their real-person status is named and refused.
+
+    The form still offers the stored recipient, so the user can take them out;
+    submitting the tracker unchanged is what the error stops.
+    """
+    add_persons(hass)
+    entry = await setup_entry(
+        hass,
+        make_entry(
+            make_subentry(
+                TRACKER_A,
+                "Kid",
+                **tracker_data(
+                    **{
+                        CONF_ASK_ON_DEPARTURE: True,
+                        CONF_NOTIFY_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK],
+                    }
+                ),
+            )
+        ),
+    )
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+    assert suggested(result, CONF_NOTIFY_PERSONS) == [PERSON_DABO53CK, PERSON_KING53CK]
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Kid",
+            CONF_RESET_ON_RETURN: True,
+            CONF_ASK_ON_DEPARTURE: True,
+            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK],
+            CONF_NOTIFY_ON_EXPIRY: False,
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_NOTIFY_PERSONS: "person_not_real"}
+    assert result["description_placeholders"] == {"persons": PERSON_KING53CK}
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Kid",
+            CONF_RESET_ON_RETURN: True,
+            CONF_ASK_ON_DEPARTURE: True,
+            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
+            CONF_NOTIFY_ON_EXPIRY: False,
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert entry.subentries[TRACKER_A].data[CONF_NOTIFY_PERSONS] == [PERSON_DABO53CK]
 
 
 @pytest.mark.parametrize(

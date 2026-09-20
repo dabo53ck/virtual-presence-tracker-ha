@@ -47,14 +47,18 @@
             "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
             "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
             "answer_timeout": "Zeit zum Antworten",
-            "prompt_delay": "Wartezeit vor der Nachfrage"
+            "prompt_delay": "Wartezeit vor der Nachfrage",
+            "notify_persons": "Wer wird gefragt?",
+            "notify_on_expiry": "Melden, wenn niemand geantwortet hat"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
             "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
-            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird über die Event-Entität des Trackers angekündigt; beantworten kannst du sie mit der Aktion „Rückfrage beantworten“. Auf ein Handy geschickt wird noch nichts.",
+            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird immer über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden; wähle unten Empfänger aus, damit sie zusätzlich auf deren Handys geschickt wird.",
             "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
-            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen."
+            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt und nimmt die Nachricht von den anderen Handys wieder weg. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.",
+            "notify_on_expiry": "Schickt eine kurze Info an dieselben Handys, wenn niemand rechtzeitig geantwortet hat. Bei einer Antwort oder einer zurückgezogenen Rückfrage wird nichts geschickt."
           }
         },
         "reconfigure": {
@@ -65,20 +69,25 @@
             "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
             "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
             "answer_timeout": "Zeit zum Antworten",
-            "prompt_delay": "Wartezeit vor der Nachfrage"
+            "prompt_delay": "Wartezeit vor der Nachfrage",
+            "notify_persons": "Wer wird gefragt?",
+            "notify_on_expiry": "Melden, wenn niemand geantwortet hat"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
             "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
-            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird über die Event-Entität des Trackers angekündigt; beantworten kannst du sie mit der Aktion „Rückfrage beantworten“. Auf ein Handy geschickt wird noch nichts.",
+            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird immer über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden; wähle unten Empfänger aus, damit sie zusätzlich auf deren Handys geschickt wird.",
             "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
-            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen."
+            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt und nimmt die Nachricht von den anderen Handys wieder weg. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.",
+            "notify_on_expiry": "Schickt eine kurze Info an dieselben Handys, wenn niemand rechtzeitig geantwortet hat. Bei einer Antwort oder einer zurückgezogenen Rückfrage wird nichts geschickt."
           }
         }
       },
       "error": {
         "name_required": "Gib einen Namen für den Tracker ein.",
-        "name_exists": "Ein Tracker mit diesem Namen existiert bereits."
+        "name_exists": "Ein Tracker mit diesem Namen existiert bereits.",
+        "person_not_real": "{persons} gehört nicht zu den echten Personen dieses Haushalts und kann deshalb nicht gefragt werden. Nimm die Person hier heraus, oder füge sie über „Neu konfigurieren“ auf der Seite der Integration zu den echten Personen hinzu."
       },
       "abort": {
         "reconfigure_successful": "Der Tracker wurde aktualisiert."
@@ -130,6 +139,10 @@
     "real_person_has_virtual_tracker": {
       "title": "Die echte Person {person} hat einen virtuellen Tracker",
       "description": "{person} ist eine der echten Personen von Virtual Presence Tracker, und der virtuelle Tracker `{tracker}` hängt an dieser Person. Diesen Tracker einzuschalten sieht damit wie eine echte Heimkehr aus – und schaltet alle virtuellen Tracker wieder aus.\n\nZwei Wege: Entferne `{tracker}` unter Einstellungen > Personen bei {person}, oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren aus den echten Personen heraus."
+    },
+    "recipient_without_phone": {
+      "title": "{person} hat kein Handy, auf dem gefragt werden könnte",
+      "description": "{person} soll gefragt werden, wenn das Haus leer wird ({tracker}), aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Rückfrage selbst funktioniert weiterhin: Sie wird über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden."
     },
     "real_person_missing": {
       "title": "Die echte Person {person} gibt es nicht mehr",

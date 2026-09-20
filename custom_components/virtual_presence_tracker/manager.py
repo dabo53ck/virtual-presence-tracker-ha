@@ -315,6 +315,18 @@ class HouseholdManager:
         prompt = self._prompts.get(subentry_id)
         return prompt.expires_at if prompt is not None else None
 
+    def tracker_of_prompt(self, prompt_id: str) -> str | None:
+        """Return the tracker a prompt ID belongs to, if it is still open.
+
+        An answer that arrives from a phone names the prompt, not the tracker:
+        this is what turns the one into the other. A prompt that has ended is
+        unknown here, so a late answer finds nothing to answer.
+        """
+        for subentry_id, prompt in self._prompts.items():
+            if prompt.prompt_id == prompt_id:
+                return subentry_id
+        return None
+
     @callback
     def async_set_home(self, subentry_id: str, home: bool) -> None:
         """Set a virtual tracker home or away.

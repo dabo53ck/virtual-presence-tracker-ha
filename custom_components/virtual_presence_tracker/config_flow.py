@@ -38,11 +38,14 @@ from .const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_NOTIFY_ON_EXPIRY,
+    CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_ASK_ON_DEPARTURE,
+    DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
@@ -68,37 +71,64 @@ PERSONS_SCHEMA = vol.Schema(
     }
 )
 
-TRACKER_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_NAME): TextSelector(),
-        vol.Required(
-            CONF_RESET_ON_RETURN, default=DEFAULT_RESET_ON_RETURN
-        ): BooleanSelector(),
-        vol.Required(
-            CONF_ASK_ON_DEPARTURE, default=DEFAULT_ASK_ON_DEPARTURE
-        ): BooleanSelector(),
-        vol.Required(
-            CONF_ANSWER_TIMEOUT, default=DEFAULT_ANSWER_TIMEOUT
-        ): NumberSelector(
-            NumberSelectorConfig(
-                min=MIN_ANSWER_TIMEOUT,
-                max=MAX_ANSWER_TIMEOUT,
-                step=1,
-                mode=NumberSelectorMode.BOX,
-                unit_of_measurement="min",
-            )
-        ),
-        vol.Required(CONF_PROMPT_DELAY, default=DEFAULT_PROMPT_DELAY): NumberSelector(
-            NumberSelectorConfig(
-                min=MIN_PROMPT_DELAY,
-                max=MAX_PROMPT_DELAY,
-                step=1,
-                mode=NumberSelectorMode.BOX,
-                unit_of_measurement="s",
-            )
-        ),
-    }
-)
+
+def _tracker_schema(entry: ConfigEntry, subentry: ConfigSubentry | None) -> vol.Schema:
+    """Return the form of one virtual tracker.
+
+    Only the real persons of this household can be asked, so they are what the
+    person selector offers. What the tracker already has stored is offered too,
+    even if it is not a real person any more: the form would otherwise be
+    impossible to submit unchanged, and the stale recipient is reported with an
+    error of our own instead of a voluptuous failure.
+    """
+    real_persons: list[str] = list(entry.data.get(CONF_PERSONS, []))
+    stored: list[str] = list(
+        subentry.data.get(CONF_NOTIFY_PERSONS, ()) if subentry is not None else ()
+    )
+    candidates = list(dict.fromkeys(real_persons + stored))
+    return vol.Schema(
+        {
+            vol.Required(CONF_NAME): TextSelector(),
+            vol.Required(
+                CONF_RESET_ON_RETURN, default=DEFAULT_RESET_ON_RETURN
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_ASK_ON_DEPARTURE, default=DEFAULT_ASK_ON_DEPARTURE
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_ANSWER_TIMEOUT, default=DEFAULT_ANSWER_TIMEOUT
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=MIN_ANSWER_TIMEOUT,
+                    max=MAX_ANSWER_TIMEOUT,
+                    step=1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="min",
+                )
+            ),
+            vol.Required(
+                CONF_PROMPT_DELAY, default=DEFAULT_PROMPT_DELAY
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=MIN_PROMPT_DELAY,
+                    max=MAX_PROMPT_DELAY,
+                    step=1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="s",
+                )
+            ),
+            # An empty selection is a valid answer, and the default one: it
+            # means that the integration sends nothing at all.
+            vol.Required(CONF_NOTIFY_PERSONS, default=list): EntitySelector(
+                EntitySelectorConfig(
+                    domain=PERSON_DOMAIN, multiple=True, include_entities=candidates
+                )
+            ),
+            vol.Required(
+                CONF_NOTIFY_ON_EXPIRY, default=DEFAULT_NOTIFY_ON_EXPIRY
+            ): BooleanSelector(),
+        }
+    )
 
 
 @callback
@@ -258,9 +288,11 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
         """Show and handle the tracker form, for a new or an existing tracker."""
         entry = self._get_entry()
         errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
 
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
+            recipients = list(user_input[CONF_NOTIFY_PERSONS])
             # NumberSelector hands out floats; the options are whole minutes
             # and whole seconds, and that is what is stored.
             data = {
@@ -268,12 +300,22 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 CONF_ASK_ON_DEPARTURE: user_input[CONF_ASK_ON_DEPARTURE],
                 CONF_ANSWER_TIMEOUT: int(user_input[CONF_ANSWER_TIMEOUT]),
                 CONF_PROMPT_DELAY: int(user_input[CONF_PROMPT_DELAY]),
+                CONF_NOTIFY_PERSONS: recipients,
+                CONF_NOTIFY_ON_EXPIRY: user_input[CONF_NOTIFY_ON_EXPIRY],
             }
             skip = subentry.subentry_id if subentry is not None else None
+            strangers = [
+                person
+                for person in recipients
+                if person not in entry.data.get(CONF_PERSONS, [])
+            ]
             if not name:
                 errors[CONF_NAME] = "name_required"
             elif name.casefold() in _tracker_names(entry, skip):
                 errors[CONF_NAME] = "name_exists"
+            elif strangers:
+                errors[CONF_NOTIFY_PERSONS] = "person_not_real"
+                placeholders = {"persons": ", ".join(strangers)}
             elif subentry is None:
                 return self.async_create_entry(title=name, data=data)
             else:
@@ -289,6 +331,9 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id=step_id,
-            data_schema=self.add_suggested_values_to_schema(TRACKER_SCHEMA, suggested),
+            data_schema=self.add_suggested_values_to_schema(
+                _tracker_schema(entry, subentry), suggested
+            ),
             errors=errors,
+            description_placeholders=placeholders,
         )

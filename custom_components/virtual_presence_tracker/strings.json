@@ -47,14 +47,18 @@
             "reset_on_return": "Reset when a real person comes home",
             "ask_on_departure": "Ask when the house becomes empty",
             "answer_timeout": "Time to answer",
-            "prompt_delay": "Delay before asking"
+            "prompt_delay": "Delay before asking",
+            "notify_persons": "Who is asked?",
+            "notify_on_expiry": "Tell me when nobody answered"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
             "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days.",
-            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is announced by the tracker's event entity; answer it with the action \"Answer prompt\". Nothing is sent to a phone yet.",
+            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is always announced by the tracker's event entity and can be answered with the action \"Answer prompt\"; pick recipients below to have it sent to their phones as well.",
             "answer_timeout": "How long the prompt stays open, in minutes. Without an answer nothing changes and the house counts as empty.",
-            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations."
+            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations.",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the question, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts and takes the message off the other phones. Leave empty to send nothing at all and deliver the prompt with an automation of your own.",
+            "notify_on_expiry": "Sends a short note to the same phones when nobody answered in time. Nothing is sent when somebody answers or when the prompt is withdrawn."
           }
         },
         "reconfigure": {
@@ -65,20 +69,25 @@
             "reset_on_return": "Reset when a real person comes home",
             "ask_on_departure": "Ask when the house becomes empty",
             "answer_timeout": "Time to answer",
-            "prompt_delay": "Delay before asking"
+            "prompt_delay": "Delay before asking",
+            "notify_persons": "Who is asked?",
+            "notify_on_expiry": "Tell me when nobody answered"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
             "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days.",
-            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is announced by the tracker's event entity; answer it with the action \"Answer prompt\". Nothing is sent to a phone yet.",
+            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is always announced by the tracker's event entity and can be answered with the action \"Answer prompt\"; pick recipients below to have it sent to their phones as well.",
             "answer_timeout": "How long the prompt stays open, in minutes. Without an answer nothing changes and the house counts as empty.",
-            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations."
+            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations.",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the question, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts and takes the message off the other phones. Leave empty to send nothing at all and deliver the prompt with an automation of your own.",
+            "notify_on_expiry": "Sends a short note to the same phones when nobody answered in time. Nothing is sent when somebody answers or when the prompt is withdrawn."
           }
         }
       },
       "error": {
         "name_required": "Enter a name for the tracker.",
-        "name_exists": "A tracker with this name already exists."
+        "name_exists": "A tracker with this name already exists.",
+        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page."
       },
       "abort": {
         "reconfigure_successful": "The tracker was updated."
@@ -130,6 +139,10 @@
     "real_person_has_virtual_tracker": {
       "title": "The real person {person} has a virtual tracker attached",
       "description": "{person} is one of the real persons of Virtual Presence Tracker, and the virtual tracker `{tracker}` is attached to that person. Switching that tracker on therefore looks like a real person coming home, which switches every virtual tracker off again.\n\nFix it in one of two ways: remove `{tracker}` from {person} in Settings > People, or take {person} out of the real persons in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    },
+    "recipient_without_phone": {
+      "title": "{person} has no phone to be asked on",
+      "description": "{person} is set to be asked about {tracker} when the house becomes empty, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The prompt itself still works: it is announced by the tracker's event entity and can be answered with the action \"Answer prompt\"."
     },
     "real_person_missing": {
       "title": "The real person {person} no longer exists",

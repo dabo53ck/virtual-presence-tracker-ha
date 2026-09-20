@@ -1,8 +1,9 @@
 """The Virtual Presence Tracker integration.
 
 Presence for household members without a phone. This module wires up the config
-entry lifecycle, the household manager and the entity platforms; built-in
-delivery of the prompt to a phone is a later milestone (see docs/DESIGN.md).
+entry lifecycle, the household manager, the entity platforms and the built-in
+delivery of the prompt to the phones of the chosen persons (see
+docs/DESIGN.md).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
+from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
 from .migration import async_remove_legacy_household_device
@@ -30,6 +32,7 @@ class VirtualPresenceTrackerData:
     """Runtime data of a config entry."""
 
     manager: HouseholdManager
+    delivery: PromptDelivery
 
 
 type VirtualPresenceTrackerConfigEntry = ConfigEntry[VirtualPresenceTrackerData]
@@ -44,7 +47,8 @@ async def async_setup_entry(
     # the first state an entity writes is already the restored one.
     await manager.async_load()
     manager.async_start()
-    entry.runtime_data = VirtualPresenceTrackerData(manager=manager)
+    delivery = PromptDelivery(hass, entry, manager)
+    entry.runtime_data = VirtualPresenceTrackerData(manager=manager, delivery=delivery)
     # Home Assistant notifies update listeners when the real persons change and
     # when a tracker subentry is added, changed or removed, but it never
     # reloads the entry by itself. Without the reload the manager would keep
@@ -55,6 +59,10 @@ async def async_setup_entry(
     # being attached to one for the moment it takes to clean up.
     async_remove_legacy_household_device(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Before resuming the prompts: a prompt that ends in the catch-up leaves a
+    # message on the phones of a previous run, and this is what clears it.
+    delivery.async_start()
+    entry.async_on_unload(delivery.async_stop)
     # After the platforms, because resuming a prompt can emit an event: the
     # entity that carries it has to exist by then, or the event is lost.
     # Forwarding the platforms waits for the entities to be added.
