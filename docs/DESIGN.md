@@ -83,7 +83,7 @@ restore its last state immediately; cover with a test in M1.
    and leaves a valid entry; the `no_tracker` issue then names the path to the
    button.
 
-## Event & service contract (M2a, frozen)
+## Event & service contract (M2a, frozen; grown in M2b)
 
 Everything in this section is a **public API**. Automations, scripts and
 blueprints are written against it, and changing a name or a key breaks them
@@ -96,10 +96,20 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 | `ask_on_departure` | bool | - | `False` | Ask when the house becomes empty |
 | `answer_timeout` | int, minutes | 1-120 | `10` | Time to answer |
 | `prompt_delay` | int, seconds | 0-600 | `0` | Delay before asking |
+| `notify_persons` (M2b) | list of `person` entity IDs | the entry's real persons | `[]` | Who is asked? |
+| `notify_on_expiry` (M2b) | bool | - | `False` | Tell me when nobody answered |
 
-A subentry from before M2a simply has none of the keys and uses the defaults,
-so there is no migration. `NumberSelector` returns floats; the flow stores
-`int`.
+A subentry from before M2a or M2b simply has none of the keys and uses the
+defaults, so there is no migration. `NumberSelector` returns floats; the flow
+stores `int`.
+
+Field order in the tracker form: name, `reset_on_return`, `ask_on_departure`,
+`answer_timeout`, `prompt_delay`, `notify_persons`, `notify_on_expiry`.
+`notify_persons` is an `EntitySelector` (domain `person`, `multiple`) whose
+`include_entities` are the entry's configured real persons plus whatever the
+tracker already has stored - a recipient that lost its real-person status can
+therefore still be submitted and is rejected with the error `person_not_real`
+instead of a voluptuous failure. The flow checks the same rule server-side.
 
 ### Event entity (one per tracker)
 
@@ -131,6 +141,62 @@ integration's `switch` entities (target the switch or its device).
 
 Targeting a tracker without an open prompt raises a `ServiceValidationError`
 with the translation key `no_open_prompt`.
+
+### Built-in delivery through the Companion App (M2b)
+
+Active for a tracker when `ask_on_departure` is on **and** `notify_persons` is
+not empty. An empty selection means no built-in push at all: the integration
+then behaves exactly as in M2a, so an automation of the user's own stays the
+only delivery. Recipients are looked up at send time and never cached.
+
+**Person -> phones**: the `user_id` state attribute of the `person` entity is
+matched against the `user_id` of the `mobile_app` config entries; every
+matching entry's `device_name` gives the classic service
+`notify.<slugify("mobile_app_" + device_name)>`, and only services that exist
+are used. A person can have several phones; all of them are asked.
+
+**Payload** (classic `notify.mobile_app_*` service, because only it carries
+`data.actions`):
+
+| Key | Value |
+|---|---|
+| `title` | localized prompt title |
+| `message` | localized prompt message |
+| `data.tag` | `vpt_<prompt_id>` |
+| `data.actions` | `[{action: VPT_YES_<prompt_id>, title: <Yes>}, {action: VPT_NO_<prompt_id>, title: <No>}]` |
+| `data.ttl`, `data.priority` | `0` / `high` - Android: deliver now, even on an idle phone |
+| `data.timeout` | the answer timeout in seconds - Android: drop the message when it is over |
+| `data.push` | `{"interruption-level": "time-sensitive"}` - iOS |
+
+The action IDs and the tag are internal, but they have to stay stable: the
+answer of a phone that was offline for a while still names the prompt it
+belongs to, and the tag is what clears a message written by a previous Home
+Assistant run.
+
+**Clearing**: `message: clear_notification` with `data.tag` of the prompt, sent
+to every recipient phone on *every* ending of the prompt (`answered_yes`,
+`answered_no`, `expired`, `cancelled`).
+
+**Expiry notice**: only on `expired` and only with `notify_on_expiry`, after
+the clearing, with the tag `vpt_info_<prompt_id>`.
+
+**Answers** arrive as the bus event `mobile_app_notification_action`. Only
+`data.action` is trusted: `VPT_YES_<prompt_id>` / `VPT_NO_<prompt_id>` for a
+prompt that is open right now answers it through the manager - the same code
+path the `answer_prompt` action uses, so first answer wins and the other phones
+are cleared. Everything else is ignored with a debug log. `answered_by` is
+derived from `context.user_id` of the event (see technical notes), or `null`.
+
+**Texts**: English and German, chosen by `hass.config.language`, English
+otherwise (`messages.py`).
+
+| Text | English | German |
+|---|---|---|
+| title | Is {tracker} home alone? | Ist {tracker} alleine zu Hause? |
+| message | Nobody else is home. Answer within {minutes} minutes. | Es ist niemand sonst zu Hause. Antworte innerhalb von {minutes} Minuten. |
+| yes | Yes, home | Ja, ist da |
+| no | No | Nein |
+| expiry | No answer: {tracker} counts as not at home. | Keine Antwort: {tracker} gilt als nicht zu Hause. |
 
 ### Switch state attributes
 
@@ -423,6 +489,16 @@ Confirmed by dabo53ck (2026-09-19):
   - Caveat: buttons in a notification only work through the classic
     `notify.mobile_app_*` services (the notify *entities* of the companion app
     carry only title and message); HA may retire the classic services one day.
+  - **Timeout semantics (confirmed 2026-09-20)**: an unanswered prompt never
+    picks a default. At the timeout the tracker stays as it was (off), the house
+    counts as empty and the event is `expired`; the built-in message is cleared
+    from the phones. Switching the tracker on by hand before leaving means no
+    prompt is opened at all.
+  - **Optional expiry notice (M2b, per tracker, default off)**: option
+    `notify_on_expiry`. When on and built-in delivery is active (recipients
+    chosen), the recipients get a short "no answer, <name> counts as not at
+    home" message when the prompt expires — never on an answer or a
+    cancellation.
 
 Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currently home).
 
