@@ -180,7 +180,7 @@
     },
     "open_prompt": {
       "name": "Rückfrage öffnen",
-      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, die Option „Fragen, wenn das Haus leer wird“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
+      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, die Option „Nachfragen, wenn das Haus leer wird“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }
