@@ -179,7 +179,7 @@ async def test_the_prompt_is_sent_to_the_phone(hass: HomeAssistant) -> None:
     prompt_id = prompt_id_of(calls[0])
     assert data["data"]["tag"] == f"vpt_{prompt_id}"
     assert data["data"]["actions"] == [
-        {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home"},
+        {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home alone"},
         {"action": f"VPT_NO_{prompt_id}", "title": "No"},
     ]
     # Android wakes the phone up and drops the message when the time is over.
@@ -241,7 +241,7 @@ async def test_the_prompt_is_sent_in_german(hass: HomeAssistant) -> None:
         == "Es ist niemand sonst zu Hause. Antworte innerhalb von einer Minute."
     )
     assert [action["title"] for action in calls[0].data["data"]["actions"]] == [
-        "Ja, ist da",
+        "Ja, alleine zu Hause",
         "Nein",
     ]
 
@@ -558,7 +558,7 @@ async def test_a_prompt_opened_by_hand_is_sent_to_the_phone(
     assert calls[0].data["message"] == "Nobody else is home. Answer within 15 minutes."
     prompt_id = prompt_id_of(calls[0])
     assert calls[0].data["data"]["actions"] == [
-        {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home"},
+        {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home alone"},
         {"action": f"VPT_NO_{prompt_id}", "title": "No"},
     ]
     assert entry.runtime_data.manager.prompt_open(TRACKER_A) is True

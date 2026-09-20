@@ -267,7 +267,7 @@ question is sent to their phones — no automation needed:
 
 > **Is Kid home alone?**
 > Nobody else is home. Answer within 10 minutes.
-> \[ Yes, home ] \[ No ]
+> \[ Yes, home alone ] \[ No ]
 
 **Yes** switches the tracker on, **No** leaves everything as it is, and either way
 the message disappears from *every* phone that was asked: the first answer

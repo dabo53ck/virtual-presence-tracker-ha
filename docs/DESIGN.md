@@ -219,7 +219,7 @@ otherwise (`messages.py`).
 |---|---|---|
 | title | Is {tracker} home alone? | Ist {tracker} alleine zu Hause? |
 | message | Nobody else is home. Answer within {minutes} minutes. | Es ist niemand sonst zu Hause. Antworte innerhalb von {minutes} Minuten. |
-| yes | Yes, home | Ja, ist da |
+| yes | Yes, home alone | Ja, alleine zu Hause |
 | no | No | Nein |
 | expiry | No answer: {tracker} counts as not at home. | Keine Antwort: {tracker} gilt als nicht zu Hause. |
 

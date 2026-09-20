@@ -19,7 +19,7 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "title": "Is {tracker} home alone?",
         "message": "Nobody else is home. Answer within {minutes} minutes.",
         "message_one_minute": "Nobody else is home. Answer within one minute.",
-        "yes": "Yes, home",
+        "yes": "Yes, home alone",
         "no": "No",
         "expired_title": "No answer",
         "expired_message": "No answer: {tracker} counts as not at home.",
@@ -30,7 +30,7 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "{minutes} Minuten.",
         "message_one_minute": "Es ist niemand sonst zu Hause. Antworte innerhalb "
         "von einer Minute.",
-        "yes": "Ja, ist da",
+        "yes": "Ja, alleine zu Hause",
         "no": "Nein",
         "expired_title": "Keine Antwort",
         "expired_message": "Keine Antwort: {tracker} gilt als nicht zu Hause.",
