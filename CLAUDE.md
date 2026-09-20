@@ -4,7 +4,7 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete, including M1f** — skeleton (manifest with
+Status: **M1 complete, including M1f and M1g** — skeleton (manifest with
 `single_config_entry`, CI), the household manager (`manager.py`: persisted
 tracker states, real-person presence, reset on return), the config flow (real
 persons, reconfigure) plus the subentry flow per virtual tracker, the entities
@@ -14,8 +14,11 @@ persons, reconfigure) plus the subentry flow per virtual tracker, the entities
 `person` and `zone` components, and a README for users. The first live test
 passed (2026-09-20, HA 2026.9.3) and produced two fixes: `integration_type`
 `service` instead of `helper`, and the M1f onboarding (the setup chains into
-the "add virtual tracker" form, plus a `no_tracker` repair issue). M1f itself
-is not live-tested yet. Pushed to the **private** repo
+the "add virtual tracker" form, plus a `no_tracker` repair issue). M1g followed:
+the household sensor has no device any more (rule: every device belongs to a
+subentry, entry-level entities are device-less), with a one-off clean-up of the
+device of older installs in `migration.py`. M1f and M1g are not live-tested
+yet. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
 

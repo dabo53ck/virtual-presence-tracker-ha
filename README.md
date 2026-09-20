@@ -121,11 +121,17 @@ button, or let an automation flip it. That is the whole daily routine.
 
 ## The "only virtual trackers home" sensor
 
-`binary_sensor.virtual_presence_tracker_only_virtual_trackers_home` is on when
-at least one virtual tracker is at home while none of your real persons is —
-the situation that used to break "nobody home" routines. Use it to make a
-routine behave differently when the only person at home is one who cannot be
-tracked, for example to skip the alarm or to keep the heating on.
+`binary_sensor.only_virtual_trackers_home` is on when at least one virtual
+tracker is at home while none of your real persons is — the situation that used
+to break "nobody home" routines. Use it to make a routine behave differently
+when the only person at home is one who cannot be tracked, for example to skip
+the alarm or to keep the heating on.
+
+The sensor belongs to the household, not to one tracker, and it has no device
+of its own. You find it under **Settings → Devices & services → Entities** or
+through the **Entities** link on the integration's page — not on a device page.
+(If you set the integration up before this change, the sensor keeps the entity
+ID it already had; only its device disappears.)
 
 It has two attributes: `real_persons_home` (how many of your real persons are
 at home) and `virtual_trackers_home` (the names of the trackers that are on).

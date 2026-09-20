@@ -94,8 +94,14 @@ restore its last state immediately; cover with a test in M1.
   (GPS / ROUTER / BLUETOOTH / BLUETOOTH_LE) → `ROUTER` is the closest.
   `state_attributes` is `@final` there: extra attributes of a tracker would
   have to go through `extra_state_attributes`.
-- **Devices**: tracker entities never get a device (`_attr_device_info: None`);
-  the switch may. `BaseTrackerEntity` defaults to `EntityCategory.DIAGNOSTIC`
+- **Devices**: **every device belongs to a tracker subentry; an entity of the
+  config entry itself has no device** (M1g). The frontend shows a "Devices that
+  do not belong to a sub-entry" heading on the entry row as soon as an entry
+  with subentries owns a device outside of them (`ha-config-entry-row.ts`,
+  `ownDevices`), and the household device — one device for a single sensor —
+  was not worth that. Within a tracker, the device tracker still gets no device
+  (`_attr_device_info: None`); the switch carries it.
+  `BaseTrackerEntity` defaults to `EntityCategory.DIAGNOSTIC`
   — **overridden to `None`** (M1c): the tracker is the entity the user assigns
   to a person, picks in the person dialog and puts on a dashboard, and it has
   no device to be a diagnostic part of. A category would only keep it out of
@@ -108,15 +114,36 @@ restore its last state immediately; cover with a test in M1.
   |---|---|---|
   | `device_tracker.<title>` | `<subentry_id>_tracker` | none |
   | `switch.<title>_at_home` | `<subentry_id>_at_home` | one per tracker, `(DOMAIN, subentry_id)`, named after the tracker |
-  | `binary_sensor.virtual_presence_tracker_only_virtual_trackers_home` | `<entry_id>_only_virtual_home` | household, `(DOMAIN, entry_id)` |
+  | `binary_sensor.only_virtual_trackers_home` | `<entry_id>_only_virtual_home` | none |
 
   The tracker sets `_attr_name` and leaves `has_entity_name` off: it has no
   device, so its own name is the full name and the entity ID follows the title
   (`device_tracker.kid`). The switch and the sensor use `has_entity_name` with
-  a `translation_key`, so their name is the device name plus the translated
-  entity name ("Kid At home"). Renaming a tracker renames the entities and the
-  device but never the entity IDs — Home Assistant only regenerates an entity
-  ID when the user asks it to.
+  a `translation_key`. For the switch that means the device name plus the
+  translated entity name ("Kid At home"); the sensor has no device, so the
+  translated entity name is the whole name and the whole entity ID ("Only
+  virtual trackers home", `binary_sensor.only_virtual_trackers_home` — checked
+  against `_async_get_full_entity_name()`, which simply leaves the device part
+  out). Renaming a tracker renames the entities and the device but never the
+  entity IDs — Home Assistant only regenerates an entity ID when the user asks
+  it to.
+- **Legacy household device** (`migration.py`, M1g): an install from before
+  M1g has the sensor attached to a household device, and its entity ID carries
+  the device name as a prefix. `async_setup_entry` therefore removes that
+  device once, before the platforms are forwarded — so that the sensor is added
+  to a registry entry that is already device-less. The order inside the helper
+  is the point: removing a device removes every entity of it that belongs to
+  the same config entry and subentry (`EntityRegistry.async_device_modified()`
+  reacts to the `remove` action), which would destroy the entity ID, the
+  history and every automation naming it. The entities are therefore detached
+  (`async_update_entity(device_id=None)`) first; entity ID, unique ID and
+  options survive that untouched. The helper only ever looks at the device with
+  the identifiers `{(DOMAIN, entry_id)}` *of this entry*, and it does nothing
+  when the device is gone or carries a foreign entity, so it is a no-op on
+  every later setup. It can be deleted once no pre-M1g install is left. Note
+  that the platform alone would already detach the entity — `entity_platform`
+  passes `device_id=None` into `async_get_or_create()` when an entity provides
+  no `device_info` — but it would leave the empty device behind.
 - **No `via_device`** between the tracker devices and the household device:
   `DeviceInfo.via_device` is deprecated in 2026.9 (removed in 2027.8) in favour
   of `via_device_id`, which needs the target device to exist before the
@@ -204,6 +231,7 @@ restore its last state immediately; cover with a test in M1.
 |---|---|
 | **M1** | Scaffolding, config flow + subentry (name, options), `switch` + `device_tracker` + `binary_sensor`, reset on real-person return, restore-state test, tests + CI. Live-testable: switch on → `zone.home` counts up. |
 | **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
+| **M1g** (done) | The household sensor loses its device (2026-09-20), so the entry row no longer shows "Devices that do not belong to a sub-entry"; one-off clean-up of the device of older installs. |
 | **M2** | Prompt with timeout, options flow (delivery per decision below). |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
