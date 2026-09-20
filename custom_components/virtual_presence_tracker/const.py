@@ -95,6 +95,15 @@ ACTION_YES_PREFIX: Final = "VPT_YES_"
 ACTION_NO_PREFIX: Final = "VPT_NO_"
 CLEAR_NOTIFICATION: Final = "clear_notification"
 
+# The picture of the prompt message: the integration's own icon, out of the
+# `brand` folder next to this file. The `brands` component serves that folder
+# and wants an authenticated request; both Companion Apps send the user's token
+# with an image URL that starts with a slash (see docs/DESIGN.md).
+NOTIFICATION_IMAGE_FILE: Final = "icon@2x.png"
+NOTIFICATION_IMAGE: Final = (
+    f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_IMAGE_FILE}"
+)
+
 # Entity service on the switches of this integration.
 SERVICE_ANSWER_PROMPT: Final = "answer_prompt"
 ATTR_ANSWER: Final = "answer"

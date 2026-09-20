@@ -4,7 +4,7 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a and M2b complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b and M2c complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
 machine), the config flow (real persons, reconfigure) plus the subentry flow
@@ -13,7 +13,8 @@ per virtual tracker (name, reset, prompt options, recipients), the entities
 trackers home" `binary_sensor` per entry), the `answer_prompt` entity service
 on the switches, the built-in delivery of the prompt to the Companion App
 (`delivery.py` + `messages.py`, M2b: actionable notification per recipient,
-answers from the buttons, clearing on every ending, optional expiry notice),
+answers from the buttons, clearing on every ending, optional expiry notice;
+M2c: the integration's brand icon as the picture of the message),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -22,7 +23,9 @@ components, and a README for users. The first live test passed (2026-09-20, HA
 tracker" form, plus a `no_tracker` repair issue). M1g followed: the household
 sensor has no device any more (rule: every device belongs to a subentry,
 entry-level entities are device-less), with a one-off clean-up of the device of
-older installs in `migration.py`. M1f, M1g, M2a and M2b are not live-tested
+older installs in `migration.py`. M2b was live-tested on 2026-09-20 (HA
+2026.9.3, iPhone): the push arrives, its buttons answer the prompt and
+`answered_by` follows the phone's user. M1f, M1g and M2c are not live-tested
 yet. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its

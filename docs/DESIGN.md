@@ -167,6 +167,7 @@ are used. A person can have several phones; all of them are asked.
 | `data.ttl`, `data.priority` | `0` / `high` - Android: deliver now, even on an idle phone |
 | `data.timeout` | the answer timeout in seconds - Android: drop the message when it is over |
 | `data.push` | `{"interruption-level": "time-sensitive"}` - iOS |
+| `data.image` (M2c) | `/api/brands/integration/virtual_presence_tracker/icon@2x.png` - the integration's own icon as the picture of the message |
 
 The action IDs and the tag are internal, but they have to stay stable: the
 answer of a phone that was offline for a while still names the prompt it
@@ -178,7 +179,8 @@ to every recipient phone on *every* ending of the prompt (`answered_yes`,
 `answered_no`, `expired`, `cancelled`).
 
 **Expiry notice**: only on `expired` and only with `notify_on_expiry`, after
-the clearing, with the tag `vpt_info_<prompt_id>`.
+the clearing, with the tag `vpt_info_<prompt_id>` and the same `data.image`.
+The clearing carries neither: it is not a message, it takes one away.
 
 **Answers** arrive as the bus event `mobile_app_notification_action`. Only
 `data.action` is trusted: `VPT_YES_<prompt_id>` / `VPT_NO_<prompt_id>` for a
@@ -426,6 +428,45 @@ answered_yes / answered_no / expired / cancelled -> idle.
   time-sensitive` is the iOS counterpart. The payload carries all of them at
   once: each platform ignores the keys of the other, and the integration would
   otherwise have to guess the platform from the registration.
+- **The icon in the message** (M2c, checked against the app sources 2026-09-20):
+  the picture is the brand icon Home Assistant already serves,
+  `/api/brands/integration/virtual_presence_tracker/icon@2x.png`. That endpoint
+  wants an authenticated request (`brands/__init__.py`,
+  `_BrandsBaseView._authenticate`: `request[KEY_AUTHENTICATED]` or a rotating
+  `?token=`), and **both Companion Apps authenticate a notification image whose
+  URL starts with a slash**, so no route of our own is needed - nothing of the
+  `brand` folder is exposed beyond what Home Assistant exposes anyway. Evidence:
+  iOS turns `data.image` into `attachment.url`
+  (`Sources/SharedPush/Sources/NotificationParserLegacy.swift`,
+  `addAttachment(key: "image", ...)`), the parser sets
+  `needsAuth = urlString.hasPrefix("/")` (`Sources/Shared/Notifications/
+  NotificationAttachments/NotificationAttachmentParserURL.swift`) and
+  `HomeAssistantAPI.DownloadDataAt(url:needsAuth:)`
+  (`Sources/Shared/API/HAAPI.swift`) then prepends the server URL and downloads
+  through the session that carries the token. Android resolves the URL against
+  the server (`UrlUtil.handle`) and calls `getImageBitmap(serverId, url,
+  requiresAuth = !UrlUtil.isAbsoluteUrl(dataImage))`, which adds
+  `Authorization: Bearer ...` (`app/src/main/kotlin/io/homeassistant/companion/
+  android/notifications/MessagingManager.kt`). The endpoint is unchanged between
+  our floor (2026.6.0) and 2026.9.3, serves a custom integration's `brand`
+  folder when `Integration.has_branding` is true (the folder is there) and only
+  under the eight names of `ALLOWED_IMAGES`; `brands` is in
+  `bootstrap.DEFAULT_INTEGRATIONS`, so it is always set up. A picture that
+  cannot be loaded is the phone's business: nothing in the delivery depends on
+  it and the message arrives either way.
+- **What the icon does not change**: the small icon beside the notification
+  stays the Companion App's own. `data.icon_url` / `data.notification_icon`
+  would reach that spot, but on iOS `icon_url` turns the message into a
+  *communication notification* (rounded avatar, the title as the sender's name)
+  and on Android an `image` hides the icon anyway
+  (`docs/notifications/basic.md`), so the change in style is not worth it. Note
+  also that iOS takes the attachment's type hint from the key and not from the
+  file - `image` always means `public.jpeg`
+  (`NotificationParserLegacy.swift`) - while ours is a PNG, downloaded to a temp
+  file that keeps the `.png` extension. PNG is a documented format for `image`
+  (`docs/notifications/attachments.md`), so this is expected to be harmless; if
+  the picture ever fails to show on iOS, `data.attachment: {"content-type":
+  "png"}` is the documented way to correct it.
 - **No `mobile_app` dependency in the manifest**: nothing of it is imported -
   the domain, the entry keys and the event name are spelled out, as the
   `person` domain already was - and the integration is fully usable without a
@@ -459,7 +500,8 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
 | **M1g** (done) | The household sensor loses its device (2026-09-20), so the entry row no longer shows "Devices that do not belong to a sub-entry"; one-off clean-up of the device of older installs. |
 | **M2a** (done) | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events; the contract is frozen above. |
-| **M2b** (done) | Built-in delivery: actionable `mobile_app` notification to the real persons chosen per tracker, person → phone mapping derived from the `mobile_app` entries at send time, answers from the notification buttons, clearing on every ending, optional expiry notice, `recipient_without_phone` repair issue. Not live-tested yet. |
+| **M2b** (done) | Built-in delivery: actionable `mobile_app` notification to the real persons chosen per tracker, person → phone mapping derived from the `mobile_app` entries at send time, answers from the notification buttons, clearing on every ending, optional expiry notice, `recipient_without_phone` repair issue. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone): the prompt opens at once, the push arrives, a tapped button answers it, `answered_by` is the person behind the phone's user, "No" changes nothing. |
+| **M2c** (done) | The message carries the integration's own icon as its picture (`data.image`, the brand icon served under `/api/brands`), on the prompt and on the expiry notice. Not live-tested yet. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -568,8 +610,12 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
   timers must survive an HA restart. Event names and payload keys are fixed as
   of M2a — see "Event & service contract" (public contract, see CLAUDE.md).
 
-Still open: the live test of M2b (does the notification arrive on dabo53ck's phone,
-do the buttons answer, is the message taken off the phone again) and, with it,
-whether the delivery hints behave as the companion documentation promises. The
-recipient for the first test is dabo53ck only; king53ck stays a real person without
-being asked. Nothing blocks M3.
+- **M2b live test passed (2026-09-20, HA 2026.9.3, iPhone)**: the prompt opens
+  the moment the house is empty, the push arrives, a tapped button answers the
+  prompt, `answered_by` is derived from the user of the phone, and "No" changes
+  nothing. The recipient was dabo53ck only; king53ck stayed a real person without being
+  asked.
+
+Still open: the live test of M2c - whether the icon really shows up on the
+phone, which is the one thing the code cannot prove (see the technical note on
+the type hint iOS derives from the `image` key). Nothing blocks M3.

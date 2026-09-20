@@ -41,6 +41,7 @@ from .const import (
     EVENT_NOTIFICATION_ACTION,
     EVENT_PROMPT_STARTED,
     MOBILE_APP_DOMAIN,
+    NOTIFICATION_IMAGE,
     NOTIFICATION_INFO_TAG_PREFIX,
     NOTIFICATION_TAG_PREFIX,
     NOTIFY_DOMAIN,
@@ -234,6 +235,9 @@ class PromptDelivery:
                 "timeout": minutes * 60,
                 # iOS: the same idea, in Apple's words.
                 "push": {"interruption-level": "time-sensitive"},
+                # Whose question this is. The small icon beside a notification
+                # belongs to the Companion App, the picture is ours.
+                "image": NOTIFICATION_IMAGE,
             },
         }
 
@@ -245,7 +249,10 @@ class PromptDelivery:
         return {
             "title": async_expired_title(self.hass),
             "message": async_expired_message(self.hass, subentry.title),
-            "data": {"tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{prompt_id}"},
+            "data": {
+                "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{prompt_id}",
+                "image": NOTIFICATION_IMAGE,
+            },
         }
 
     @callback

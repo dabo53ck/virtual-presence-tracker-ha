@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,11 +24,14 @@ from custom_components.virtual_presence_tracker.const import (
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
     MOBILE_APP_DOMAIN,
+    NOTIFICATION_IMAGE,
+    NOTIFICATION_IMAGE_FILE,
     NOTIFY_DOMAIN,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
 )
+from homeassistant.components.brands.const import ALLOWED_IMAGES
 from homeassistant.const import STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import Context, HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
@@ -47,6 +51,8 @@ USER_B = "user-king53ck"
 PHONE_A = "mobile_app_dabo53ck_s_phone"
 PHONE_A2 = "mobile_app_dabo53ck_tablet"
 PHONE_B = "mobile_app_king53ck_phone"
+
+BRAND_DIR = Path(__file__).parents[1] / "custom_components" / DOMAIN / "brand"
 
 
 def make_entry(
@@ -183,6 +189,35 @@ async def test_the_prompt_is_sent_to_the_phone(hass: HomeAssistant) -> None:
     assert data["data"]["push"] == {"interruption-level": "time-sensitive"}
 
     await unload(hass, entry)
+
+
+async def test_the_message_carries_the_integration_icon(hass: HomeAssistant) -> None:
+    """The question shows the integration's icon, the clearing shows nothing."""
+    calls = add_dabo53ck(hass)
+    await setup_entry(hass, make_entry())
+
+    await empty_the_house(hass)
+
+    assert calls[0].data["data"]["image"] == NOTIFICATION_IMAGE
+
+    await answer_from_phone(hass, f"VPT_YES_{prompt_id_of(calls[0])}")
+
+    # Taking a message off a phone is not a message with a picture.
+    assert "image" not in calls[1].data["data"]
+
+
+def test_the_icon_of_the_message_is_served_by_home_assistant() -> None:
+    """The picture names a brand image that is really there.
+
+    Home Assistant serves the `brand` folder of a custom integration under
+    /api/brands, but only under the file names the brands component knows.
+    """
+    assert NOTIFICATION_IMAGE_FILE in ALLOWED_IMAGES
+    assert (
+        NOTIFICATION_IMAGE
+        == f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_IMAGE_FILE}"
+    )
+    assert (BRAND_DIR / NOTIFICATION_IMAGE_FILE).is_file()
 
 
 async def test_the_prompt_is_sent_in_german(hass: HomeAssistant) -> None:
@@ -541,8 +576,13 @@ async def test_an_expired_prompt_clears_the_phone(
     if notify_on_expiry:
         assert calls[1].data["title"] == "No answer"
         assert calls[1].data["message"] == "No answer: Kid counts as not at home."
-        # The notice is a message of its own, not a replacement of the question.
-        assert calls[1].data["data"] == {"tag": "vpt_info_abc"}
+        # The notice is a message of its own, not a replacement of the
+        # question, and it carries the integration's icon just like the
+        # question did.
+        assert calls[1].data["data"] == {
+            "tag": "vpt_info_abc",
+            "image": NOTIFICATION_IMAGE,
+        }
     else:
         assert len(calls) == 1
 
