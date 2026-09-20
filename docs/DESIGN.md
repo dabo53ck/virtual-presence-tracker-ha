@@ -74,7 +74,14 @@ restore its last state immediately; cover with a test in M1.
    configured real `person` whose entity is gone. The config flow (user +
    reconfigure) rejects a person that carries one of our trackers
    (`person_has_virtual_tracker`); the issue covers the case where the
-   assignment happens afterwards.
+   assignment happens afterwards. `no_tracker` (M1f) joins them: an entry
+   without a single tracker does nothing at all, and that is exactly what a
+   user who closed the chained setup form is left with.
+7. **Onboarding** (M1f, done): creating the entry chains straight into the
+   "add virtual tracker" form, so the first tracker is one dialog away instead
+   of a button on a page the user never opened. Closing that form is allowed
+   and leaves a valid entry; the `no_tracker` issue then names the path to the
+   button.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -166,6 +173,22 @@ restore its last state immediately; cover with a test in M1.
   recognised through the entity registry (platform `DOMAIN`, domain
   `device_tracker`, entities of this entry), which is also what the config flow
   checks a selected person against.
+- **Chained subentry flow** (M1f): `ConfigFlow.async_on_create_entry()` exists
+  for "creating next flow entries to the result which needs a config entry
+  created before it can start" — it runs after the entry was added *and* set
+  up, so `result["result"].entry_id` is usable. The flow is started with
+  `config_entries.subentries.async_init((entry_id, SUBENTRY_TYPE_TRACKER),
+  context=SubentryFlowContext(source=SOURCE_USER))` and handed on as
+  `result["next_flow"] = (FlowType.CONFIG_SUBENTRIES_FLOW, flow_id)`.
+  `async_create_entry(next_flow=…)` cannot do it: `_async_set_next_flow_if_
+  valid()` accepts only `FlowType.CONFIG_FLOW` and points at this hook. The
+  frontend handles `config_subentries_flow` in `dialog-data-entry-flow.ts`
+  (it skips the device-rename dialog and opens the subentry dialog). Core does
+  the same in `ntfy`, `scrape` and `bayesian`. A form the user closes just
+  drops the flow; nothing is left behind, and the entry stays loaded and valid.
+- **Issue severity**: `IssueSeverity` has `CRITICAL`, `ERROR` and `WARNING` and
+  no informational level, so even a pure hint like `no_tracker` is a
+  `WARNING` — the alternative would be no repair issue at all.
 - **Reload on change**: Home Assistant notifies update listeners when the entry
   data or a subentry changes, but it never reloads the entry by itself — and
   adding or removing a subentry has no flow result that could reload it. The
@@ -180,6 +203,7 @@ restore its last state immediately; cover with a test in M1.
 | Stage | Content |
 |---|---|
 | **M1** | Scaffolding, config flow + subentry (name, options), `switch` + `device_tracker` + `binary_sensor`, reset on real-person return, restore-state test, tests + CI. Live-testable: switch on → `zone.home` counts up. |
+| **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
 | **M2** | Prompt with timeout, options flow (delivery per decision below). |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
@@ -226,6 +250,17 @@ Confirmed by dabo53ck (2026-09-19):
   `/config/custom_components/`. Every new code state needs an HA restart **by
   dabo53ck**, so live tests only at checkpoints (after M1c/M1d), not per stage.
   Installed add-ons: File editor, Advanced SSH (both stopped), no Samba/VS Code.
+
+- **First live test passed (2026-09-20, HA 2026.9.3)**: tracker `not_home` →
+  switch on → tracker `home` (`in_zones` = home zone + its enclosing zone),
+  `person` `home` with the tracker as source, `zone.home` 2 → 3 with the virtual
+  person listed, sensor stays `off` while real persons are home and lists the
+  tracker in `virtual_trackers_home`, no repair issues, no log errors. Found
+  and fixed: `integration_type` `helper` → `service` (see Technical notes).
+  Not yet verified live: persistence across an HA restart (switch was left on
+  for it), the reset on a real arrival, the repair issues.
+- **M1f requested**: chain into the subentry flow right after setup, plus a
+  hint while no tracker exists.
 
 Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currently home).
 

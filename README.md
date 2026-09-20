@@ -80,10 +80,16 @@ tracker on would look like a real arrival and reset all your trackers.
 
 ### 2. Add a virtual tracker
 
-On the integration's page: **Add virtual tracker**. Give it a name — the name
-of the child, grandparent or guest it stands for — and decide whether it should
-reset when a real person comes home (see below). You can add as many trackers
-as you need and rename them later; renaming does not change any entity IDs.
+The form for your first virtual tracker opens by itself once you have chosen
+the real persons. Give the tracker a name — the name of the child, grandparent
+or guest it stands for — and decide whether it should reset when a real person
+comes home (see below).
+
+If you close that form, the integration is set up but has nothing to do, and a
+repair issue reminds you of it. You can add a tracker at any time under
+**Settings → Devices & services → Integrations → Virtual Presence Tracker →
+Add virtual tracker**, which is also where you add the second and every further
+tracker. Renaming a tracker later does not change any entity IDs.
 
 Each tracker gives you two entities, for a tracker named *Kid*:
 
@@ -149,6 +155,11 @@ The integration checks its own setup and reports what it cannot fix by itself
 under **Settings → Devices & services → Repairs**. Every issue disappears on its
 own as soon as its cause is gone; the checks run once Home Assistant has
 started and again whenever a person changes.
+
+**"No virtual tracker has been added yet"**
+The integration is set up but has no virtual tracker, so nothing happens. Add
+one under **Settings → Devices & services → Integrations → Virtual Presence
+Tracker → Add virtual tracker**; the hint disappears with the first tracker.
 
 **"The virtual tracker … is not assigned to a person"**
 The tracker's `device_tracker` is not part of any person, so switching it on
