@@ -139,6 +139,14 @@ restore its last state immediately; cover with a test in M1.
   written after a restart is already correct (avoids the `person` → `unknown`
   blip reported for hass-virtual, issue #82). States of subentries that no
   longer exist are pruned on load.
+- **`integration_type` is `service`, not `helper`** (corrected after the first
+  live test, 2026-09-20). A helper is listed on the *Helpers* page, which has no
+  way to add a config subentry, so the user could set the integration up but
+  never add a virtual tracker. The Integrations page is where the "Add virtual
+  tracker" button (`config_subentries.tracker.initiate_flow.user`) lives, and it
+  lists `device` / `hub` / `service`. Core integrations with subentries
+  (ollama, anthropic, openai_conversation, telegram_bot) are all `service`.
+  Guarded by `tests/test_manifest.py`.
 - **Subentries**: entities are added per subentry with `config_subentry_id`, so
   removing a subentry removes its entities; entity unique IDs are built from
   `subentry_id` (stable across renames), never from the name.

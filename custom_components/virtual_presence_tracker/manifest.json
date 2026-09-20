@@ -4,7 +4,7 @@
   "codeowners": ["@dabo53ck"],
   "config_flow": true,
   "documentation": "https://github.com/dabo53ck/virtual-presence-tracker-ha",
-  "integration_type": "helper",
+  "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/dabo53ck/virtual-presence-tracker-ha/issues",
   "loggers": ["custom_components.virtual_presence_tracker"],
