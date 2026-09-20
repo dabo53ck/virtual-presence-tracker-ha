@@ -83,7 +83,7 @@ restore its last state immediately; cover with a test in M1.
    and leaves a valid entry; the `no_tracker` issue then names the path to the
    button.
 
-## Event & service contract (M2a, frozen; grown in M2b)
+## Event & service contract (M2a, frozen; grown in M2b and M2d)
 
 Everything in this section is a **public API**. Automations, scripts and
 blueprints are written against it, and changing a name or a key breaks them
@@ -129,10 +129,12 @@ Event data, all values strings (times ISO-8601 in UTC) or `null`:
 | `answered_by` | `answered_yes`, `answered_no` | `person` entity ID or `null` |
 | `reason` | `cancelled` | `person_home`, `switched_on`, `option_disabled` |
 
-### Service
+### Services
 
-`virtual_presence_tracker.answer_prompt`, an **entity service** on the
-integration's `switch` entities (target the switch or its device).
+Both are **entity services** on the integration's `switch` entities (target the
+switch or its device).
+
+`virtual_presence_tracker.answer_prompt`:
 
 | Field | Required | Value |
 |---|---|---|
@@ -142,10 +144,31 @@ integration's `switch` entities (target the switch or its device).
 Targeting a tracker without an open prompt raises a `ServiceValidationError`
 with the translation key `no_open_prompt`.
 
+`virtual_presence_tracker.open_prompt` (M2d), **no fields**: opens the prompt of
+the tracker right now, with the tracker's configured answer timeout - so the
+prompt can be tried out or triggered by an automation without a real departure.
+Everything after the opening is the usual prompt: the `prompt_started` event,
+the switch attributes, the built-in delivery, the answers, the expiry, the
+expiry notice and the cancellations (`switched_on` when the tracker is switched
+on, `person_home` when a real person arrives while none was home).
+
+It deliberately ignores whether real persons are home, the tracker's
+`ask_on_departure` option - that option governs the *automatic* opening only -
+and `prompt_delay`: "now" means now. A prompt that is still waiting for its
+delay is taken over instead of duplicated: it opens at once with the **same
+`prompt_id`**, and its timer is dropped, so the event stream stays one chain.
+
+Two conditions are left, both checked before anything changes, so a refusal
+leaves no trace: a tracker that is already on raises `tracker_already_home`, a
+tracker that already has an open prompt raises `prompt_already_open` (both
+`ServiceValidationError`).
+
 ### Built-in delivery through the Companion App (M2b)
 
-Active for a tracker when `ask_on_departure` is on **and** `notify_persons` is
-not empty. An empty selection means no built-in push at all: the integration
+Active for a tracker whenever a prompt of it opens and `notify_persons` is not
+empty - for the automatic opening that means `ask_on_departure` has to be on,
+for `open_prompt` (M2d) the option does not matter, because the prompt is open
+either way. An empty selection means no built-in push at all: the integration
 then behaves exactly as in M2a, so an automation of the user's own stays the
 only delivery. Recipients are looked up at send time and never cached.
 
@@ -217,6 +240,12 @@ answered_yes / answered_no / expired / cancelled -> idle.
   `prompt_delay` > 0 the opening is delayed and **all** conditions are checked
   again when the delay is over; with delay `0` the prompt opens straight away,
   inside the state change that caused it.
+- **Opened by hand** (M2d, `open_prompt`): the same open state, reached without
+  any of those conditions - only "the tracker is off" and "no prompt is open"
+  still hold. Such a prompt is marked `manual` in the store and therefore
+  survives the catch-up cancellations of a restart (see below); while it is
+  open it ends exactly like any other prompt. The mark is internal: no event
+  carries it, and nothing but the resume looks at it.
 - **`answer_prompt` yes** sets the tracker home and emits `answered_yes`,
   **no** emits `answered_no` and changes nothing, the **timeout** emits
   `expired` and changes nothing. In all three cases the house counts as empty
@@ -321,7 +350,17 @@ answered_yes / answered_no / expired / cancelled -> idle.
 - **Store version stays 1** although the payload grew a `prompts` key: an older
   store simply does not have it, which reads as "no prompt was open" - exactly
   what a fresh install looks like. There is nothing to convert, so
-  `async_migrate_func` would have nothing to do.
+  `async_migrate_func` would have nothing to do. The `manual` flag of a prompt
+  (M2d) is optional for the same reason: a prompt written without it reads as
+  "nobody opened this by hand", which is what every prompt before M2d was.
+- **Resuming a manual prompt** (M2d): `async_resume_prompts()` skips *both* of
+  its cancellations for a prompt that was opened by hand. Neither reason
+  applies to it - it was never opened because the option was on, and never
+  because the house was empty - so taking it back at the next reload would
+  silently undo what the user or an automation just asked for. The deadline is
+  the one rule that still holds, expired-while-down included. A real person who
+  comes home *while* the manual prompt is open still cancels it: that is the
+  question being answered by events, not a catch-up.
 - **The answer is an entity service on the `switch`** (`platform.async_register_
   entity_service()` from `switch.py`, as core does in `pi_hole`), not a domain
   service taking a tracker name: the switch is the entity the prompt is about,
@@ -502,6 +541,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M2a** (done) | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events; the contract is frozen above. |
 | **M2b** (done) | Built-in delivery: actionable `mobile_app` notification to the real persons chosen per tracker, person → phone mapping derived from the `mobile_app` entries at send time, answers from the notification buttons, clearing on every ending, optional expiry notice, `recipient_without_phone` repair issue. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone): the prompt opens at once, the push arrives, a tapped button answers it, `answered_by` is the person behind the phone's user, "No" changes nothing. |
 | **M2c** (done) | The message carries the integration's own icon as its picture (`data.image`, the brand icon served under `/api/brands`), on the prompt and on the expiry notice. Not live-tested yet. |
+| **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Not live-tested yet. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -618,4 +658,6 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
 
 Still open: the live test of M2c - whether the icon really shows up on the
 phone, which is the one thing the code cannot prove (see the technical note on
-the type hint iOS derives from the `image` key). Nothing blocks M3.
+the type hint iOS derives from the `image` key) - and the live test of M2d,
+which is now the easiest of all: `open_prompt` on the tracker's switch from
+Developer Tools, without anybody having to leave the house. Nothing blocks M3.

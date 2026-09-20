@@ -64,7 +64,9 @@ the integration only knows what you, an automation, or an answered prompt tell i
   sent to the phones of the people you pick as a **notification with Yes and No
   buttons**. Every prompt is also announced by an **event entity** and can be
   answered with the action **Answer prompt**, so any other channel — a speaker,
-  a dashboard, Telegram — can carry the question instead.
+  a dashboard, Telegram — can carry the question instead. The action **Open
+  prompt** asks the question on demand, which is also how you try the whole
+  chain out without leaving the house.
 
 ## What it does not do
 
@@ -337,6 +339,51 @@ Target the tracker's **switch** (or its device). If that tracker has no open
 prompt, the action fails with "there is no open prompt" — an answer that arrives
 too late does not switch anything on by accident.
 
+### The open action
+
+```yaml
+action: virtual_presence_tracker.open_prompt
+target:
+  entity_id: switch.kid_at_home
+```
+
+Opens the prompt of that tracker **right now**, without waiting for anybody to
+leave. It has no options: the tracker's own **Time to answer** applies, the
+question goes to the phones under **Who is asked?**, the event entity announces
+it, and every way of ending it works as usual.
+
+It ignores everything that decides whether to ask *by itself*: who is at home,
+the **Ask when the house becomes empty** option — a tracker with the option off
+can still be asked about this way — and **Delay before asking**, because "now"
+means now. If a prompt of that tracker was still waiting for its delay, it opens
+immediately instead, as that same prompt.
+
+Two cases it refuses, without changing anything: the tracker is **already
+switched on** (there is nobody to ask about), or a prompt for it is **already
+open**.
+
+One thing to keep in mind when you call it from an automation: the message
+always says *"Nobody else is home."* That is the sentence the prompt was written
+for, and opening the prompt yourself does not check it. Make your automation's
+own conditions the thing that makes it true.
+
+### Try the prompt without leaving the house
+
+Trying the prompt out used to mean actually walking out of the zone. It does
+not any more:
+
+1. **Developer tools → Actions**.
+2. Pick **Virtual Presence Tracker: Open prompt**.
+3. Choose the tracker's switch (`switch.kid_at_home`) as the target and press
+   **Perform action**.
+
+The question appears on the phones of everybody under **Who is asked?**,
+`event.kid_prompt` fires `prompt_started`, and the switch gets `prompt_open:
+true`. Answer on the phone, answer with **Answer prompt**, switch the tracker on
+or let the time run out — all of it behaves exactly as it does after a real
+departure. Set **Time to answer** to a minute while you are testing if you do
+not want to wait ten.
+
 ### Example: ask somewhere else
 
 You do not need this to ask a phone — that is what **Who is asked?** does. It is
@@ -425,6 +472,10 @@ integration. When it comes back:
   (`cancelled`, reason `person_home`);
 - if its time ran out while Home Assistant was off, it reports `expired`;
 - otherwise it simply continues with the time it has left and says nothing new.
+
+A prompt you opened yourself with **Open prompt** is an exception to the first
+case: it was never about an empty house, so neither a person being at home nor
+the option being off withdraws it after a restart. It still expires on time.
 
 A prompt that was still waiting for its **Delay before asking** is forgotten
 instead: it had not been announced yet, so there is nothing to take back. Changing
