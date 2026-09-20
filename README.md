@@ -1,4 +1,9 @@
-# Virtual Presence Tracker
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="custom_components/virtual_presence_tracker/brand/dark_logo@2x.png">
+    <img src="custom_components/virtual_presence_tracker/brand/logo@2x.png" alt="Virtual Presence Tracker" width="480">
+  </picture>
+</h1>
 
 **Presence for household members without a phone, with prompts, auto-reset and an
 "only virtual trackers home" sensor.**
