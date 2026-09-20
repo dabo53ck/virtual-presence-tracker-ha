@@ -548,6 +548,15 @@ Confirmed by dabo53ck (2026-09-19):
     home" message when the prompt expires — never on an answer or a
     cancellation.
 
+- **Branding (2026-09-20)**: the mark is a house in Home Assistant blue with a
+  person drawn in dots ("somebody is home, but there is no tracker for them").
+  Assets live in `custom_components/virtual_presence_tracker/brand/` — SVG
+  sources plus PNGs (`icon`, `logo`, `dark_*`, `@2x`) rendered with resvg; Home
+  Assistant 2026.3+ loads them straight from that folder, so no
+  `home-assistant/brands` PR is needed for our floor (2026.6). The logo's
+  subtitle is fitted to exactly the width of the title; regeneration steps are in
+  `brand/README.md`.
+
 Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currently home).
 
 - **Prompt delivery = hybrid ("variant C")**: the integration owns the state
