@@ -391,6 +391,32 @@ async def test_an_answer_of_an_unknown_user_names_nobody(
     assert hass.states.get("event.kid_prompt").attributes["answered_by"] is None
 
 
+async def test_an_answer_without_a_user_names_nobody(hass: HomeAssistant) -> None:
+    """An event without a user behind it still answers, anonymously."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry())
+
+    await empty_the_house(hass)
+    await answer_from_phone(hass, f"VPT_NO_{prompt_id_of(calls[0])}", user_id=None)
+
+    assert entry.runtime_data.manager.prompt_open(TRACKER_A) is False
+    assert hass.states.get("event.kid_prompt").attributes["answered_by"] is None
+
+
+async def test_an_action_without_a_name_is_ignored(hass: HomeAssistant) -> None:
+    """An event whose action is not a string is not an answer."""
+    add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry())
+
+    await empty_the_house(hass)
+    hass.bus.async_fire(EVENT_NOTIFICATION_ACTION, {"action": 42})
+    await settle(hass)
+
+    assert entry.runtime_data.manager.prompt_open(TRACKER_A) is True
+
+    await unload(hass, entry)
+
+
 @pytest.mark.parametrize(
     "action",
     [
