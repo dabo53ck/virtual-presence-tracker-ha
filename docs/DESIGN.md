@@ -546,8 +546,8 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M2a** (done) | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events; the contract is frozen above. |
 | **M2b** (done) | Built-in delivery: actionable `mobile_app` notification to the real persons chosen per tracker, person → phone mapping derived from the `mobile_app` entries at send time, answers from the notification buttons, clearing on every ending, optional expiry notice, `recipient_without_phone` repair issue. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone): the prompt opens at once, the push arrives, a tapped button answers it, `answered_by` is the person behind the phone's user, "No" changes nothing. |
 | **M2c** (done) | The message carries the integration's own icon (the brand icon served under `/api/brands`), on the prompt and on the expiry notice. First built as the picture of the message (`data.image`); the live test on 2026-09-20 showed it, but on the wrong side - see M2e. |
-| **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Not live-tested yet. |
-| **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Not live-tested yet. |
+| **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone and Android tablet): the action opens the prompt, yes, cancelling by switching the tracker on and the expiry with its notice all behave as designed. |
+| **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Live-tested on 2026-09-20 (HA 2026.9.3): the icon replaces the app icon on the iPhone, and the prompt works on an Android tablet. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -667,7 +667,9 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
   picture it sits as a thumbnail on the *right* of the message, while the spot
   that was meant is the app icon on the left. Hence M2e.
 
-Still open: the live test of M2e - whether the prompt really turns into a
-communication notification with our icon as its avatar - and the live test of
-M2d, which is the easiest of all: `open_prompt` on the tracker's switch from
-Developer Tools, without anybody having to leave the house. Nothing blocks M3.
+**Live test of M2d and M2e (2026-09-20, HA 2026.9.3, iPhone and Android
+tablet)**: `open_prompt` on the tracker's switch from Developer Tools opens the
+prompt without anybody having to leave the house; on the iPhone it shows as a
+communication notification with our icon as its avatar on the left, and the
+whole chain (yes, cancelling, expiry with its notice) works on both phones.
+Nothing is open; nothing blocks M3.

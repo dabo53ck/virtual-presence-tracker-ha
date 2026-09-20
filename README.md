@@ -89,9 +89,9 @@ additionally needs the Home Assistant Companion App on the phones you want to as
 the app icon needs **2026.8.0 or newer on iOS**.
 
 **Tested with:** the built-in notification has been tried with the **iOS**
-Companion App, on an iPhone. It only uses keys that the Companion App
-documentation describes for both platforms, so **Android** should behave the same
-way — but it has not been tried yet.
+Companion App on an iPhone and with the **Android** Companion App on a tablet:
+the question arrives, its buttons answer it, and it disappears from the phone
+when it ends.
 
 ## Status
 

@@ -34,7 +34,10 @@ older installs in `migration.py`. M2b was live-tested on 2026-09-20 (HA
 2026.9.3, iPhone): the push arrives, its buttons answer the prompt and
 `answered_by` follows the phone's user. The M2c live test on the same day showed
 the icon, but as a thumbnail on the right of the message — which is what M2e
-fixes. M1f, M1g, M2d and M2e are not live-tested yet. Pushed to the **private** repo
+fixes. M1f and M1g passed their live tests the same day. M2d and M2e were
+live-tested on 2026-09-20 on an iPhone and on an Android tablet: the action opens
+the prompt, the icon replaces the Companion App's own icon, and answering "yes",
+cancelling and the expiry with its notice behave as designed. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.
