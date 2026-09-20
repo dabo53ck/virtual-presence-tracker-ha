@@ -84,6 +84,11 @@ Home Assistant **2026.6.0** or newer. The virtual trackers are built on
 `BaseScannerEntity`, which first shipped with that release. The phone prompt
 additionally needs the Home Assistant Companion App on the phones you want to ask.
 
+**Tested with:** the built-in notification has been tried with the **iOS**
+Companion App, on an iPhone. It only uses keys that the Companion App
+documentation describes for both platforms, so **Android** should behave the same
+way — but it has not been tried yet.
+
 ## Status
 
 **Pre-release / in development.** The trackers, switches, the household sensor,
@@ -266,6 +271,13 @@ counts, the rest is ignored. The same happens when somebody comes home, when you
 switch the tracker on yourself and when the time runs out — the question is never
 left sitting on a phone.
 
+The message carries the integration's own icon as its picture — on iOS as a
+thumbnail that fills the notification when you expand it, on Android as the large
+picture of the expanded notification. The small icon *beside* the notification is
+a different thing: that one is the Home Assistant app's own icon, drawn by the
+Companion App for every notification it shows, and this integration leaves it
+alone.
+
 What it needs:
 
 - the **Home Assistant Companion App** on that person's phone, signed in with
@@ -341,6 +353,7 @@ automation:
     triggers:
       - trigger: state
         entity_id: event.kid_prompt
+        not_from: ["unavailable", "unknown"]
     conditions:
       - condition: template
         value_template: "{{ trigger.to_state.attributes.event_type == 'prompt_started' }}"
@@ -377,6 +390,13 @@ A plain state trigger on the event entity plus a condition on `event_type` works
 on every supported Home Assistant version. Recent versions also offer a dedicated
 **Event received** trigger for event entities in the automation editor, which does
 the same thing in one step.
+
+`not_from` is there because the event entity keeps its last event over a restart
+of Home Assistant and a reload of the integration: it comes back from
+`unavailable`, and with a prompt still open that looks exactly like a fresh
+`prompt_started` to a plain state trigger, so you would be asked a second time.
+The built-in notification is not affected — it follows the prompt itself, not the
+state of the entity.
 
 Buttons in a notification only work through the classic `notify.mobile_app_*`
 actions; the notify *entities* of the companion app carry only a title and a
