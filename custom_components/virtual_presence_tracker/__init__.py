@@ -50,6 +50,10 @@ async def async_setup_entry(
     # being attached to one for the moment it takes to clean up.
     async_remove_legacy_household_device(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # After the platforms, because resuming a prompt can emit an event: the
+    # entity that carries it has to exist by then, or the event is lost.
+    # Forwarding the platforms waits for the entities to be added.
+    manager.async_resume_prompts()
     # After the platforms: the repair issues look the tracker entities up in
     # the entity registry, which only knows them once they are added. Stopping
     # on unload clears the issues of this entry, and setting the entry up again

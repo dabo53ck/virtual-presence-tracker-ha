@@ -1,18 +1,20 @@
 """Household state of the Virtual Presence Tracker integration.
 
-The manager owns the state of every virtual tracker and the presence of the
-configured real persons. It is the single source of truth: the entities of the
-later milestones are thin views on it, so the state survives a restart and is
-already correct before the platforms are set up (see docs/DESIGN.md).
+The manager owns the state of every virtual tracker, the presence of the
+configured real persons and the prompt state machine. It is the single source
+of truth: the entities are thin views on it, so the state survives a restart
+and is already correct before the platforms are set up (see docs/DESIGN.md).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import partial
 import logging
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
+from uuid import uuid4
 
 from homeassistant.const import STATE_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import (
@@ -23,14 +25,33 @@ from homeassistant.core import (
     State,
     callback,
 )
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_ANSWERED_BY,
+    ATTR_EXPIRES_AT,
+    ATTR_PROMPT_ID,
+    ATTR_REASON,
+    ATTR_TRACKER,
+    CONF_ANSWER_TIMEOUT,
+    CONF_ASK_ON_DEPARTURE,
     CONF_PERSONS,
+    CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
+    DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_ASK_ON_DEPARTURE,
+    DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
+    EVENT_ANSWERED_NO,
+    EVENT_ANSWERED_YES,
+    EVENT_CANCELLED,
+    EVENT_EXPIRED,
+    EVENT_PROMPT_STARTED,
+    REASON_OPTION_DISABLED,
+    REASON_PERSON_HOME,
+    REASON_SWITCHED_ON,
     STORAGE_KEY_PREFIX,
     STORAGE_SAVE_DELAY,
     STORAGE_VERSION,
@@ -42,6 +63,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# What a prompt event entity is called with: the event type and its data.
+type PromptListener = Callable[[str, dict[str, Any]], None]
+
 
 class StoredTracker(TypedDict):
     """Persisted state of a single virtual tracker."""
@@ -50,10 +74,24 @@ class StoredTracker(TypedDict):
     since: str | None
 
 
+class StoredPrompt(TypedDict):
+    """Persisted state of an open prompt."""
+
+    prompt_id: str
+    started_at: str
+    expires_at: str
+
+
 class StoredData(TypedDict):
-    """Persisted state of a config entry."""
+    """Persisted state of a config entry.
+
+    ``prompts`` was added in M2a. A store written before that simply does not
+    have the key, which means "no prompt was open" - exactly what a fresh
+    install looks like - so the store version does not have to be raised.
+    """
 
     trackers: dict[str, StoredTracker]
+    prompts: NotRequired[dict[str, StoredPrompt]]
 
 
 @dataclass(slots=True)
@@ -62,6 +100,28 @@ class TrackerState:
 
     home: bool = False
     since: datetime | None = None
+
+
+@dataclass(slots=True)
+class Prompt:
+    """An open prompt of a single virtual tracker."""
+
+    prompt_id: str
+    started_at: datetime
+    expires_at: datetime
+
+
+@dataclass(slots=True)
+class _Scheduled:
+    """A prompt that is waiting for its delay to pass.
+
+    It already carries the ID of the prompt it is going to open, so that a
+    cancellation during the delay can name it. Unlike an open prompt it is not
+    persisted: a restart or a reload simply forgets it.
+    """
+
+    prompt_id: str
+    unsub: CALLBACK_TYPE
 
 
 def _person_is_home(state: State | None) -> bool | None:
@@ -73,6 +133,16 @@ def _person_is_home(state: State | None) -> bool | None:
     if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
         return None
     return state.state == STATE_HOME
+
+
+def _prompt_from_store(stored: StoredPrompt) -> Prompt | None:
+    """Return a persisted prompt, or None if it cannot be read back."""
+    started_at = dt_util.parse_datetime(stored.get("started_at") or "")
+    expires_at = dt_util.parse_datetime(stored.get("expires_at") or "")
+    prompt_id = stored.get("prompt_id")
+    if not prompt_id or started_at is None or expires_at is None:
+        return None
+    return Prompt(prompt_id=prompt_id, started_at=started_at, expires_at=expires_at)
 
 
 class HouseholdManager:
@@ -95,23 +165,37 @@ class HouseholdManager:
         self._listeners: list[Callable[[], None]] = []
         self._tracker_listeners: dict[str, list[Callable[[], None]]] = {}
         self._unsub_persons: CALLBACK_TYPE | None = None
+        # Prompt state machine, per tracker: an open prompt with its expiry
+        # timer, or a prompt that is still waiting for its delay.
+        self._prompts: dict[str, Prompt] = {}
+        self._expiry: dict[str, CALLBACK_TYPE] = {}
+        self._scheduled: dict[str, _Scheduled] = {}
+        self._prompt_listeners: dict[str, list[PromptListener]] = {}
 
     async def async_load(self) -> None:
-        """Load the persisted tracker states.
+        """Load the persisted tracker states and prompts.
 
         Must be awaited before any platform is set up, so that the entities
         report the restored state from their first write on. Trackers whose
-        subentry is gone are pruned.
+        subentry is gone are pruned, and so are their prompts. The prompts are
+        only loaded here; picking them up again is async_resume_prompts(),
+        which needs the entities to exist.
         """
         stored = await self._store.async_load()
         stored_trackers = stored["trackers"] if stored else {}
+        stored_prompts = stored.get("prompts", {}) if stored else {}
         known_ids = [
             subentry.subentry_id
             for subentry in self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
         ]
 
         trackers: dict[str, TrackerState] = {}
+        prompts: dict[str, Prompt] = {}
         for subentry_id in known_ids:
+            if (stored_prompt := stored_prompts.get(subentry_id)) is not None and (
+                prompt := _prompt_from_store(stored_prompt)
+            ) is not None:
+                prompts[subentry_id] = prompt
             if (stored_tracker := stored_trackers.get(subentry_id)) is None:
                 trackers[subentry_id] = TrackerState()
                 continue
@@ -121,8 +205,9 @@ class HouseholdManager:
                 since=dt_util.parse_datetime(since) if since else None,
             )
         self._trackers = trackers
+        self._prompts = prompts
 
-        if stored_trackers.keys() - set(known_ids):
+        if (stored_trackers.keys() | stored_prompts.keys()) - set(known_ids):
             self._async_schedule_save()
 
     @callback
@@ -146,11 +231,45 @@ class HouseholdManager:
             self.hass, persons, self._async_person_changed
         )
 
+    @callback
+    def async_resume_prompts(self) -> None:
+        """Pick the prompts up again that a restart or a reload interrupted.
+
+        Must run *after* the platforms are set up: the catch-up can emit an
+        ``expired`` or a ``cancelled`` event, and an event entity that does not
+        exist yet would silently swallow it.
+        """
+        now = dt_util.utcnow()
+        for subentry_id, prompt in list(self._prompts.items()):
+            if not self._ask_on_departure(subentry_id):
+                # The option can only have changed through the subentry flow,
+                # which reloads the entry - this is where that is noticed.
+                self._async_cancel_prompt(subentry_id, REASON_OPTION_DISABLED)
+            elif self.real_home:
+                self._async_cancel_prompt(subentry_id, REASON_PERSON_HOME)
+            elif prompt.expires_at <= now:
+                self._async_end_prompt(subentry_id)
+                self._async_fire(subentry_id, prompt.prompt_id, EVENT_EXPIRED)
+            else:
+                # Still open: it keeps the time it has left and says nothing.
+                self._async_start_expiry(subentry_id, prompt, now)
+
     async def async_stop(self) -> None:
-        """Unsubscribe and write the current state to disk."""
+        """Unsubscribe, drop every timer and write the current state to disk.
+
+        Open prompts are kept: they are persisted and resumed by the next
+        manager. Prompts that are still waiting for their delay are not - they
+        were never announced, so nothing has to be taken back.
+        """
         if self._unsub_persons is not None:
             self._unsub_persons()
             self._unsub_persons = None
+        for unsub in self._expiry.values():
+            unsub()
+        self._expiry.clear()
+        for scheduled in self._scheduled.values():
+            scheduled.unsub()
+        self._scheduled.clear()
         await self._store.async_save(self._data_to_store())
 
     @property
@@ -187,11 +306,68 @@ class HouseholdManager:
             tracker.home for tracker in self._trackers.values()
         )
 
+    def prompt_open(self, subentry_id: str) -> bool:
+        """Return whether a virtual tracker has a prompt waiting for an answer."""
+        return subentry_id in self._prompts
+
+    def prompt_expires_at(self, subentry_id: str) -> datetime | None:
+        """Return when the open prompt of a tracker gives up, if there is one."""
+        prompt = self._prompts.get(subentry_id)
+        return prompt.expires_at if prompt is not None else None
+
     @callback
     def async_set_home(self, subentry_id: str, home: bool) -> None:
-        """Set a virtual tracker home or away."""
+        """Set a virtual tracker home or away.
+
+        Switching a tracker on answers the question the prompt asks, so a
+        prompt that is open or on its way is cancelled rather than left to
+        expire. The answer service ends its prompt before it gets here, so
+        answering "yes" does not also report a cancellation.
+        """
+        if home:
+            self._async_cancel_prompt(subentry_id, REASON_SWITCHED_ON)
         if self._async_set_tracker(subentry_id, home):
             self._async_notify(self._listeners)
+
+    @callback
+    def async_answer_prompt(
+        self, subentry_id: str, answer: bool, answered_by: str | None = None
+    ) -> bool:
+        """Answer the open prompt of a tracker, if it has one.
+
+        Returns whether there was a prompt to answer. "Yes" sets the tracker
+        home, "no" changes nothing at all: the house then counts as empty.
+        """
+        prompt = self._prompts.get(subentry_id)
+        if prompt is None:
+            return False
+        self._async_end_prompt(subentry_id)
+        if answer:
+            self.async_set_home(subentry_id, True)
+        self._async_fire(
+            subentry_id,
+            prompt.prompt_id,
+            EVENT_ANSWERED_YES if answer else EVENT_ANSWERED_NO,
+            {ATTR_ANSWERED_BY: answered_by},
+        )
+        return True
+
+    @callback
+    def async_add_prompt_listener(
+        self, subentry_id: str, prompt_listener: PromptListener
+    ) -> CALLBACK_TYPE:
+        """Listen for the prompt events of one virtual tracker."""
+        listeners = self._prompt_listeners.setdefault(subentry_id, [])
+        listeners.append(prompt_listener)
+
+        @callback
+        def remove_listener() -> None:
+            """Remove the listener again."""
+            listeners.remove(prompt_listener)
+            if not listeners:
+                self._prompt_listeners.pop(subentry_id, None)
+
+        return remove_listener
 
     @callback
     def async_add_listener(
@@ -243,10 +419,171 @@ class HouseholdManager:
         # person was known to be away before: a first known state (HA start,
         # recovery from unknown) never counts.
         resets = home and was_known and self.real_persons_home == 0
+        # Cancelling is less picky than resetting: whoever is at home answers
+        # the question the prompt asks, even if they were never known to be
+        # away - which is what a person becoming known after a restart is.
+        cancels = home and self.real_persons_home == 0
+        # The prompt is the mirror image: the last known person leaves.
+        departs = not home and was_known and self.real_persons_home == 1
         self._person_home[entity_id] = home
+        if cancels:
+            for subentry_id in list(self._prompts):
+                self._async_cancel_prompt(subentry_id, REASON_PERSON_HOME)
         if resets:
             self._async_reset_trackers()
+        if departs:
+            self._async_ask_the_trackers()
         self._async_notify(self._listeners)
+
+    @callback
+    def _async_ask_the_trackers(self) -> None:
+        """Open or schedule a prompt for every tracker that wants one."""
+        for subentry_id in list(self._trackers):
+            if subentry_id in self._scheduled or not self._async_may_ask(subentry_id):
+                continue
+            # The ID is drawn now, not when the prompt opens, so that a
+            # cancellation during the delay can name the prompt it stops.
+            prompt_id = uuid4().hex
+            if (delay := self._prompt_delay(subentry_id)) <= 0:
+                self._async_open_prompt(subentry_id, prompt_id)
+                continue
+            self._scheduled[subentry_id] = _Scheduled(
+                prompt_id,
+                async_call_later(
+                    self.hass,
+                    delay,
+                    partial(self._async_open_prompt, subentry_id, prompt_id),
+                ),
+            )
+
+    @callback
+    def _async_may_ask(self, subentry_id: str) -> bool:
+        """Return whether a tracker can be asked about right now."""
+        return (
+            self._ask_on_departure(subentry_id)
+            and not self.is_home(subentry_id)
+            and self.real_persons_home == 0
+            and subentry_id not in self._prompts
+        )
+
+    @callback
+    def _async_open_prompt(
+        self, subentry_id: str, prompt_id: str, _now: datetime | None = None
+    ) -> None:
+        """Open a prompt, unless the reason for it has gone away meanwhile.
+
+        Everything is checked again: the delay can be minutes, and in that time
+        somebody may have come home.
+        """
+        self._scheduled.pop(subentry_id, None)
+        if not self._async_may_ask(subentry_id):
+            _LOGGER.debug("Not asking about tracker %s after all", subentry_id)
+            return
+
+        now = dt_util.utcnow()
+        prompt = Prompt(
+            prompt_id=prompt_id,
+            started_at=now,
+            expires_at=now + timedelta(minutes=self._answer_timeout(subentry_id)),
+        )
+        self._prompts[subentry_id] = prompt
+        self._async_schedule_save()
+        self._async_start_expiry(subentry_id, prompt, now)
+        self._async_notify(self._tracker_listeners.get(subentry_id, []))
+        self._async_fire(
+            subentry_id,
+            prompt_id,
+            EVENT_PROMPT_STARTED,
+            {ATTR_EXPIRES_AT: prompt.expires_at.isoformat()},
+        )
+
+    @callback
+    def _async_start_expiry(
+        self, subentry_id: str, prompt: Prompt, now: datetime
+    ) -> None:
+        """Let a prompt give up when its time is up."""
+        self._expiry[subentry_id] = async_call_later(
+            self.hass,
+            max((prompt.expires_at - now).total_seconds(), 0),
+            partial(self._async_prompt_expired, subentry_id, prompt.prompt_id),
+        )
+
+    @callback
+    def _async_prompt_expired(
+        self, subentry_id: str, prompt_id: str, _now: datetime
+    ) -> None:
+        """Give up on a prompt nobody answered. Nothing else changes."""
+        prompt = self._prompts.get(subentry_id)
+        if prompt is None or prompt.prompt_id != prompt_id:
+            return
+        self._async_end_prompt(subentry_id)
+        self._async_fire(subentry_id, prompt_id, EVENT_EXPIRED)
+
+    @callback
+    def _async_cancel_prompt(self, subentry_id: str, reason: str) -> None:
+        """Take a prompt back, whether it is open or still waiting."""
+        prompt_id: str | None = None
+        if (scheduled := self._scheduled.pop(subentry_id, None)) is not None:
+            scheduled.unsub()
+            prompt_id = scheduled.prompt_id
+        if (prompt := self._async_end_prompt(subentry_id)) is not None:
+            prompt_id = prompt.prompt_id
+        if prompt_id is not None:
+            self._async_fire(
+                subentry_id, prompt_id, EVENT_CANCELLED, {ATTR_REASON: reason}
+            )
+
+    @callback
+    def _async_end_prompt(self, subentry_id: str) -> Prompt | None:
+        """Close an open prompt and return it, without saying why."""
+        if (unsub := self._expiry.pop(subentry_id, None)) is not None:
+            unsub()
+        prompt = self._prompts.pop(subentry_id, None)
+        if prompt is not None:
+            self._async_schedule_save()
+            self._async_notify(self._tracker_listeners.get(subentry_id, []))
+        return prompt
+
+    @callback
+    def _async_fire(
+        self,
+        subentry_id: str,
+        prompt_id: str,
+        event_type: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        """Announce a prompt event through the tracker's event entity."""
+        subentry = self.entry.subentries.get(subentry_id)
+        event_data = {
+            ATTR_PROMPT_ID: prompt_id,
+            ATTR_TRACKER: subentry.title if subentry is not None else "",
+            **(data or {}),
+        }
+        for prompt_listener in list(self._prompt_listeners.get(subentry_id, [])):
+            prompt_listener(event_type, event_data)
+
+    def _option(self, subentry_id: str, key: str, default: Any) -> Any:
+        """Return one option of a tracker, or its default."""
+        subentry = self.entry.subentries.get(subentry_id)
+        if subentry is None:
+            return default
+        return subentry.data.get(key, default)
+
+    def _ask_on_departure(self, subentry_id: str) -> bool:
+        """Return whether a tracker asks when the house becomes empty."""
+        return bool(
+            self._option(subentry_id, CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE)
+        )
+
+    def _answer_timeout(self, subentry_id: str) -> int:
+        """Return how many minutes a prompt of a tracker stays open."""
+        return int(
+            self._option(subentry_id, CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT)
+        )
+
+    def _prompt_delay(self, subentry_id: str) -> int:
+        """Return how many seconds a tracker waits before it asks."""
+        return int(self._option(subentry_id, CONF_PROMPT_DELAY, DEFAULT_PROMPT_DELAY))
 
     @callback
     def _async_reset_trackers(self) -> None:
@@ -283,5 +620,13 @@ class HouseholdManager:
                     "since": tracker.since.isoformat() if tracker.since else None,
                 }
                 for subentry_id, tracker in self._trackers.items()
-            }
+            },
+            "prompts": {
+                subentry_id: {
+                    "prompt_id": prompt.prompt_id,
+                    "started_at": prompt.started_at.isoformat(),
+                    "expires_at": prompt.expires_at.isoformat(),
+                }
+                for subentry_id, prompt in self._prompts.items()
+            },
         }
