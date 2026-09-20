@@ -20,3 +20,9 @@ answer_prompt:
         entity:
           filter:
             - domain: person
+
+open_prompt:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch

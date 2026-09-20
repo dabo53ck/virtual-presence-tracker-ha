@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import StrEnum
 from functools import partial
 import logging
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
@@ -67,6 +68,18 @@ _LOGGER = logging.getLogger(__name__)
 type PromptListener = Callable[[str, dict[str, Any]], None]
 
 
+class OpenPromptResult(StrEnum):
+    """What came of the attempt to open a prompt by hand.
+
+    The manager says what it found; turning a refusal into an error message is
+    the caller's business, so that nothing of the service layer leaks in here.
+    """
+
+    OPENED = "opened"
+    TRACKER_AT_HOME = "tracker_at_home"
+    PROMPT_OPEN = "prompt_open"
+
+
 class StoredTracker(TypedDict):
     """Persisted state of a single virtual tracker."""
 
@@ -75,11 +88,17 @@ class StoredTracker(TypedDict):
 
 
 class StoredPrompt(TypedDict):
-    """Persisted state of an open prompt."""
+    """Persisted state of an open prompt.
+
+    ``manual`` was added in M2d and is optional for the same reason the whole
+    ``prompts`` key is: a prompt written before it simply was not opened by
+    hand.
+    """
 
     prompt_id: str
     started_at: str
     expires_at: str
+    manual: NotRequired[bool]
 
 
 class StoredData(TypedDict):
@@ -104,11 +123,17 @@ class TrackerState:
 
 @dataclass(slots=True)
 class Prompt:
-    """An open prompt of a single virtual tracker."""
+    """An open prompt of a single virtual tracker.
+
+    ``manual`` marks a prompt somebody opened themselves. It never depended on
+    the tracker's option or on an empty house, so neither of them takes it back
+    when a restart picks it up again.
+    """
 
     prompt_id: str
     started_at: datetime
     expires_at: datetime
+    manual: bool = False
 
 
 @dataclass(slots=True)
@@ -142,7 +167,12 @@ def _prompt_from_store(stored: StoredPrompt) -> Prompt | None:
     prompt_id = stored.get("prompt_id")
     if not prompt_id or started_at is None or expires_at is None:
         return None
-    return Prompt(prompt_id=prompt_id, started_at=started_at, expires_at=expires_at)
+    return Prompt(
+        prompt_id=prompt_id,
+        started_at=started_at,
+        expires_at=expires_at,
+        manual=bool(stored.get("manual")),
+    )
 
 
 class HouseholdManager:
@@ -238,14 +268,18 @@ class HouseholdManager:
         Must run *after* the platforms are set up: the catch-up can emit an
         ``expired`` or a ``cancelled`` event, and an event entity that does not
         exist yet would silently swallow it.
+
+        A prompt that was opened by hand skips both catch-up cancellations: it
+        was never about the option or about an empty house, so neither can have
+        gone away. Its deadline is the one thing that still applies to it.
         """
         now = dt_util.utcnow()
         for subentry_id, prompt in list(self._prompts.items()):
-            if not self._ask_on_departure(subentry_id):
+            if not prompt.manual and not self._ask_on_departure(subentry_id):
                 # The option can only have changed through the subentry flow,
                 # which reloads the entry - this is where that is noticed.
                 self._async_cancel_prompt(subentry_id, REASON_OPTION_DISABLED)
-            elif self.real_home:
+            elif not prompt.manual and self.real_home:
                 self._async_cancel_prompt(subentry_id, REASON_PERSON_HOME)
             elif prompt.expires_at <= now:
                 self._async_end_prompt(subentry_id)
@@ -340,6 +374,35 @@ class HouseholdManager:
             self._async_cancel_prompt(subentry_id, REASON_SWITCHED_ON)
         if self._async_set_tracker(subentry_id, home):
             self._async_notify(self._listeners)
+
+    @callback
+    def async_open_prompt(self, subentry_id: str) -> OpenPromptResult:
+        """Open the prompt of a tracker right now, because somebody asked for it.
+
+        The manual counterpart of the automatic opening, for a test run or for
+        an automation that knows better than the departure rule. It ignores
+        everything that decides *whether* to ask - the option, the real
+        persons, the delay - because the caller has decided that already.
+
+        What it does not ignore is the tracker: nobody has to be asked about
+        somebody who is at home, and a tracker is never asked about twice at
+        once. Both are checked before anything changes, so a refusal leaves no
+        trace at all. Everything after the opening is the usual prompt.
+        """
+        if self.is_home(subentry_id):
+            return OpenPromptResult.TRACKER_AT_HOME
+        if subentry_id in self._prompts:
+            return OpenPromptResult.PROMPT_OPEN
+
+        prompt_id = uuid4().hex
+        if (scheduled := self._scheduled.pop(subentry_id, None)) is not None:
+            # A prompt that is still waiting for its delay is not a second
+            # prompt: it becomes this one, ID and all, so that the events stay
+            # one chain and the delayed timer has nothing left to open.
+            scheduled.unsub()
+            prompt_id = scheduled.prompt_id
+        self._async_start_prompt(subentry_id, prompt_id, manual=True)
+        return OpenPromptResult.OPENED
 
     @callback
     def async_answer_prompt(
@@ -473,10 +536,18 @@ class HouseholdManager:
         """Return whether a tracker can be asked about right now."""
         return (
             self._ask_on_departure(subentry_id)
-            and not self.is_home(subentry_id)
             and self.real_persons_home == 0
-            and subentry_id not in self._prompts
+            and self._worth_asking(subentry_id)
         )
+
+    @callback
+    def _worth_asking(self, subentry_id: str) -> bool:
+        """Return whether a prompt about a tracker makes sense at all.
+
+        The two conditions that hold whoever asks: somebody who is at home is
+        not asked about, and a tracker is only asked about once at a time.
+        """
+        return not self.is_home(subentry_id) and subentry_id not in self._prompts
 
     @callback
     def _async_open_prompt(
@@ -491,12 +562,19 @@ class HouseholdManager:
         if not self._async_may_ask(subentry_id):
             _LOGGER.debug("Not asking about tracker %s after all", subentry_id)
             return
+        self._async_start_prompt(subentry_id, prompt_id)
 
+    @callback
+    def _async_start_prompt(
+        self, subentry_id: str, prompt_id: str, manual: bool = False
+    ) -> None:
+        """Open a prompt about a tracker and announce it. Asks nothing first."""
         now = dt_util.utcnow()
         prompt = Prompt(
             prompt_id=prompt_id,
             started_at=now,
             expires_at=now + timedelta(minutes=self._answer_timeout(subentry_id)),
+            manual=manual,
         )
         self._prompts[subentry_id] = prompt
         self._async_schedule_save()
@@ -638,6 +716,7 @@ class HouseholdManager:
                     "prompt_id": prompt.prompt_id,
                     "started_at": prompt.started_at.isoformat(),
                     "expires_at": prompt.expires_at.isoformat(),
+                    "manual": prompt.manual,
                 }
                 for subentry_id, prompt in self._prompts.items()
             },

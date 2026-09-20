@@ -125,6 +125,12 @@
   "exceptions": {
     "no_open_prompt": {
       "message": "Für {entity_id} ist keine Rückfrage offen, es gibt also nichts zu beantworten."
+    },
+    "prompt_already_open": {
+      "message": "Für {entity_id} ist bereits eine Rückfrage offen, es gibt also nichts erneut zu fragen."
+    },
+    "tracker_already_home": {
+      "message": "{entity_id} ist bereits eingeschaltet, es gibt also niemanden, nach dem zu fragen wäre."
     }
   },
   "issues": {
@@ -171,6 +177,10 @@
           "description": "Die Person, die geantwortet hat. Wird nur an die Event-Entität des Trackers weitergereicht, für Automationen, die wissen wollen, wer geantwortet hat."
         }
       }
+    },
+    "open_prompt": {
+      "name": "Rückfrage öffnen",
+      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, die Option „Fragen, wenn das Haus leer wird“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }

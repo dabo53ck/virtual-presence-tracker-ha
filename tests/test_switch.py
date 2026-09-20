@@ -20,7 +20,9 @@ from custom_components.virtual_presence_tracker.const import (
     DOMAIN,
     EVENT_ANSWERED_NO,
     EVENT_ANSWERED_YES,
+    EVENT_PROMPT_STARTED,
     SERVICE_ANSWER_PROMPT,
+    SERVICE_OPEN_PROMPT,
 )
 from homeassistant.components.event import ATTR_EVENT_TYPE
 from homeassistant.components.switch import (
@@ -79,6 +81,14 @@ async def answer(hass: HomeAssistant, entity_id: str, **data: Any) -> None:
         SERVICE_ANSWER_PROMPT,
         {ATTR_ENTITY_ID: entity_id, **data},
         blocking=True,
+    )
+    await hass.async_block_till_done()
+
+
+async def open_prompt(hass: HomeAssistant, entity_id: str) -> None:
+    """Call the open action on one switch."""
+    await hass.services.async_call(
+        DOMAIN, SERVICE_OPEN_PROMPT, {ATTR_ENTITY_ID: entity_id}, blocking=True
     )
     await hass.async_block_till_done()
 
@@ -257,6 +267,58 @@ async def test_answering_a_tracker_that_was_not_asked(
     assert asking_entry.runtime_data.manager.prompt_open(TRACKER_A) is True
 
     await answer(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+
+async def test_opening_the_prompt_from_the_action(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """The action opens the prompt of a tracker that would never ask by itself."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    await setup_entry(hass, tracker_entry)
+
+    await open_prompt(hass, SWITCH_A)
+
+    state = hass.states.get(SWITCH_A)
+    assert state.state == STATE_OFF
+    assert state.attributes[ATTR_PROMPT_OPEN] is True
+    expires_at = tracker_entry.runtime_data.manager.prompt_expires_at(TRACKER_A)
+    assert state.attributes[ATTR_PROMPT_EXPIRES_AT] == expires_at.isoformat()
+    assert hass.states.get(EVENT_A).attributes[ATTR_EVENT_TYPE] == EVENT_PROMPT_STARTED
+    # The other tracker is not asked about.
+    assert hass.states.get(SWITCH_B).attributes[ATTR_PROMPT_OPEN] is False
+
+    await answer(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+
+async def test_opening_a_prompt_that_is_already_open(
+    hass: HomeAssistant, asking_entry: MockConfigEntry
+) -> None:
+    """A tracker that is already being asked about is not asked about twice."""
+    await ask(hass, asking_entry)
+    expires_at = hass.states.get(SWITCH_A).attributes[ATTR_PROMPT_EXPIRES_AT]
+
+    with pytest.raises(ServiceValidationError) as err:
+        await open_prompt(hass, SWITCH_A)
+
+    assert err.value.translation_key == "prompt_already_open"
+    assert hass.states.get(SWITCH_A).attributes[ATTR_PROMPT_EXPIRES_AT] == expires_at
+
+    await answer(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+
+async def test_opening_a_prompt_for_a_tracker_at_home(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """Somebody who is at home is not asked about at all."""
+    await setup_entry(hass, tracker_entry)
+    await call_switch(hass, SERVICE_TURN_ON, SWITCH_A)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await open_prompt(hass, SWITCH_A)
+
+    assert err.value.translation_key == "tracker_already_home"
+    assert hass.states.get(SWITCH_A).state == STATE_ON
+    assert hass.states.get(SWITCH_A).attributes[ATTR_PROMPT_OPEN] is False
 
 
 async def test_the_answer_only_reaches_our_switches(

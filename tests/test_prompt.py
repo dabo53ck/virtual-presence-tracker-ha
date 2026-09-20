@@ -36,7 +36,10 @@ from custom_components.virtual_presence_tracker.const import (
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
 )
-from custom_components.virtual_presence_tracker.manager import HouseholdManager
+from custom_components.virtual_presence_tracker.manager import (
+    HouseholdManager,
+    OpenPromptResult,
+)
 from homeassistant.const import STATE_HOME, STATE_NOT_HOME, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
@@ -283,6 +286,169 @@ async def test_the_delay_is_rechecked(
 
     assert events.types == []
     assert manager.prompt_open(TRACKER_A) is False
+
+
+async def test_opening_a_prompt_by_hand(hass: HomeAssistant) -> None:
+    """Asked for it, the prompt opens on the spot and behaves like any other."""
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    manager = await start_manager(
+        hass,
+        make_entry(
+            make_subentry(TRACKER_A, "Kid", **ASKING, **{CONF_ANSWER_TIMEOUT: 5})
+        ),
+    )
+    events = Recorder(manager, TRACKER_A)
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.OPENED
+
+    data = events.only(EVENT_PROMPT_STARTED)
+    assert data[ATTR_TRACKER] == "Kid"
+    expires_at = manager.prompt_expires_at(TRACKER_A)
+    assert data[ATTR_EXPIRES_AT] == expires_at.isoformat()
+    # It is the tracker's own answer time, not one of its own.
+    assert expires_at - dt_util.utcnow() <= timedelta(minutes=5)
+    assert manager.prompt_open(TRACKER_A) is True
+    assert manager.is_home(TRACKER_A) is False
+
+    await manager.async_stop()
+
+
+async def test_opening_by_hand_ignores_the_option(hass: HomeAssistant) -> None:
+    """The option governs the automatic asking, not the asking by hand."""
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+    events = Recorder(manager, TRACKER_A)
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.OPENED
+
+    assert events.types == [EVENT_PROMPT_STARTED]
+    assert manager.prompt_open(TRACKER_A) is True
+
+    await manager.async_stop()
+
+
+async def test_opening_by_hand_ignores_a_real_person_at_home(
+    hass: HomeAssistant,
+) -> None:
+    """Somebody can be asked about while the house is anything but empty."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(hass, make_entry())
+    events = Recorder(manager, TRACKER_A)
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.OPENED
+
+    assert events.types == [EVENT_PROMPT_STARTED]
+    assert manager.real_home is True
+
+    await manager.async_stop()
+
+
+async def test_opening_by_hand_takes_over_a_scheduled_prompt(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """Asking now means now, and the prompt that was waiting becomes this one."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(
+        hass,
+        make_entry(
+            make_subentry(TRACKER_A, "Kid", **ASKING, **{CONF_PROMPT_DELAY: 60})
+        ),
+    )
+    events = Recorder(manager, TRACKER_A)
+
+    await leave(hass, PERSON_A)
+    assert events.types == []
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.OPENED
+    prompt_id = events.only(EVENT_PROMPT_STARTED)[ATTR_PROMPT_ID]
+
+    # The delayed timer has nothing left to open: same prompt, one event.
+    await tick(hass, freezer, 61)
+
+    assert events.types == [EVENT_PROMPT_STARTED]
+    assert events.events[0][1][ATTR_PROMPT_ID] == prompt_id
+    assert manager.prompt_open(TRACKER_A) is True
+
+    await manager.async_stop()
+
+
+async def test_opening_by_hand_needs_a_tracker_that_is_away(
+    hass: HomeAssistant,
+) -> None:
+    """Nobody is asked about somebody who is already at home."""
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry())
+    manager.async_set_home(TRACKER_A, True)
+    events = Recorder(manager, TRACKER_A)
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.TRACKER_AT_HOME
+
+    assert events.types == []
+    assert manager.prompt_open(TRACKER_A) is False
+
+
+async def test_opening_by_hand_never_asks_twice(hass: HomeAssistant) -> None:
+    """A second attempt leaves the first prompt exactly as it was."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(hass, make_entry())
+    events = Recorder(manager, TRACKER_A)
+
+    manager.async_open_prompt(TRACKER_A)
+    prompt_id = events.only(EVENT_PROMPT_STARTED)[ATTR_PROMPT_ID]
+    expires_at = manager.prompt_expires_at(TRACKER_A)
+
+    assert manager.async_open_prompt(TRACKER_A) is OpenPromptResult.PROMPT_OPEN
+
+    assert events.types == [EVENT_PROMPT_STARTED]
+    assert events.events[0][1][ATTR_PROMPT_ID] == prompt_id
+    assert manager.prompt_expires_at(TRACKER_A) == expires_at
+
+    await manager.async_stop()
+
+
+async def test_a_manual_prompt_is_answered_like_any_other(
+    hass: HomeAssistant,
+) -> None:
+    """Nothing downstream knows how the prompt was opened."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(hass, make_entry())
+    events = Recorder(manager, TRACKER_A)
+
+    manager.async_open_prompt(TRACKER_A)
+
+    assert manager.async_answer_prompt(TRACKER_A, True, PERSON_A) is True
+
+    assert manager.is_home(TRACKER_A) is True
+    assert events.types == [EVENT_PROMPT_STARTED, EVENT_ANSWERED_YES]
+    assert events.events[1][1][ATTR_ANSWERED_BY] == PERSON_A
+
+
+async def test_a_manual_prompt_is_persisted_as_one(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    """A prompt opened by hand is written down as such and read back as such."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    entry = make_entry()
+    manager = await start_manager(hass, entry)
+
+    manager.async_open_prompt(TRACKER_A)
+    await manager.async_stop()
+
+    assert hass_storage[STORE_KEY]["data"]["prompts"][TRACKER_A]["manual"] is True
+
+    restored = HouseholdManager(hass, entry)
+    await restored.async_load()
+    restored.async_start()
+    events = Recorder(restored, TRACKER_A)
+
+    # Somebody is at home, which would take an automatic prompt back.
+    assert restored.real_home is True
+    restored.async_resume_prompts()
+
+    assert events.types == []
+    assert restored.prompt_open(TRACKER_A) is True
+
+    await restored.async_stop()
 
 
 async def test_a_prompt_expires(
@@ -673,6 +839,75 @@ async def test_resume_cancels_when_the_option_was_switched_off(
 
     assert events.types == [EVENT_CANCELLED]
     assert events.events[0][1][ATTR_REASON] == REASON_OPTION_DISABLED
+    assert manager.prompt_open(TRACKER_A) is False
+
+
+@pytest.mark.parametrize("asking", [True, False])
+async def test_resume_keeps_a_manual_prompt(
+    hass: HomeAssistant,
+    hass_storage: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    asking: bool,
+) -> None:
+    """Neither the option nor somebody at home takes a manual prompt back.
+
+    It was never opened because the house was empty, so the reasons that
+    withdraw an automatic prompt after a restart do not apply to it. Its
+    deadline still does.
+    """
+    now = dt_util.utcnow()
+    hass_storage[STORE_KEY] = stored(
+        {TRACKER_A: {"home": False, "since": None}},
+        {
+            TRACKER_A: {
+                "prompt_id": "abc",
+                "started_at": now.isoformat(),
+                "expires_at": (now + timedelta(minutes=10)).isoformat(),
+                "manual": True,
+            }
+        },
+    )
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(
+        hass, make_entry(make_subentry(TRACKER_A, "Kid", **(ASKING if asking else {})))
+    )
+    events = Recorder(manager, TRACKER_A)
+
+    manager.async_resume_prompts()
+
+    assert events.types == []
+    assert manager.prompt_open(TRACKER_A) is True
+
+    await tick(hass, freezer, 11 * 60)
+
+    assert events.types == [EVENT_EXPIRED]
+    assert events.events[0][1][ATTR_PROMPT_ID] == "abc"
+    assert manager.prompt_open(TRACKER_A) is False
+
+
+async def test_a_stored_prompt_without_the_manual_key_is_automatic(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    """A prompt from before the flag existed is treated as an automatic one."""
+    now = dt_util.utcnow()
+    hass_storage[STORE_KEY] = stored(
+        {TRACKER_A: {"home": False, "since": None}},
+        {
+            TRACKER_A: {
+                "prompt_id": "abc",
+                "started_at": now.isoformat(),
+                "expires_at": (now + timedelta(minutes=10)).isoformat(),
+            }
+        },
+    )
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(hass, make_entry())
+    events = Recorder(manager, TRACKER_A)
+
+    manager.async_resume_prompts()
+
+    assert events.types == [EVENT_CANCELLED]
+    assert events.events[0][1][ATTR_REASON] == REASON_PERSON_HOME
     assert manager.prompt_open(TRACKER_A) is False
 
 

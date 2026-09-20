@@ -104,8 +104,9 @@ NOTIFICATION_IMAGE: Final = (
     f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_IMAGE_FILE}"
 )
 
-# Entity service on the switches of this integration.
+# Entity services on the switches of this integration.
 SERVICE_ANSWER_PROMPT: Final = "answer_prompt"
+SERVICE_OPEN_PROMPT: Final = "open_prompt"
 ATTR_ANSWER: Final = "answer"
 ANSWER_YES: Final = "yes"
 ANSWER_NO: Final = "no"

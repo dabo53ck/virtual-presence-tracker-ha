@@ -2,8 +2,8 @@
 
 One switch per virtual tracker. It is the control the user sees: a dashboard
 toggle, an NFC tag or an automation flips it, and the device tracker follows.
-It also carries the answer to the prompt, as an entity service: the switch is
-the entity a prompt is about, so targeting it is targeting the tracker.
+It also carries the two prompt actions, as entity services: the switch is the
+entity a prompt is about, so targeting it is targeting the tracker.
 """
 
 from __future__ import annotations
@@ -31,16 +31,23 @@ from .const import (
     DOMAIN,
     PERSON_DOMAIN,
     SERVICE_ANSWER_PROMPT,
+    SERVICE_OPEN_PROMPT,
     SUBENTRY_TYPE_TRACKER,
 )
 from .entity import VirtualTrackerEntity, tracker_device_info
-from .manager import HouseholdManager
+from .manager import HouseholdManager, OpenPromptResult
 
 PARALLEL_UPDATES = 0
 
 ANSWER_PROMPT_SCHEMA = {
     vol.Required(ATTR_ANSWER): vol.In([ANSWER_YES, ANSWER_NO]),
     vol.Optional(ATTR_ANSWERED_BY): cv.entity_domain(PERSON_DOMAIN),
+}
+
+# Why the manual opening was refused, in the words the user reads.
+OPEN_PROMPT_ERRORS = {
+    OpenPromptResult.TRACKER_AT_HOME: "tracker_already_home",
+    OpenPromptResult.PROMPT_OPEN: "prompt_already_open",
 }
 
 
@@ -58,8 +65,12 @@ async def async_setup_entry(
         )
 
     # Registering twice is a no-op, so a reload does not have to care.
-    entity_platform.async_get_current_platform().async_register_entity_service(
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
         SERVICE_ANSWER_PROMPT, ANSWER_PROMPT_SCHEMA, "async_answer_prompt"
+    )
+    platform.async_register_entity_service(
+        SERVICE_OPEN_PROMPT, None, "async_open_prompt"
     )
 
 
@@ -111,5 +122,15 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="no_open_prompt",
+                translation_placeholders={"entity_id": self.entity_id},
+            )
+
+    async def async_open_prompt(self) -> None:
+        """Open a prompt about this tracker now, without waiting for a departure."""
+        result = self._manager.async_open_prompt(self._subentry_id)
+        if (translation_key := OPEN_PROMPT_ERRORS.get(result)) is not None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key=translation_key,
                 translation_placeholders={"entity_id": self.entity_id},
             )

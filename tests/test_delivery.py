@@ -32,7 +32,8 @@ from custom_components.virtual_presence_tracker.const import (
     SUBENTRY_TYPE_TRACKER,
 )
 from homeassistant.components.brands.const import ALLOWED_IMAGES
-from homeassistant.const import STATE_HOME, STATE_NOT_HOME
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.const import SERVICE_TURN_ON, STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import Context, HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
@@ -523,6 +524,92 @@ async def test_the_service_answer_clears_the_phones(hass: HomeAssistant) -> None
 
     assert entry.runtime_data.manager.prompt_open(TRACKER_A) is False
     assert calls[1].data["data"]["tag"] == f"vpt_{prompt_id}"
+    assert calls[1].data["message"] == "clear_notification"
+
+
+async def open_prompt(hass: HomeAssistant) -> None:
+    """Open the prompt of the tracker by hand and let the message go out."""
+    await hass.services.async_call(
+        DOMAIN, "open_prompt", {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+
+async def test_a_prompt_opened_by_hand_is_sent_to_the_phone(
+    hass: HomeAssistant,
+) -> None:
+    """The question reaches the phones however the prompt was opened.
+
+    Not even for a tracker that never asks by itself: the recipients are what
+    the delivery goes by, and the message is the same message.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, timeout=15))
+
+    await open_prompt(hass)
+
+    assert len(calls) == 1
+    assert calls[0].data["title"] == "Is Kid home alone?"
+    assert calls[0].data["message"] == "Nobody else is home. Answer within 15 minutes."
+    prompt_id = prompt_id_of(calls[0])
+    assert calls[0].data["data"]["actions"] == [
+        {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home"},
+        {"action": f"VPT_NO_{prompt_id}", "title": "No"},
+    ]
+    assert entry.runtime_data.manager.prompt_open(TRACKER_A) is True
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    ("prefix", "answer", "home"),
+    [("VPT_YES_", "yes", True), ("VPT_NO_", "no", False)],
+)
+async def test_a_prompt_opened_by_hand_is_answered_from_the_phone(
+    hass: HomeAssistant, prefix: str, answer: str, home: bool
+) -> None:
+    """The buttons answer it like any other prompt, and clear it."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await open_prompt(hass)
+    prompt_id = prompt_id_of(calls[0])
+
+    await answer_from_phone(hass, f"{prefix}{prompt_id}")
+
+    manager = entry.runtime_data.manager
+    assert manager.prompt_open(TRACKER_A) is False
+    assert manager.is_home(TRACKER_A) is home
+    state = hass.states.get("event.kid_prompt")
+    assert state.attributes["event_type"] == f"answered_{answer}"
+    assert state.attributes["answered_by"] == PERSON_A
+    assert calls[1].data == {
+        "message": "clear_notification",
+        "data": {"tag": f"vpt_{prompt_id}"},
+    }
+
+
+async def test_switching_on_takes_a_prompt_opened_by_hand_back(
+    hass: HomeAssistant,
+) -> None:
+    """Switching the tracker on withdraws it and clears the phone."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await open_prompt(hass)
+
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_ON, {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+    manager = entry.runtime_data.manager
+    assert manager.prompt_open(TRACKER_A) is False
+    assert manager.is_home(TRACKER_A) is True
+    state = hass.states.get("event.kid_prompt")
+    assert state.attributes["event_type"] == "cancelled"
+    assert state.attributes["reason"] == "switched_on"
+    assert len(calls) == 2
     assert calls[1].data["message"] == "clear_notification"
 
 

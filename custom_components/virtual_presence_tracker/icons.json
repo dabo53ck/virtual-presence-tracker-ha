@@ -25,6 +25,9 @@
   "services": {
     "answer_prompt": {
       "service": "mdi:comment-check-outline"
+    },
+    "open_prompt": {
+      "service": "mdi:comment-question"
     }
   }
 }

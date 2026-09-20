@@ -125,6 +125,12 @@
   "exceptions": {
     "no_open_prompt": {
       "message": "There is no open prompt for {entity_id}, so there is nothing to answer."
+    },
+    "prompt_already_open": {
+      "message": "There is already an open prompt for {entity_id}, so there is nothing to ask again."
+    },
+    "tracker_already_home": {
+      "message": "{entity_id} is already switched on, so there is nobody to ask about."
     }
   },
   "issues": {
@@ -171,6 +177,10 @@
           "description": "The person who gave the answer. Only passed on to the tracker's event entity, for automations that want to know who replied."
         }
       }
+    },
+    "open_prompt": {
+      "name": "Open prompt",
+      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when the house becomes empty\" option and the delay; everything after that is the usual prompt, including the notification and the time to answer."
     }
   }
 }
