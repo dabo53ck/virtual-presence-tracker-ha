@@ -130,12 +130,7 @@ async def test_removing_a_tracker_removes_its_entities(hass: HomeAssistant) -> N
         assert hass.states.get(entity_id) is None
     assert devices.async_get_device_by_identifier(identifier, ENTRY_ID) is None
     # The household sensor is not bound to a tracker and stays.
-    assert (
-        registry.async_get(
-            "binary_sensor.virtual_presence_tracker_only_virtual_trackers_home"
-        )
-        is not None
-    )
+    assert registry.async_get("binary_sensor.only_virtual_trackers_home") is not None
 
 
 async def test_removing_a_tracker_prunes_its_state(

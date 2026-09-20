@@ -22,9 +22,6 @@ SUBENTRY_TYPE_TRACKER: Final = "tracker"
 CONF_RESET_ON_RETURN: Final = "reset_on_return"
 DEFAULT_RESET_ON_RETURN: Final = True
 
-# Name of the device that carries the entities of the household as a whole.
-HOUSEHOLD_DEVICE_NAME: Final = "Virtual Presence Tracker"
-
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"
 ATTR_REAL_PERSONS_HOME: Final = "real_persons_home"

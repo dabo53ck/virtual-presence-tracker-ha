@@ -10,15 +10,12 @@ from typing import Any
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import VirtualPresenceTrackerConfigEntry
 from .const import (
     ATTR_REAL_PERSONS_HOME,
     ATTR_VIRTUAL_TRACKERS_HOME,
-    DOMAIN,
-    HOUSEHOLD_DEVICE_NAME,
     SUBENTRY_TYPE_TRACKER,
 )
 from .entity import VirtualPresenceEntity
@@ -36,7 +33,15 @@ async def async_setup_entry(
 
 
 class OnlyVirtualHomeSensor(VirtualPresenceEntity, BinarySensorEntity):
-    """Report whether the only ones at home are virtual trackers."""
+    """Report whether the only ones at home are virtual trackers.
+
+    The sensor has no device: every device of this integration belongs to a
+    tracker subentry, so the integration page never shows a "devices that do
+    not belong to a sub-entry" section. Without a device the translated entity
+    name is the whole name ("Only virtual trackers home") and a fresh install
+    gets `binary_sensor.only_virtual_trackers_home`; installs from before that
+    change keep their entity ID (see migration.py).
+    """
 
     _attr_has_entity_name = True
     _attr_translation_key = "only_virtual_home"
@@ -46,13 +51,6 @@ class OnlyVirtualHomeSensor(VirtualPresenceEntity, BinarySensorEntity):
         super().__init__(entry.runtime_data.manager)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_only_virtual_home"
-        # One device for the household, carrying the entities that are not
-        # bound to a single tracker.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=HOUSEHOLD_DEVICE_NAME,
-            entry_type=DeviceEntryType.SERVICE,
-        )
 
     @property
     def is_on(self) -> bool | None:

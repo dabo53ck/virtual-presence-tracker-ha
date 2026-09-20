@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
+from .migration import async_remove_legacy_household_device
 
 PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SWITCH, Platform.BINARY_SENSOR]
 
@@ -44,6 +45,10 @@ async def async_setup_entry(
     # reloads the entry by itself. Without the reload the manager would keep
     # watching the old persons and would not know the new trackers.
     entry.async_on_unload(entry.add_update_listener(_async_entry_updated))
+    # Before the platforms: the household sensor of an older install is then
+    # added to a registry entry that no longer points at a device, instead of
+    # being attached to one for the moment it takes to clean up.
+    async_remove_legacy_household_device(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # After the platforms: the repair issues look the tracker entities up in
     # the entity registry, which only knows them once they are added. Stopping

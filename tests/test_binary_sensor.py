@@ -23,7 +23,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, TRACKER_B
 
-SENSOR = "binary_sensor.virtual_presence_tracker_only_virtual_trackers_home"
+SENSOR = "binary_sensor.only_virtual_trackers_home"
 
 
 async def setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -44,17 +44,17 @@ async def test_one_sensor_per_entry(
     assert entity_entry.unique_id == f"{ENTRY_ID}_only_virtual_home"
     assert entity_entry.config_subentry_id is None
 
-    device = dr.async_get(hass).async_get(entity_entry.device_id)
-    assert device is not None
-    assert device.identifiers == {(DOMAIN, ENTRY_ID)}
-    assert device.name == "Virtual Presence Tracker"
+    # Every device belongs to a tracker subentry; an entry-level entity has
+    # none, so the entity ID and the name are the entity name on its own.
+    assert entity_entry.device_id is None
+    assert (
+        dr.async_get(hass).async_get_device_by_identifier((DOMAIN, ENTRY_ID), ENTRY_ID)
+        is None
+    )
 
     state = hass.states.get(SENSOR)
     assert state is not None
-    assert (
-        state.attributes[ATTR_FRIENDLY_NAME]
-        == "Virtual Presence Tracker Only virtual trackers home"
-    )
+    assert state.attributes[ATTR_FRIENDLY_NAME] == "Only virtual trackers home"
 
 
 async def test_unknown_while_no_person_state_is_known(
