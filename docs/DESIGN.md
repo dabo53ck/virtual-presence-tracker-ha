@@ -63,8 +63,8 @@ restore its last state immediately; cover with a test in M1.
    known value of that person is kept, and a person whose state was never known
    cannot trigger a reset (HA start).
 4. **Safety net**: max duration → notify.
-5. **Events** with a fixed contract (names TBD before M2), e.g. prompt sent,
-   only-virtual-home.
+5. **Events** with a fixed contract, one `event` entity per tracker — settled
+   in "Event & service contract" above (M2a).
 6. **Repairs / validation** (M1e, done): three repair issues. `tracker_not_
    assigned` — a tracker that no `person` follows, the most common pitfall of
    the approach. `real_person_has_virtual_tracker` — the **self-reset hazard**:
@@ -232,7 +232,41 @@ answered_yes / answered_no / expired / cancelled -> idle.
   which are exactly right for a person.
 - **Platform order**: platforms are forwarded after `async_load()` /
   `async_start()` and unloaded before `async_stop()`, so entities never read an
-  unloaded manager and the store is flushed last.
+  unloaded manager and the store is flushed last. **Resuming the prompts is a
+  third step, after the platforms** (M2a): the catch-up can emit `expired` or
+  `cancelled`, and an event entity that does not exist yet would swallow it.
+  That the entities *do* exist by then is guaranteed by `EntityPlatform.
+  _async_setup_platform()`, which blocks on the add-entity tasks ("Block till
+  all entities are done") before `async_forward_entry_setups()` returns. Hence
+  the split between `async_load()` (read the store) and
+  `async_resume_prompts()` (act on it).
+- **Prompt timers** are `async_call_later()` handles, one per open prompt
+  (expiry) and one per delayed prompt. `async_stop()` cancels all of them, so a
+  reload never leaves a timer of the old manager behind; the tests would fail
+  on it, as pytest-homeassistant-custom-component reports lingering timers.
+- **The prompt ID is drawn when the state machine leaves idle**, not when the
+  prompt opens, so that a prompt cancelled during its delay can still be named
+  in the `cancelled` event. The delay phase itself is *not* persisted (see the
+  contract): it was never announced. Consequently a person coming home during
+  the delay drops it silently, while an open prompt is cancelled out loud - and
+  the re-check at the end of the delay is what catches the silent case.
+- **Store version stays 1** although the payload grew a `prompts` key: an older
+  store simply does not have it, which reads as "no prompt was open" - exactly
+  what a fresh install looks like. There is nothing to convert, so
+  `async_migrate_func` would have nothing to do.
+- **The answer is an entity service on the `switch`** (`platform.async_register_
+  entity_service()` from `switch.py`, as core does in `pi_hole`), not a domain
+  service taking a tracker name: the switch is the entity the prompt is about,
+  so targeting it targets the tracker, areas and devices work for free, and
+  there is no second way to name a tracker. Registering is idempotent
+  (`async_register_entity_service` returns early when the service exists), so a
+  reload does not have to care. An answer without an open prompt is a
+  `ServiceValidationError` with a translation key, not a silent no-op: an
+  answer that arrives too late must not switch anything on.
+- **`event` entity, not bus events**: an event entity shows up in the
+  automation editor as a trigger, carries its data as state attributes and
+  restores its last event over a restart. `_trigger_event()` only records the
+  event - `async_write_ha_state()` right after it is what publishes it.
 - **person**: connected scanner trackers with a non-empty `in_zones` attribute
   take precedence over every other tracker of that person, so a connected
   virtual tracker reliably makes the `person` `home`. Precisely: `person`
@@ -310,7 +344,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M1** | Scaffolding, config flow + subentry (name, options), `switch` + `device_tracker` + `binary_sensor`, reset on real-person return, restore-state test, tests + CI. Live-testable: switch on → `zone.home` counts up. |
 | **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
 | **M1g** (done) | The household sensor loses its device (2026-09-20), so the entry row no longer shows "Devices that do not belong to a sub-entry"; one-off clean-up of the device of older installs. |
-| **M2a** | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events. |
+| **M2a** (done) | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events; the contract is frozen above. |
 | **M2b** | Built-in delivery: actionable `mobile_app` notification, per-tracker choice of *which real persons are asked*, person → phone mapping (derived from `mobile_app` entries, overridable), options flow. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
@@ -398,7 +432,7 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
   *optional* built-in `mobile_app` actionable notification as a convenience.
   Other channels (Telegram, TTS, …) listen to the events and call the services;
   a companion blueprint can be a thin layer on that later. Pending state and
-  timers must survive an HA restart. Event names / payload keys are still to be
-  fixed before M2 (public contract, see CLAUDE.md).
+  timers must survive an HA restart. Event names and payload keys are fixed as
+  of M2a — see "Event & service contract" (public contract, see CLAUDE.md).
 
-Still open: nothing blocking M1.
+Still open: nothing blocking M2b.

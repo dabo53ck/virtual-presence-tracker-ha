@@ -1,8 +1,8 @@
 """The Virtual Presence Tracker integration.
 
 Presence for household members without a phone. This module wires up the config
-entry lifecycle, the household manager and the entity platforms; the prompt
-state machine and services are added in later milestones (see docs/DESIGN.md).
+entry lifecycle, the household manager and the entity platforms; built-in
+delivery of the prompt to a phone is a later milestone (see docs/DESIGN.md).
 """
 
 from __future__ import annotations
@@ -17,7 +17,12 @@ from .issues import HouseholdIssues
 from .manager import HouseholdManager
 from .migration import async_remove_legacy_household_device
 
-PLATFORMS = [Platform.DEVICE_TRACKER, Platform.SWITCH, Platform.BINARY_SENSOR]
+PLATFORMS = [
+    Platform.DEVICE_TRACKER,
+    Platform.SWITCH,
+    Platform.BINARY_SENSOR,
+    Platform.EVENT,
+]
 
 
 @dataclass

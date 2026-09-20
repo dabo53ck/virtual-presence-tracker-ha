@@ -4,23 +4,26 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete, including M1f and M1g** — skeleton (manifest with
-`single_config_entry`, CI), the household manager (`manager.py`: persisted
-tracker states, real-person presence, reset on return), the config flow (real
-persons, reconfigure) plus the subentry flow per virtual tracker, the entities
-(`device_tracker` + `switch` per tracker, the "only virtual trackers home"
-`binary_sensor` per entry), the repair issues and the person validation
-(`issues.py`, M1e) with translations en/de, an end-to-end test against the real
-`person` and `zone` components, and a README for users. The first live test
-passed (2026-09-20, HA 2026.9.3) and produced two fixes: `integration_type`
-`service` instead of `helper`, and the M1f onboarding (the setup chains into
-the "add virtual tracker" form, plus a `no_tracker` repair issue). M1g followed:
-the household sensor has no device any more (rule: every device belongs to a
-subentry, entry-level entities are device-less), with a one-off clean-up of the
-device of older installs in `migration.py`. M1f and M1g are not live-tested
-yet. Pushed to the **private** repo
+Status: **M1 complete (incl. M1f and M1g), M2a complete** — skeleton (manifest
+with `single_config_entry`, CI), the household manager (`manager.py`: persisted
+tracker states, real-person presence, reset on return, prompt state machine),
+the config flow (real persons, reconfigure) plus the subentry flow per virtual
+tracker (name, reset, prompt options), the entities (`device_tracker` +
+`switch` + prompt `event` per tracker, the "only virtual trackers home"
+`binary_sensor` per entry), the `answer_prompt` entity service on the switches,
+the repair issues and the person validation (`issues.py`, M1e) with
+translations en/de, an end-to-end test against the real `person` and `zone`
+components, and a README for users. The first live test passed (2026-09-20, HA
+2026.9.3) and produced two fixes: `integration_type` `service` instead of
+`helper`, and the M1f onboarding (the setup chains into the "add virtual
+tracker" form, plus a `no_tracker` repair issue). M1g followed: the household
+sensor has no device any more (rule: every device belongs to a subentry,
+entry-level entities are device-less), with a one-off clean-up of the device of
+older installs in `migration.py`. M1f, M1g and M2a are not live-tested yet.
+Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
-[`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything.
+[`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
+"Event & service contract" section is frozen public API.
 
 ## Working rules (dabo53ck)
 
@@ -72,10 +75,12 @@ ubuntu is authoritative**. Python 3.14 (HA 2026.9 requires >= 3.14.2).
 
 ## Event contract — decide early, then do not break
 
-The integration will fire bus events that a companion blueprint may trigger on.
-Once the first release ships, event type names and `event.data` keys are a
-public contract; changing them breaks blueprints silently. Define them in
-`docs/DESIGN.md` before M2 and keep them stable.
+The integration publishes prompt events through one `event` entity per tracker,
+which a companion blueprint may trigger on. Event type names and event data
+keys are a public contract; changing them breaks blueprints silently. They are
+written down in `docs/DESIGN.md` → "Event & service contract" (frozen with
+M2a), together with the `answer_prompt` action and the switch attributes. The
+contract may grow; nothing in it is ever renamed or removed.
 
 ## Repo setup still to do
 

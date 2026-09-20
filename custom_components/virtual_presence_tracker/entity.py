@@ -9,9 +9,26 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import callback
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
+from .const import DOMAIN
 from .manager import HouseholdManager
+
+
+def tracker_device_info(subentry: ConfigSubentry) -> DeviceInfo:
+    """Return the device of one virtual tracker.
+
+    One device per tracker, named after it, so that the tracker's entities are
+    grouped and a rename carries over. Every entity that has a device uses this
+    - whichever platform is set up first creates it, and it has to be the same
+    device either way.
+    """
+    return DeviceInfo(
+        identifiers={(DOMAIN, subentry.subentry_id)},
+        name=subentry.title,
+        entry_type=DeviceEntryType.SERVICE,
+    )
 
 
 class VirtualPresenceEntity(Entity):

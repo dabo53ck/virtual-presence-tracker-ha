@@ -91,10 +91,31 @@
         "name": "Only virtual trackers home"
       }
     },
+    "event": {
+      "prompt": {
+        "name": "Prompt",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prompt_started": "Asked",
+              "answered_yes": "Answered yes",
+              "answered_no": "Answered no",
+              "expired": "Not answered",
+              "cancelled": "Withdrawn"
+            }
+          }
+        }
+      }
+    },
     "switch": {
       "at_home": {
         "name": "At home"
       }
+    }
+  },
+  "exceptions": {
+    "no_open_prompt": {
+      "message": "There is no open prompt for {entity_id}, so there is nothing to answer."
     }
   },
   "issues": {
@@ -113,6 +134,30 @@
     "real_person_missing": {
       "title": "The real person {person} no longer exists",
       "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone - deleted or renamed. Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    }
+  },
+  "selector": {
+    "answer": {
+      "options": {
+        "yes": "Yes, they are at home",
+        "no": "No, nobody is at home"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "name": "Answer prompt",
+      "description": "Answers the open prompt of a virtual tracker. \"Yes\" switches the tracker on, \"no\" leaves everything as it is.",
+      "fields": {
+        "answer": {
+          "name": "Answer",
+          "description": "Whether the person the tracker stands for is at home."
+        },
+        "answered_by": {
+          "name": "Answered by",
+          "description": "The person who gave the answer. Only passed on to the tracker's event entity, for automations that want to know who replied."
+        }
+      }
     }
   }
 }

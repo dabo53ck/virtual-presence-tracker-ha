@@ -1,0 +1,22 @@
+answer_prompt:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch
+  fields:
+    answer:
+      required: true
+      example: "yes"
+      selector:
+        select:
+          translation_key: answer
+          options:
+            - "yes"
+            - "no"
+    answered_by:
+      required: false
+      example: person.dabo53ck
+      selector:
+        entity:
+          filter:
+            - domain: person

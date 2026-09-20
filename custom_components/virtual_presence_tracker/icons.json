@@ -8,6 +8,11 @@
         }
       }
     },
+    "event": {
+      "prompt": {
+        "default": "mdi:comment-question-outline"
+      }
+    },
     "switch": {
       "at_home": {
         "default": "mdi:home-account",
@@ -15,6 +20,11 @@
           "off": "mdi:home-outline"
         }
       }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "service": "mdi:comment-check-outline"
     }
   }
 }

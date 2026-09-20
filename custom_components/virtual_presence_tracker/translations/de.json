@@ -91,10 +91,31 @@
         "name": "Nur virtuelle Tracker zuhause"
       }
     },
+    "event": {
+      "prompt": {
+        "name": "Rückfrage",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prompt_started": "Nachgefragt",
+              "answered_yes": "Mit Ja beantwortet",
+              "answered_no": "Mit Nein beantwortet",
+              "expired": "Nicht beantwortet",
+              "cancelled": "Zurückgezogen"
+            }
+          }
+        }
+      }
+    },
     "switch": {
       "at_home": {
         "name": "Zuhause"
       }
+    }
+  },
+  "exceptions": {
+    "no_open_prompt": {
+      "message": "Für {entity_id} ist keine Rückfrage offen, es gibt also nichts zu beantworten."
     }
   },
   "issues": {
@@ -113,6 +134,30 @@
     "real_person_missing": {
       "title": "Die echte Person {person} gibt es nicht mehr",
       "description": "{person} ist als echte Person von Virtual Presence Tracker eingetragen, aber diese Entität existiert nicht mehr – gelöscht oder umbenannt. Ihre Anwesenheit zählt damit nicht mehr mit, und virtuelle Tracker werden womöglich nicht mehr zurückgesetzt, wenn jemand heimkommt.\n\nWähle deine echten Personen neu aus: Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren."
+    }
+  },
+  "selector": {
+    "answer": {
+      "options": {
+        "yes": "Ja, sie sind zu Hause",
+        "no": "Nein, es ist niemand zu Hause"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "name": "Rückfrage beantworten",
+      "description": "Beantwortet die offene Rückfrage eines virtuellen Trackers. „Ja“ schaltet den Tracker ein, „Nein“ lässt alles, wie es ist.",
+      "fields": {
+        "answer": {
+          "name": "Antwort",
+          "description": "Ob die Person, für die der Tracker steht, zu Hause ist."
+        },
+        "answered_by": {
+          "name": "Beantwortet von",
+          "description": "Die Person, die geantwortet hat. Wird nur an die Event-Entität des Trackers weitergereicht, für Automationen, die wissen wollen, wer geantwortet hat."
+        }
+      }
     }
   }
 }
