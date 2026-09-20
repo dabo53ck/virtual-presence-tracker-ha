@@ -83,6 +83,84 @@ restore its last state immediately; cover with a test in M1.
    and leaves a valid entry; the `no_tracker` issue then names the path to the
    button.
 
+## Event & service contract (M2a, frozen)
+
+Everything in this section is a **public API**. Automations, scripts and
+blueprints are written against it, and changing a name or a key breaks them
+silently, so it only ever grows - names and keys are never renamed or removed.
+
+### Per-tracker options (subentry data)
+
+| Key | Type | Range | Default | Label |
+|---|---|---|---|---|
+| `ask_on_departure` | bool | - | `False` | Ask when the house becomes empty |
+| `answer_timeout` | int, minutes | 1-120 | `10` | Time to answer |
+| `prompt_delay` | int, seconds | 0-600 | `0` | Delay before asking |
+
+A subentry from before M2a simply has none of the keys and uses the defaults,
+so there is no migration. `NumberSelector` returns floats; the flow stores
+`int`.
+
+### Event entity (one per tracker)
+
+`unique_id` = `<subentry_id>_prompt`, on the tracker's device
+`(DOMAIN, subentry_id)`, `has_entity_name`, `translation_key` `prompt`.
+
+`event_types`: `prompt_started`, `answered_yes`, `answered_no`, `expired`,
+`cancelled`.
+
+Event data, all values strings (times ISO-8601 in UTC) or `null`:
+
+| Key | On | Value |
+|---|---|---|
+| `prompt_id` | every event | random ID, new for every prompt |
+| `tracker` | every event | the tracker's name (the subentry title) |
+| `expires_at` | `prompt_started` | when an unanswered prompt gives up |
+| `answered_by` | `answered_yes`, `answered_no` | `person` entity ID or `null` |
+| `reason` | `cancelled` | `person_home`, `switched_on`, `option_disabled` |
+
+### Service
+
+`virtual_presence_tracker.answer_prompt`, an **entity service** on the
+integration's `switch` entities (target the switch or its device).
+
+| Field | Required | Value |
+|---|---|---|
+| `answer` | yes | `yes` or `no` |
+| `answered_by` | no | a `person` entity ID, passed on to the event |
+
+Targeting a tracker without an open prompt raises a `ServiceValidationError`
+with the translation key `no_open_prompt`.
+
+### Switch state attributes
+
+`since` (unchanged), plus `prompt_open` (bool) and `prompt_expires_at` (ISO
+string or `null`).
+
+### State machine
+
+idle -> *scheduled* (only while `prompt_delay` > 0) -> **open** ->
+answered_yes / answered_no / expired / cancelled -> idle.
+
+- **Opens** when the number of real persons *known* to be home goes from >= 1
+  to 0 because a known person left, the tracker is off, `ask_on_departure` is
+  on and no prompt is open yet. Never at HA start, never out of
+  `unknown`/`unavailable`, never while `real_home` is `None`. With
+  `prompt_delay` > 0 the opening is delayed and **all** conditions are checked
+  again when the delay is over; with delay `0` the prompt opens straight away,
+  inside the state change that caused it.
+- **`answer_prompt` yes** sets the tracker home and emits `answered_yes`,
+  **no** emits `answered_no` and changes nothing, the **timeout** emits
+  `expired` and changes nothing. In all three cases the house counts as empty
+  unless the answer was yes.
+- **Cancelled**: a real person comes home while a prompt is open
+  (`person_home`, regardless of the tracker's reset option); the tracker is
+  switched on by hand or by an automation while a prompt is scheduled or open
+  (`switched_on`); the option is switched off while a prompt is open
+  (`option_disabled`). Answering yes ends the prompt *before* it sets the
+  tracker home, so it never also emits `cancelled`. The prompt of a removed
+  tracker is dropped silently.
+
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
 - **Base class**: `ScannerEntity` is MAC-based (`unique_id` = MAC, `device_info`
@@ -232,7 +310,8 @@ restore its last state immediately; cover with a test in M1.
 | **M1** | Scaffolding, config flow + subentry (name, options), `switch` + `device_tracker` + `binary_sensor`, reset on real-person return, restore-state test, tests + CI. Live-testable: switch on → `zone.home` counts up. |
 | **M1f** (done) | Onboarding (requested after the first live test, 2026-09-20): after the entry is created the config flow chains straight into the "add virtual tracker" subentry flow (`async_on_create_entry` + `FlowType.CONFIG_SUBENTRIES_FLOW`, which the frontend supports); a repair issue while no tracker exists. |
 | **M1g** (done) | The household sensor loses its device (2026-09-20), so the entry row no longer shows "Devices that do not belong to a sub-entry"; one-off clean-up of the device of older installs. |
-| **M2** | Prompt with timeout, options flow (delivery per decision below). |
+| **M2a** | Prompt state machine per tracker (idle → pending → answered / expired / cancelled, persisted across restarts), a per-tracker `event` entity, an `answer_prompt` service and the per-tracker options (ask on departure, answer timeout, delay). **No push yet** — testable with services and events. |
+| **M2b** | Built-in delivery: actionable `mobile_app` notification, per-tracker choice of *which real persons are asked*, person → phone mapping (derived from `mobile_app` entries, overridable), options flow. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -289,6 +368,27 @@ Confirmed by dabo53ck (2026-09-19):
   for it), the reset on a real arrival, the repair issues.
 - **M1f requested**: chain into the subentry flow right after setup, plus a
   hint while no tracker exists.
+
+- **M2 decisions (dabo53ck, 2026-09-20, "grundsätzlich ok")**:
+  - The prompt is an **option per tracker**, **off by default** — a tracker
+    without it behaves exactly as before.
+  - **Recipients are chosen per tracker among the real persons**
+    (`notify_persons`), person-based with an automatic person → phone mapping
+    (`mobile_app` config entries carry the `user_id` of the person's user;
+    overridable). A recipient is not the same as a *real person*: king53ck keeps
+    counting for "the house is empty" even when she is not asked. For the tests
+    only dabo53ck is asked.
+  - **First answer wins** when several persons are asked; the others' messages
+    are replaced/cleared.
+  - Events are exposed as **one `event` entity per tracker** (shows up as a
+    trigger in the automation editor) instead of bus events.
+  - Defaults: answer timeout **10 min**, prompt delay **0 s**; no answer, "no"
+    or a returning person changes nothing (the house counts as empty).
+  - Known consequence: an "everyone away" automation with a short `for:` (his
+    "Präsenz zu Hause" waits 1 min) can fire before the answer arrives.
+  - Caveat: buttons in a notification only work through the classic
+    `notify.mobile_app_*` services (the notify *entities* of the companion app
+    carry only title and message); HA may retire the classic services one day.
 
 Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currently home).
 

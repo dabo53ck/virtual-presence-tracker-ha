@@ -44,23 +44,35 @@
           "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Weise ihn anschließend einer eigenen Person zu – diese Person gilt dann als zu Hause, solange der Tracker eingeschaltet ist.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt"
+            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
+            "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
+            "answer_timeout": "Zeit zum Antworten",
+            "prompt_delay": "Wartezeit vor der Nachfrage"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann."
+            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
+            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird über die Event-Entität des Trackers angekündigt; beantworten kannst du sie mit der Aktion „Rückfrage beantworten“. Auf ein Handy geschickt wird noch nichts.",
+            "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
+            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen."
           }
         },
         "reconfigure": {
           "title": "Virtuellen Tracker bearbeiten",
-          "description": "Benenne den Tracker um oder ändere, wann er zurückgesetzt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "description": "Benenne den Tracker um oder ändere, wann er zurückgesetzt wird und wann er nachfragt. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt"
+            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
+            "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
+            "answer_timeout": "Zeit zum Antworten",
+            "prompt_delay": "Wartezeit vor der Nachfrage"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann."
+            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
+            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird über die Event-Entität des Trackers angekündigt; beantworten kannst du sie mit der Aktion „Rückfrage beantworten“. Auf ein Handy geschickt wird noch nichts.",
+            "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
+            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen."
           }
         }
       },

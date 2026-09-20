@@ -28,15 +28,28 @@ from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     TextSelector,
 )
 
 from .const import (
     ATTR_DEVICE_TRACKERS,
+    CONF_ANSWER_TIMEOUT,
+    CONF_ASK_ON_DEPARTURE,
     CONF_PERSONS,
+    CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
+    DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_ASK_ON_DEPARTURE,
+    DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
+    MAX_ANSWER_TIMEOUT,
+    MAX_PROMPT_DELAY,
+    MIN_ANSWER_TIMEOUT,
+    MIN_PROMPT_DELAY,
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
@@ -61,6 +74,29 @@ TRACKER_SCHEMA = vol.Schema(
         vol.Required(
             CONF_RESET_ON_RETURN, default=DEFAULT_RESET_ON_RETURN
         ): BooleanSelector(),
+        vol.Required(
+            CONF_ASK_ON_DEPARTURE, default=DEFAULT_ASK_ON_DEPARTURE
+        ): BooleanSelector(),
+        vol.Required(
+            CONF_ANSWER_TIMEOUT, default=DEFAULT_ANSWER_TIMEOUT
+        ): NumberSelector(
+            NumberSelectorConfig(
+                min=MIN_ANSWER_TIMEOUT,
+                max=MAX_ANSWER_TIMEOUT,
+                step=1,
+                mode=NumberSelectorMode.BOX,
+                unit_of_measurement="min",
+            )
+        ),
+        vol.Required(CONF_PROMPT_DELAY, default=DEFAULT_PROMPT_DELAY): NumberSelector(
+            NumberSelectorConfig(
+                min=MIN_PROMPT_DELAY,
+                max=MAX_PROMPT_DELAY,
+                step=1,
+                mode=NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
     }
 )
 
@@ -225,7 +261,14 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
 
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
-            data = {CONF_RESET_ON_RETURN: user_input[CONF_RESET_ON_RETURN]}
+            # NumberSelector hands out floats; the options are whole minutes
+            # and whole seconds, and that is what is stored.
+            data = {
+                CONF_RESET_ON_RETURN: user_input[CONF_RESET_ON_RETURN],
+                CONF_ASK_ON_DEPARTURE: user_input[CONF_ASK_ON_DEPARTURE],
+                CONF_ANSWER_TIMEOUT: int(user_input[CONF_ANSWER_TIMEOUT]),
+                CONF_PROMPT_DELAY: int(user_input[CONF_PROMPT_DELAY]),
+            }
             skip = subentry.subentry_id if subentry is not None else None
             if not name:
                 errors[CONF_NAME] = "name_required"
