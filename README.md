@@ -84,7 +84,9 @@ the integration only knows what you, an automation, or an answered prompt tell i
 
 Home Assistant **2026.6.0** or newer. The virtual trackers are built on
 `BaseScannerEntity`, which first shipped with that release. The phone prompt
-additionally needs the Home Assistant Companion App on the phones you want to ask.
+additionally needs the Home Assistant Companion App on the phones you want to ask
+— any version delivers the question; showing the integration's icon in place of
+the app icon needs **2026.8.0 or newer on iOS**.
 
 **Tested with:** the built-in notification has been tried with the **iOS**
 Companion App, on an iPhone. It only uses keys that the Companion App
@@ -273,12 +275,13 @@ counts, the rest is ignored. The same happens when somebody comes home, when you
 switch the tracker on yourself and when the time runs out — the question is never
 left sitting on a phone.
 
-The message carries the integration's own icon as its picture — on iOS as a
-thumbnail that fills the notification when you expand it, on Android as the large
-picture of the expanded notification. The small icon *beside* the notification is
-a different thing: that one is the Home Assistant app's own icon, drawn by the
-Companion App for every notification it shows, and this integration leaves it
-alone.
+The message wears the integration's own icon instead of the Home Assistant app
+icon, so you can see at a glance whose question it is. On **iOS** it takes the
+place the app icon sits in, on the left of the message: the notification is shown
+in the rounded-avatar style of a messaging app, with the question's title as the
+name. This needs the **iOS Companion App 2026.8.0 or newer**; an older app simply
+shows its own icon, and everything else about the message is unchanged. On
+**Android** the icon is the large icon of the notification.
 
 What it needs:
 
