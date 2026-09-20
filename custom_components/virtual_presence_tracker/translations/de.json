@@ -86,6 +86,10 @@
     }
   },
   "issues": {
+    "no_tracker": {
+      "title": "Es wurde noch kein virtueller Tracker angelegt",
+      "description": "Virtual Presence Tracker ist eingerichtet, es gibt aber noch keinen virtuellen Tracker – es passiert also nichts. Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast.\n\nLege einen an unter Einstellungen > Geräte & Dienste > Integrationen > Virtual Presence Tracker > „Virtuellen Tracker hinzufügen“. Weise ihn anschließend einer eigenen Person zu, damit diese Person als zu Hause gilt, solange der Tracker eingeschaltet ist."
+    },
     "tracker_not_assigned": {
       "title": "Der virtuelle Tracker {name} ist keiner Person zugewiesen",
       "description": "Wenn du {name} einschaltest, gilt trotzdem niemand als zu Hause: Der Device-Tracker `{entity_id}` gehört zu keiner Person, Home Assistant hat also niemanden, den er nach Hause setzen könnte.\n\nGeh zu Einstellungen > Personen, öffne die Person, für die {name} steht (oder lege sie neu an, ganz ohne Login), und wähle `{entity_id}` in der Liste der Device-Tracker dieser Person aus. Brauchst du den Tracker nicht mehr, lösche ihn unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker."

@@ -12,11 +12,14 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import (
+    SOURCE_USER,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentry,
     ConfigSubentryFlow,
+    FlowType,
+    SubentryFlowContext,
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_NAME
@@ -143,6 +146,26 @@ class VirtualPresenceTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=placeholders,
         )
+
+    async def async_on_create_entry(self, result: ConfigFlowResult) -> ConfigFlowResult:
+        """Continue with the form that adds the first virtual tracker.
+
+        An entry without a tracker does nothing, and the button that adds one
+        sits on the integration's page - not on the device page the user lands
+        on after the setup. Chaining the subentry flow onto the result puts the
+        form in front of the user right away. The entry exists and is set up by
+        the time this runs, which is why the chaining cannot happen in
+        async_create_entry(): that one only accepts FlowType.CONFIG_FLOW.
+        """
+        subentry_result = await self.hass.config_entries.subentries.async_init(
+            (result["result"].entry_id, SUBENTRY_TYPE_TRACKER),
+            context=SubentryFlowContext(source=SOURCE_USER),
+        )
+        result["next_flow"] = (
+            FlowType.CONFIG_SUBENTRIES_FLOW,
+            subentry_result["flow_id"],
+        )
+        return result
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None

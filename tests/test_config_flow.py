@@ -15,7 +15,7 @@ from custom_components.virtual_presence_tracker.const import (
     DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER, ConfigEntryState, FlowType
 from homeassistant.const import CONF_NAME, STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -96,6 +96,20 @@ async def add_tracker(
     )
 
 
+async def run_user_flow(hass: HomeAssistant, persons: list[str]) -> dict[str, Any]:
+    """Run the config flow to its end and return the create-entry result."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PERSONS: persons}
+    )
+    await hass.async_block_till_done()
+    return result
+
+
 async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
     """The user step suggests the locatable persons and creates the entry."""
     add_persons(hass)
@@ -116,6 +130,53 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Virtual Presence Tracker"
     assert result["data"] == {CONF_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK]}
+
+
+async def test_user_flow_continues_with_the_tracker_form(hass: HomeAssistant) -> None:
+    """The setup hands the user straight on to the first virtual tracker."""
+    add_persons(hass)
+
+    result = await run_user_flow(hass, [PERSON_DABO53CK])
+    entry = result["result"]
+
+    flow_type, flow_id = result["next_flow"]
+    assert flow_type is FlowType.CONFIG_SUBENTRIES_FLOW
+
+    # The chained flow is the only one in progress and waits with the form that
+    # adds a tracker to the entry that was just created.
+    in_progress = hass.config_entries.subentries.async_progress()
+    assert len(in_progress) == 1
+    assert in_progress[0]["flow_id"] == flow_id
+    assert in_progress[0]["step_id"] == "user"
+    assert in_progress[0]["handler"] == (entry.entry_id, SUBENTRY_TYPE_TRACKER)
+
+    result = await hass.config_entries.subentries.async_configure(
+        flow_id, {CONF_NAME: "Kid", CONF_RESET_ON_RETURN: True}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Kid"
+    subentries = entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
+    assert len(subentries) == 1
+    assert entry.runtime_data.manager.tracker_ids == [subentries[0].subentry_id]
+
+
+async def test_an_abandoned_tracker_form_leaves_a_working_entry(
+    hass: HomeAssistant,
+) -> None:
+    """Closing the chained form is allowed; the repair issue takes over."""
+    add_persons(hass)
+
+    result = await run_user_flow(hass, [PERSON_DABO53CK])
+    entry = result["result"]
+
+    hass.config_entries.subentries.async_abort(result["next_flow"][1])
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER) == []
+    assert entry.runtime_data.manager.tracker_ids == []
 
 
 @pytest.mark.parametrize("user_input", [{}, {CONF_PERSONS: []}])

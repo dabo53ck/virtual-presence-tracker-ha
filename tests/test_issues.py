@@ -9,17 +9,20 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     DOMAIN,
+    SUBENTRY_TYPE_TRACKER,
 )
 from custom_components.virtual_presence_tracker.issues import (
+    ISSUE_NO_TRACKER,
     ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER,
     ISSUE_REAL_PERSON_MISSING,
     ISSUE_TRACKER_NOT_ASSIGNED,
 )
+from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, STATE_HOME, STATE_NOT_HOME
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, TRACKER_B
+from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, TRACKER_B, make_entry
 
 TRACKER_A_ENTITY = "device_tracker.kid"
 
@@ -57,6 +60,75 @@ async def set_person(
     """Set a person state with the device trackers assigned to it."""
     hass.states.async_set(entity_id, state, {ATTR_DEVICE_TRACKERS: list(trackers)})
     await hass.async_block_till_done()
+
+
+async def test_an_entry_without_a_tracker_is_reported(hass: HomeAssistant) -> None:
+    """An entry whose tracker form was closed says where the button is."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE])
+    await setup_entry(hass, make_entry())
+
+    current = issues(hass)
+    assert set(current) == {issue_id(ISSUE_NO_TRACKER)}
+
+    issue = current[issue_id(ISSUE_NO_TRACKER)]
+    assert issue.translation_key == ISSUE_NO_TRACKER
+    assert issue.translation_placeholders == {}
+    # Repair issues have no informational severity, so a hint is a warning.
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert issue.is_fixable is False
+    assert issue.is_persistent is False
+
+
+async def test_adding_a_tracker_clears_the_no_tracker_issue(
+    hass: HomeAssistant,
+) -> None:
+    """The hint goes away with the first tracker, the reload re-checks."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE])
+    entry = make_entry()
+    await setup_entry(hass, entry)
+    assert issue_id(ISSUE_NO_TRACKER) in issues(hass)
+
+    hass.config_entries.async_add_subentry(
+        entry,
+        ConfigSubentry(
+            data={},
+            subentry_id=TRACKER_A,
+            subentry_type=SUBENTRY_TYPE_TRACKER,
+            title="Kid",
+            unique_id=None,
+        ),
+    )
+    await hass.async_block_till_done()
+
+    # The new tracker is not assigned to a person yet, which is the next hint.
+    assert set(issues(hass)) == {issue_id(ISSUE_TRACKER_NOT_ASSIGNED, TRACKER_A)}
+
+
+async def test_unloading_clears_the_no_tracker_issue(hass: HomeAssistant) -> None:
+    """An entry that is not loaded has no hint either."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE])
+    entry = make_entry()
+    await setup_entry(hass, entry)
+    assert issues(hass)
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+
+
+async def test_no_tracker_is_not_reported_before_the_start(hass: HomeAssistant) -> None:
+    """The hint waits for the start like every other check."""
+    hass.set_state(CoreState.not_running)
+    await setup_entry(hass, make_entry())
+
+    assert issues(hass) == {}
+
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    await hass.async_block_till_done()
+
+    assert issue_id(ISSUE_NO_TRACKER) in issues(hass)
 
 
 async def test_a_tracker_without_a_person_is_reported(

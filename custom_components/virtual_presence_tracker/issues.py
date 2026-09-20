@@ -39,6 +39,7 @@ from .const import (
 if TYPE_CHECKING:
     from . import VirtualPresenceTrackerConfigEntry
 
+ISSUE_NO_TRACKER = "no_tracker"
 ISSUE_TRACKER_NOT_ASSIGNED = "tracker_not_assigned"
 ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER = "real_person_has_virtual_tracker"
 ISSUE_REAL_PERSON_MISSING = "real_person_missing"
@@ -172,7 +173,14 @@ class HouseholdIssues:
             for entity_id in state.attributes.get(ATTR_DEVICE_TRACKERS) or ()
         }
 
-        for subentry in self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER):
+        subentries = self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
+        if not subentries:
+            # The setup chains into the form that adds a tracker, but the user
+            # can close it. Without a tracker the entry does nothing at all, and
+            # the button to add one is easy to miss.
+            issues[self._issue_id(ISSUE_NO_TRACKER)] = (ISSUE_NO_TRACKER, {})
+
+        for subentry in subentries:
             entity_id = trackers.get(subentry.subentry_id)
             if entity_id is None or entity_id in followed:
                 continue
