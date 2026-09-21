@@ -25,6 +25,7 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     TextSelector,
@@ -34,12 +35,14 @@ from .const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_CREATE_PERSON,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_CREATE_PERSON,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
@@ -77,24 +80,31 @@ def _tracker_schema(entry: ConfigEntry, subentry: ConfigSubentry | None) -> vol.
     even if it is not a real person any more: the form would otherwise be
     impossible to submit unchanged, and the stale recipient is reported with an
     error of our own instead of a voluptuous failure.
+
+    A *new* tracker is additionally offered the person it needs to be of any
+    use (M2g). An existing one is not: it either has its person by now, or the
+    user said no once and is not asked again.
     """
     real_persons: list[str] = list(entry.data.get(CONF_PERSONS, []))
     stored: list[str] = list(
         subentry.data.get(CONF_NOTIFY_PERSONS, ()) if subentry is not None else ()
     )
     candidates = list(dict.fromkeys(real_persons + stored))
-    return vol.Schema(
-        {
-            vol.Required(CONF_NAME): TextSelector(),
-            # An empty selection is a valid answer: it means that the
-            # integration sends nothing at all.
-            vol.Required(CONF_NOTIFY_PERSONS, default=list): EntitySelector(
-                EntitySelectorConfig(
-                    domain=PERSON_DOMAIN, multiple=True, include_entities=candidates
-                )
-            ),
-        }
-    )
+    schema: dict[Any, Any] = {
+        vol.Required(CONF_NAME): TextSelector(),
+        # An empty selection is a valid answer: it means that the integration
+        # sends nothing at all.
+        vol.Required(CONF_NOTIFY_PERSONS, default=list): EntitySelector(
+            EntitySelectorConfig(
+                domain=PERSON_DOMAIN, multiple=True, include_entities=candidates
+            )
+        ),
+    }
+    if subentry is None:
+        schema[vol.Required(CONF_CREATE_PERSON, default=DEFAULT_CREATE_PERSON)] = (
+            BooleanSelector()
+        )
+    return vol.Schema(schema)
 
 
 @callback
@@ -277,6 +287,11 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 if subentry is None
                 else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}
             )
+            if subentry is None and user_input.get(CONF_CREATE_PERSON):
+                # Only a marker: the tracker's device tracker entity does not
+                # exist until the entry has been set up with this subentry, so
+                # the person itself is created afterwards (persons.py).
+                data[CONF_CREATE_PERSON] = True
             skip = subentry.subentry_id if subentry is not None else None
             strangers = [
                 person

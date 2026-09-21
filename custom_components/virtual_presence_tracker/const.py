@@ -68,6 +68,21 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 
+# The person a new tracker asks for (M2g). This is a marker in the subentry
+# data, not an option: the form writes it, the integration acts on it once
+# Home Assistant has started and takes it off again, and it has no entity. A
+# tracker from before M2g simply does not carry it, and neither does one whose
+# person has been created - which is what makes the work happen exactly once.
+CONF_CREATE_PERSON: Final = "create_person"
+DEFAULT_CREATE_PERSON: Final = True
+
+# Every key of a subentry that may change while the config entry stays loaded:
+# the options an entity writes, plus the marker above. A reload would take the
+# trackers and their persons to `unavailable` for a moment, and neither a
+# switch nor a marker that has served its purpose is allowed to do that (see
+# the reload fingerprint in __init__.py).
+NO_RELOAD_KEYS: Final = LIVE_OPTION_KEYS | {CONF_CREATE_PERSON}
+
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"
 ATTR_REAL_PERSONS_HOME: Final = "real_persons_home"

@@ -12,6 +12,7 @@ from typing import Any
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.virtual_presence_tracker.const import CONF_CREATE_PERSON
 from homeassistant.components.device_tracker import ATTR_SOURCE_TYPE, SourceType
 from homeassistant.components.switch import (
     DOMAIN as SWITCH_DOMAIN,
@@ -105,6 +106,39 @@ async def test_the_switch_brings_a_person_home(hass: HomeAssistant) -> None:
     assert hass.states.get(PERSON_KID).state == STATE_NOT_HOME
     assert hass.states.get(ZONE_HOME).state == "0"
     assert persons_at_home(hass) == []
+
+
+async def test_the_person_of_a_new_tracker_is_created_and_counted(
+    hass: HomeAssistant,
+) -> None:
+    """A tracker that asks for a person ends up counted by `zone.home`.
+
+    The same chain as above, except that nobody assigned anything by hand: the
+    person is the one the integration created for the tracker (M2g).
+    """
+    assert await async_setup_component(hass, "zone", {})
+    assert await async_setup_component(hass, "person", {"person": [DABO53CK]})
+
+    entry = make_entry(
+        make_subentry(TRACKER_A, "Kid", **{CONF_CREATE_PERSON: True}),
+        persons=[PERSON_A],
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await set_gps_tracker(hass, DABO53CK_PHONE, STATE_NOT_HOME)
+
+    person = hass.states.get(PERSON_KID)
+    assert person is not None
+    assert person.attributes["device_trackers"] == [TRACKER_ENTITY]
+    assert person.state == STATE_NOT_HOME
+
+    await call_switch(hass, SERVICE_TURN_ON)
+
+    person = hass.states.get(PERSON_KID)
+    assert person.state == STATE_HOME
+    assert person.attributes["source"] == TRACKER_ENTITY
+    assert persons_at_home(hass) == [PERSON_KID]
 
 
 async def test_a_connected_tracker_wins_over_gps(hass: HomeAssistant) -> None:

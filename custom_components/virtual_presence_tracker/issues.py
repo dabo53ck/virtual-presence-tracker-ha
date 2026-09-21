@@ -36,6 +36,7 @@ from homeassistant.helpers.start import async_at_started
 from .const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ASK_ON_DEPARTURE,
+    CONF_CREATE_PERSON,
     CONF_PERSONS,
     DEFAULT_ASK_ON_DEPARTURE,
     DOMAIN,
@@ -220,6 +221,12 @@ class HouseholdIssues:
         for subentry in subentries:
             entity_id = trackers.get(subentry.subentry_id)
             if entity_id is None or entity_id in followed:
+                continue
+            if subentry.data.get(CONF_CREATE_PERSON):
+                # The person of this tracker is still to be created (M2g).
+                # Reporting it as unassigned in that moment would be a warning
+                # about something that is about to happen by itself; the marker
+                # is taken off either way, and the check runs again then.
                 continue
             issues[self._issue_id(ISSUE_TRACKER_NOT_ASSIGNED, subentry.subentry_id)] = (
                 ISSUE_TRACKER_NOT_ASSIGNED,

@@ -15,11 +15,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 
-from .const import LIVE_OPTION_KEYS
+from .const import NO_RELOAD_KEYS
 from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
 from .migration import async_remove_legacy_household_device
+from .persons import TrackerPersons
 
 PLATFORMS = [
     Platform.DEVICE_TRACKER,
@@ -34,7 +35,8 @@ PLATFORMS = [
 # and reloading the entry because somebody flipped a switch would take the
 # device trackers and their persons to `unavailable` for a moment - long enough
 # for the user's own "somebody came home" automations to fire (see
-# docs/DESIGN.md).
+# docs/DESIGN.md). The marker of a tracker that asked for a person is left out
+# for the same reason: it is taken off as soon as the person exists.
 type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 
@@ -56,8 +58,8 @@ def _async_reload_fingerprint(entry: ConfigEntry) -> ReloadFingerprint:
     """Return what the entry looks like to everything that needs a reload.
 
     The title and the data of the entry, plus every subentry with its title and
-    all of its data except the options that are written by an entity. Two equal
-    fingerprints therefore mean: nothing changed but those options.
+    all of its data except the keys that may change while the entry stays
+    loaded. Two equal fingerprints therefore mean: nothing changed but those.
     """
     return (
         entry.title,
@@ -68,7 +70,7 @@ def _async_reload_fingerprint(entry: ConfigEntry) -> ReloadFingerprint:
                 {
                     key: value
                     for key, value in subentry.data.items()
-                    if key not in LIVE_OPTION_KEYS
+                    if key not in NO_RELOAD_KEYS
                 },
             )
             for subentry_id, subentry in entry.subentries.items()
@@ -117,6 +119,12 @@ async def async_setup_entry(
     # raises the ones that still apply.
     issues.async_start()
     entry.async_on_unload(issues.async_stop)
+    # After the issues, so that the check of a tracker whose person is still
+    # being created has already been held back when the person arrives (M2g).
+    # The tracker entities exist by now, which is what this needs.
+    persons = TrackerPersons(hass, entry, issues)
+    persons.async_start()
+    entry.async_on_unload(persons.async_stop)
     return True
 
 

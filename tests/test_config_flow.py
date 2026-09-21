@@ -12,6 +12,7 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_CREATE_PERSON,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
@@ -27,7 +28,7 @@ from custom_components.virtual_presence_tracker.const import (
 )
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState, FlowType
 from homeassistant.const import CONF_NAME, STATE_HOME, STATE_NOT_HOME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 PERSON_DABO53CK = "person.dabo53ck"
@@ -362,7 +363,11 @@ async def test_subentry_adds_a_tracker(
 async def test_the_form_asks_for_the_name_and_the_recipients_only(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """The four settings that have an entity now are gone from the form."""
+    """The four settings that have an entity now are gone from the form.
+
+    What is left is the name, the recipients and the offer to create the
+    person the tracker needs, which is ticked unless the user unticks it.
+    """
     await setup_entry(hass, config_entry)
 
     result = await hass.config_entries.subentries.async_init(
@@ -370,8 +375,60 @@ async def test_the_form_asks_for_the_name_and_the_recipients_only(
     )
     schema: vol.Schema = result["data_schema"]
 
+    assert [str(key) for key in schema.schema] == [
+        CONF_NAME,
+        CONF_NOTIFY_PERSONS,
+        CONF_CREATE_PERSON,
+    ]
+    assert schema({CONF_NAME: "Kid"}) == {
+        CONF_NAME: "Kid",
+        CONF_NOTIFY_PERSONS: [],
+        CONF_CREATE_PERSON: True,
+    }
+
+
+async def test_the_reconfigure_form_does_not_offer_a_person(
+    hass: HomeAssistant,
+) -> None:
+    """An existing tracker has its person, or the user said no to it once."""
+    entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+    schema: vol.Schema = result["data_schema"]
+
     assert [str(key) for key in schema.schema] == [CONF_NAME, CONF_NOTIFY_PERSONS]
-    assert schema({CONF_NAME: "Kid"}) == {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: []}
+
+
+async def test_a_new_tracker_asks_for_a_person_to_be_created(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """The form leaves a marker; the person is created after the start.
+
+    The tracker's device tracker entity does not exist while the form is open,
+    so the flow cannot create the person itself.
+    """
+    hass.set_state(CoreState.not_running)
+    await setup_entry(hass, config_entry)
+
+    await add_tracker(hass, config_entry, {CONF_NAME: "Kid"})
+    await hass.async_block_till_done()
+
+    subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
+    assert dict(subentry.data) == tracker_data(**{CONF_CREATE_PERSON: True})
+
+
+async def test_a_new_tracker_can_be_added_without_a_person(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """Unticking the box stores no marker at all, so nothing is created."""
+    hass.set_state(CoreState.not_running)
+    await setup_entry(hass, config_entry)
+
+    await add_tracker(hass, config_entry, {CONF_NAME: "Kid", CONF_CREATE_PERSON: False})
+    await hass.async_block_till_done()
+
+    subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
+    assert dict(subentry.data) == tracker_data()
 
 
 async def test_subentry_stores_the_recipients(

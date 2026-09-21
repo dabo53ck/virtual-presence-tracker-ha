@@ -41,14 +41,16 @@
       "step": {
         "user": {
           "title": "Add a virtual tracker",
-          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. Assign it to a person of its own afterwards, and that person counts as being at home for as long as the tracker is switched on.",
+          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. It needs a person of its own - the integration creates one for you below - and that person counts as being at home for as long as the tracker is switched on.",
           "data": {
             "name": "Name",
-            "notify_persons": "Who is asked?"
+            "notify_persons": "Who is asked?",
+            "create_person": "Create a person for this tracker"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the question when the house empties, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the prompt with an automation of your own.\n\nEverything else is set on the tracker's device page: whether it asks when the house empties, the time to answer, the delay before asking, the reset when somebody comes home and the note when nobody answers."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the question when the house empties, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the prompt with an automation of your own.\n\nEverything else is set on the tracker's device page: whether it asks when the house empties, the time to answer, the delay before asking, the reset when somebody comes home and the note when nobody answers.",
+            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
           }
         },
         "reconfigure": {

@@ -41,14 +41,16 @@
       "step": {
         "user": {
           "title": "Virtuellen Tracker hinzufügen",
-          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Weise ihn anschließend einer eigenen Person zu – diese Person gilt dann als zu Hause, solange der Tracker eingeschaltet ist.",
+          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Er braucht eine eigene Person – die legt die Integration unten für dich an – und diese Person gilt als zu Hause, solange der Tracker eingeschaltet ist.",
           "data": {
             "name": "Name",
-            "notify_persons": "Wer wird gefragt?"
+            "notify_persons": "Wer wird gefragt?",
+            "create_person": "Person für diesen Tracker anlegen"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf.",
+            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
           }
         },
         "reconfigure": {
