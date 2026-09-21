@@ -63,7 +63,12 @@ restore its last state immediately; cover with a test in M1.
    `unknown` / `unavailable` / a missing entity mean "state not known": the last
    known value of that person is kept, and a person whose state was never known
    cannot trigger a reset (HA start).
-4. **Safety net**: max duration → notify.
+4. **Safety net** (M3a, done): a tracker that has been on for `remind_after`
+   hours produces a **reminder** - "is <name> still home?" - on the same phones
+   and through the same event entity as the prompt. "Yes" starts the waiting
+   time again, "no" switches the tracker off, no answer changes nothing. Off by
+   default for every tracker that does not carry the key. Nothing is ever
+   switched off automatically; see the decisions.
 5. **Events** with a fixed contract, one `event` entity per tracker — settled
    in "Event & service contract" above (M2a).
 6. **Repairs / validation** (M1e, done): three repair issues. `tracker_not_
@@ -91,7 +96,7 @@ restore its last state immediately; cover with a test in M1.
    a person is the user's data. `tracker_not_assigned` stays as the fallback
    for everybody who unticks the box or whose person could not be created.
 
-## Event & service contract (M2a, frozen; grown in M2b, M2d and M2f)
+## Event & service contract (M2a, frozen; grown in M2b, M2d, M2f and M3a)
 
 Everything in this section is a **public API**. Automations, scripts and
 blueprints are written against it, and changing a name or a key breaks them
@@ -107,23 +112,26 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 | `prompt_delay` | int, seconds | 0-600 | `0` | Delay before asking |
 | `notify_persons` (M2b) | list of `person` entity IDs | the entry's real persons | `[]` | Who is asked? |
 | `notify_on_expiry` (M2b) | bool | - | `False` | Tell me when nobody answers |
+| `remind_after` (M3a) | int, hours | 0-168 | `0` (never) | Remind me after |
 
-The **keys are unchanged since M2b**; what changed with M2f is who writes them.
-The first five have an entity each (below) and are written from the tracker's
-device page **without reloading the config entry**; `notify_persons` stays in
-the form, because it is a list of persons rather than a value.
+The **keys are unchanged since M2b** except for the one M3a added; what changed
+with M2f is who writes them. All of them but `notify_persons` have an entity
+each (below) and are written from the tracker's device page **without reloading
+the config entry**; `notify_persons` stays in the form, because it is a list of
+persons rather than a value.
 
 A subentry may additionally carry `create_person: True` (M2g) for the short
 while between the form and the start. That key is a **marker, not an option**
 and deliberately no part of this contract: it is written by the form of a new
 tracker, acted on once, and taken off again (see the technical notes).
 
-A subentry from before M2a or M2b simply has none of the keys and uses the
+A subentry from before M2a, M2b or M3a simply has none of the keys and uses the
 defaults, so there is no migration - and a missing `ask_on_departure` still
-means "does not ask", which is what every tracker from before the prompt relies
-on. A tracker **added from M2f on** is written with all five keys spelled out
-and with **`ask_on_departure: True`**: a new tracker asks, an old one does not
-start to.
+means "does not ask", a missing `remind_after` still means "never reminds",
+which is what every tracker from before the prompt and the reminder relies on.
+A tracker **added from M2f on** is written with every settings key spelled out
+and with **`ask_on_departure: True`** and (since M3a) **`remind_after: 24`**: a
+new tracker asks and reminds, an old one does not start to.
 
 The tracker form holds nothing but name and `notify_persons` (M2f).
 `notify_persons` is an `EntitySelector` (domain `person`, `multiple`) whose
@@ -135,7 +143,7 @@ a **new** tracker every real person of the entry is pre-selected; the
 **reconfigure** step merges (`{**subentry.data, notify_persons: ...}`), so the
 five settings pass through the form untouched.
 
-### Option entities (M2f, one set per tracker)
+### Option entities (M2f, grown in M3a, one set per tracker)
 
 On the tracker's device `(DOMAIN, subentry_id)`, `has_entity_name`, with the
 option key as the translation key and as the suffix of the unique ID.
@@ -147,6 +155,7 @@ option key as the translation key and as the suffix of the unique ID.
 | Tell me when nobody answers | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
 | Time to answer | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
 | Delay before asking | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
+| Remind me after (M3a) | `number` | `remind_after` | `<subentry_id>_remind_after` | `CONFIG` |
 
 **All** of them are configuration entities (the ask switch became one after
 M2f, on dabo53ck's call): they are settings of the tracker and belong together
@@ -156,31 +165,43 @@ puts an entity and of what a voice assistant is offered by default; writing one
 is unaffected, so an automation or a script still flips the ask switch like any
 other switch. The numbers are `NumberMode.BOX`, step 1,
 `NumberDeviceClass.DURATION` with
-`UnitOfTime.MINUTES` / `UnitOfTime.SECONDS` (both are in the unit set the
-device class allows), and the ranges of the constants they have always had.
+`UnitOfTime.MINUTES` / `UnitOfTime.SECONDS` / `UnitOfTime.HOURS` (all three are
+in the unit set the device class allows), and the ranges of the constants they
+have always had.
 
 ### Event entity (one per tracker)
 
 `unique_id` = `<subentry_id>_prompt`, on the tracker's device
-`(DOMAIN, subentry_id)`, `has_entity_name`, `translation_key` `prompt`.
+`(DOMAIN, subentry_id)`, `has_entity_name`, `translation_key` `prompt`. One
+entity for **both** questions about the tracker (M3a): they are never open at
+the same time, and an automation that wants both would otherwise have to listen
+twice. The ID and the key stay what M2a made them - renaming either would give
+every existing installation a new entity.
 
 `event_types`: `prompt_started`, `answered_yes`, `answered_no`, `expired`,
-`cancelled`.
+`cancelled`, and since M3a `reminder_started`, `reminder_answered_yes`,
+`reminder_answered_no`, `reminder_expired`, `reminder_cancelled`.
 
 Event data, all values strings (times ISO-8601 in UTC) or `null`:
 
 | Key | On | Value |
 |---|---|---|
-| `prompt_id` | every event | random ID, new for every prompt |
+| `prompt_id` | every `prompt`/`answered`/`expired`/`cancelled` event | random ID, new for every prompt |
+| `reminder_id` (M3a) | every `reminder_*` event | random ID, new for every reminder |
 | `tracker` | every event | the tracker's name (the subentry title) |
-| `expires_at` | `prompt_started` | when an unanswered prompt gives up |
-| `answered_by` | `answered_yes`, `answered_no` | `person` entity ID or `null` |
+| `expires_at` | `prompt_started`, `reminder_started` | when an unanswered question gives up |
+| `answered_by` | `answered_yes`, `answered_no`, `reminder_answered_yes`, `reminder_answered_no` | `person` entity ID or `null` |
 | `reason` | `cancelled` | `person_home`, `switched_on`, `option_disabled` |
+| `reason` | `reminder_cancelled` (M3a) | `switched_off`, `option_disabled` |
+
+A reminder **never carries `prompt_id`** and a prompt never carries
+`reminder_id`: they are two different questions, and an automation must not be
+able to confuse them.
 
 ### Services
 
-Both are **entity services** on the integration's `switch` entities (target the
-switch or its device).
+All four are **entity services** on the integration's `switch` entities (target
+the switch or its device).
 
 `virtual_presence_tracker.answer_prompt`:
 
@@ -210,6 +231,27 @@ Two conditions are left, both checked before anything changes, so a refusal
 leaves no trace: a tracker that is already on raises `tracker_already_home`, a
 tracker that already has an open prompt raises `prompt_already_open` (both
 `ServiceValidationError`).
+
+`virtual_presence_tracker.answer_reminder` (M3a):
+
+| Field | Required | Value |
+|---|---|---|
+| `answer` | yes | `yes` or `no` |
+| `answered_by` | no | a `person` entity ID, passed on to the event |
+
+"Yes" means "still at home": the tracker stays on, the anchor moves to now and
+the waiting time starts again. "No" switches the tracker **off**, down the same
+path the switch takes. Targeting a tracker without an open reminder raises a
+`ServiceValidationError` with the translation key `no_open_reminder`.
+
+`virtual_presence_tracker.open_reminder` (M3a), **no fields**: asks right now
+whether the person is still at home, ignoring `remind_after` and the anchor -
+so the whole chain can be tried out without waiting hours, and so an automation
+can ask on an occasion of its own. It works for a tracker whose `remind_after`
+is `0`. Two conditions are checked before anything changes: a tracker that is
+**off** raises `tracker_not_home` (a reminder is about somebody marked as being
+at home), a tracker that already has an open reminder raises
+`reminder_already_open`.
 
 ### Built-in delivery through the Companion App (M2b)
 
@@ -270,13 +312,45 @@ otherwise (`messages.py`).
 | yes | Yes, home alone | Ja, alleine zu Hause |
 | no | No | Nein |
 | expiry | No answer: {tracker} counts as not at home. | Keine Antwort: {tracker} gilt als nicht zu Hause. |
+| reminder title (M3a) | Is {tracker} still home? | Ist {tracker} noch zu Hause? |
+| reminder message (M3a) | {tracker} has been marked as home for {hours}. Answer within {minutes}. | {tracker} ist seit {hours} als zu Hause markiert. Antworte innerhalb von {minutes}. |
+| reminder yes (M3a) | Yes, still home | Ja, noch da |
+| reminder no (M3a) | No, switch off | Nein, ausschalten |
+
+`{hours}` and `{minutes}` of the reminder are built first - `1 hour` /
+`N hours`, `1 Stunde` / `N Stunden` - so that a single hour never reads as "1
+hours". `{hours}` counts **whole hours since the tracker was switched on**, at
+least one, and deliberately not from the anchor: the question is how long
+somebody has been marked as at home, which answering "still here" does not
+reset.
+
+### Built-in delivery of the reminder (M3a)
+
+The same mechanics as the prompt, on the same recipients, with a tag and button
+names of its own:
+
+| Key | Value |
+|---|---|
+| `data.tag` | `vpt_reminder_<reminder_id>` |
+| `data.actions` | `[{action: VPT_REMIND_YES_<reminder_id>, …}, {action: VPT_REMIND_NO_<reminder_id>, …}]` |
+| everything else | as the prompt: `ttl`, `priority`, `timeout`, `push`, `icon_url` |
+
+**Clearing** on every ending, as for the prompt. **No expiry notice**: an
+unanswered prompt leaves the house counting as empty, which is worth a word; an
+unanswered reminder leaves everything exactly as it was.
+
+The four action prefixes are chosen so that none of them is a prefix of
+another - `VPT_REMIND_YES_x` does not start with `VPT_YES_`, `VPT_YES_x` does
+not start with `VPT_REMIND_YES_` - so the same `startswith()` test tells them
+apart in either order. A fifth prefix has to keep that true.
 
 ### Switch state attributes
 
 `since` (unchanged), plus `prompt_open` (bool) and `prompt_expires_at` (ISO
-string or `null`).
+string or `null`), and since M3a `reminder_open` (bool) and
+`reminder_expires_at` (ISO string or `null`).
 
-### State machine
+### State machine of the prompt
 
 idle -> *scheduled* (only while `prompt_delay` > 0) -> **open** ->
 answered_yes / answered_no / expired / cancelled -> idle.
@@ -313,6 +387,56 @@ answered_yes / answered_no / expired / cancelled -> idle.
   the same reason the resume leaves it alone: it was never opened because the
   option was on. `async_resume_prompts()` keeps its own checks unchanged, for
   the case where the option changed while Home Assistant was down.
+
+### State machine of the reminder (M3a)
+
+off -> *counting* (while the tracker is on and `remind_after` > 0) -> **open**
+-> reminder_answered_yes / reminder_answered_no / reminder_expired /
+reminder_cancelled -> counting again (or off).
+
+- **The anchor** is what the counting starts from: the moment the tracker was
+  switched on, moved forward by a "yes" answer and by an expiry - whichever is
+  latest. It is dropped when the tracker goes off. A tracker that was switched
+  on before M3a has no anchor, and its `since` - the moment it was switched
+  on - is used instead.
+- **Opens** `remind_after` hours after the anchor, if the tracker is still on
+  and the interval is still above zero. A reminder that is *already* due when
+  the timer is (re)computed - the interval was lowered, or Home Assistant was
+  down for longer than it - opens on the spot: catching a tracker that is
+  already forgotten is the point of the whole thing.
+- **Opened by hand** (`open_reminder`): the same open state, without looking at
+  the interval or the anchor at all. It is not marked in any way - unlike the
+  prompt's `manual` flag - because neither of the two things that withdraw a
+  reminder after a restart depends on how it was opened.
+- **One at a time**, and never together with a prompt: a prompt needs the
+  tracker off, a reminder needs it on, so the two exclude each other by
+  construction. The prompt's cancellation on switch-on (`switched_on`) is
+  untouched; the reminder's mirror image is the cancellation on switch-off.
+- **`answer_reminder` yes** moves the anchor to now, keeps the tracker on and
+  starts the waiting time again; **no** switches the tracker off through
+  `async_set_home()`, so everything that follows a manual switch-off follows
+  here too; the **timeout** emits `reminder_expired` and changes *nothing* but
+  the anchor - so the next reminder comes one full interval later instead of
+  immediately. No answer never changes a tracker, here as everywhere else.
+  The reminder is ended *before* the switch-off, so a "no" never also reports a
+  cancellation.
+- **Cancelled**: the tracker is switched off by anybody or anything - by hand,
+  by an automation, by the reset on a real arrival - (`switched_off`);
+  `remind_after` is set to `0` while a reminder is open (`option_disabled`).
+  The second is decided against the value the manager saw *last*, not against
+  zero, so a reminder opened by hand on a tracker without an interval is not
+  withdrawn by the next unrelated option change.
+- **Restart / reload**: the timers are recomputed from the persisted anchor,
+  and an open reminder is persisted and resumed like a prompt. A tracker that
+  is off by then loses its reminder (`switched_off`), a deadline that passed
+  while Home Assistant was down emits `reminder_expired` and moves the anchor,
+  and a reminder that is still valid keeps the time it has left and says
+  nothing. `remind_after` is deliberately *not* re-checked for an open reminder
+  on resume: an open reminder does not imply that the option is on, because it
+  may have been opened by hand.
+- **Deliberately not built**: an automatic switch-off after an unanswered
+  reminder. See the decisions below - it is a possible later step, not an
+  omission.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -395,9 +519,23 @@ answered_yes / answered_no / expired / cancelled -> idle.
   the split between `async_load()` (read the store) and
   `async_resume_prompts()` (act on it).
 - **Prompt timers** are `async_call_later()` handles, one per open prompt
-  (expiry) and one per delayed prompt. `async_stop()` cancels all of them, so a
-  reload never leaves a timer of the old manager behind; the tests would fail
-  on it, as pytest-homeassistant-custom-component reports lingering timers.
+  (expiry) and one per delayed prompt. The reminder adds two more per tracker
+  (M3a): the expiry of an open reminder and the one that opens the next one.
+  `async_stop()` cancels all of them, so a reload never leaves a timer of the
+  old manager behind; the tests would fail on it, as
+  pytest-homeassistant-custom-component reports lingering timers.
+  `async_call_later()` is `loop.call_at()` underneath, which takes an interval
+  of a week (`remind_after` maxes out at 168 hours) as happily as one of ten
+  minutes.
+- **One place decides the reminder timer** (M3a):
+  `_async_schedule_reminder()`, called after everything that can change the
+  answer - the tracker going on or off, an option that changed, a reminder that
+  ended, the resume after a restart. It drops the handle that was there first,
+  so calling it twice costs nothing, and it opens the reminder straight away
+  when the deadline has already passed. That is also how a reminder that became
+  due while Home Assistant was down is fired: from `async_resume_reminders()`,
+  synchronously, after the platforms are up - not from a zero-second timer,
+  whose firing would depend on the event loop rather than on the code.
 - **The prompt ID is drawn when the state machine leaves idle**, not when the
   prompt opens, so that a prompt cancelled during its delay can still be named
   in the `cancelled` event. The delay phase itself is *not* persisted (see the
@@ -409,7 +547,12 @@ answered_yes / answered_no / expired / cancelled -> idle.
   what a fresh install looks like. There is nothing to convert, so
   `async_migrate_func` would have nothing to do. The `manual` flag of a prompt
   (M2d) is optional for the same reason: a prompt written without it reads as
-  "nobody opened this by hand", which is what every prompt before M2d was.
+  "nobody opened this by hand", which is what every prompt before M2d was. M3a
+  adds two more optional pieces on the same terms: the top-level `reminders`
+  key ("no reminder was open") and an `anchor` per tracker ("count from when it
+  was switched on"). Every one of them is parsed defensively - an unreadable
+  timestamp is dropped rather than raised over - and the entries of trackers
+  that no longer exist are pruned on load, like the prompts.
 - **Resuming a manual prompt** (M2d): `async_resume_prompts()` skips *both* of
   its cancellations for a prompt that was opened by hand. Neither reason
   applies to it - it was never opened because the option was on, and never
@@ -665,13 +808,19 @@ answered_yes / answered_no / expired / cancelled -> idle.
   (`after_dependencies` is in `INTEGRATION_MANIFEST_SCHEMA`, which the custom
   schema extends) and buy nothing.
 - **No option is cached**: the manager reads every one of them where it uses it
-  (`_ask_on_departure()`, `_answer_timeout()`, `_prompt_delay()`, the reset in
-  `_async_reset_trackers()`), and `delivery.py` reads `answer_timeout` and
-  `notify_on_expiry` out of the subentry at send time. The single exception is
-  deliberate: the manager remembers the *previous* ask value per tracker, in
-  order to notice the transition to off. An open prompt keeps the deadline it
-  was opened with when the timeout changes; the new value applies to the next
-  prompt.
+  (`_ask_on_departure()`, `_answer_timeout()`, `_prompt_delay()`,
+  `_remind_after()`, the reset in `_async_reset_trackers()`), and `delivery.py`
+  reads `answer_timeout` and `notify_on_expiry` out of the subentry at send
+  time. The exceptions are deliberate: the manager remembers the *previous* ask
+  value and the *previous* reminder interval per tracker, in order to notice
+  the transition to off / to zero. An open prompt or reminder keeps the
+  deadline it was opened with when the timeout changes; the new value applies
+  to the next one.
+- **The repair issue `recipient_without_phone` still only looks at the ask
+  option** (M3a, known gap): a tracker whose recipients have no Companion App
+  but which only *reminds* is not reported. Widening the check is a change to
+  an existing issue rather than a new one, and M3a was asked not to add repair
+  issues - worth deciding before the first release.
 
 ## Milestones
 
@@ -687,7 +836,8 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Live-tested on 2026-09-20 (HA 2026.9.3): the icon replaces the app icon on the iPhone, and the prompt works on an Android tablet. |
 | **M2f** (done, not live-tested yet) | The settings of a tracker become entities on its device page (decided after a usability review, 2026-09-21): three switches and two numbers for `ask_on_departure`, `reset_on_return`, `notify_on_expiry`, `answer_timeout` and `prompt_delay`, so the form is down to name and recipients. The values stay in the subentry data, and writing one does **not** reload the entry any more — the update listener compares a fingerprint that leaves those five keys out, because a reload would take the trackers and their persons to `unavailable` for a moment. Switching the ask option off takes a scheduled or open automatic prompt back at once (`option_disabled`); a prompt opened by hand survives it. A new tracker is written with all five keys and asks by default, and its recipients come up with every real person ticked. |
 | **M2g** (done, not live-tested yet) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. |
-| **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
+| **M3a** (done, not live-tested yet) | The reminder for a tracker that has been on for too long (2026-09-21), the max-duration item of M3 pulled forward: a per-tracker `remind_after` in hours (`0` = never, `number` entity, new trackers get 24), a reminder that is announced by the same `event` entity and sent to the same phones, "yes" / "no" / no answer with the usual rule that only an answer changes anything, the actions `open_reminder` and `answer_reminder`, two more switch attributes. Timers and the open reminder survive a restart through the persisted anchor. An automatic switch-off is deliberately **not** part of it. |
+| **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
 ## Decisions
@@ -787,6 +937,25 @@ Confirmed by dabo53ck (2026-09-19):
   fingerprint exists). **A new tracker asks by default**, while a tracker
   without the key keeps meaning "does not ask", and the recipients of a new
   tracker come up with every real person ticked.
+
+- **M3a decisions (dabo53ck, 2026-09-21)**: a tracker that is left on keeps the
+  house counting as occupied - the vacuum never runs, the alarm never arms - so
+  a **reminder** is the safety net for a broad audience, and it is the "max
+  duration" item of M3 pulled forward. The interval is **per tracker, in
+  hours**, and `0` means never, so nothing changes for a tracker that has none
+  (dabo53ck's "Testkind" included). "Yes" keeps the tracker on, "no" switches it
+  off, no answer changes nothing - the same rule as for the prompt.
+  - **An automatic switch-off is deliberately not built.** dabo53ck has not
+    decided it, and it would be the first thing in the integration that changes
+    a tracker without anybody saying so. It is a **possible later step**: it
+    would need an option of its own (the reminder must stay usable without it)
+    and it would mean giving up the rule "no answer never changes anything"
+    knowingly, for that option only.
+  - **The default for a *new* tracker is `NEW_TRACKER_REMIND_AFTER = 24`
+    hours - a proposal, not a decision yet.** It is one line in `const.py` and
+    it is the only place the number appears, so changing it is a one-line
+    change until the first release. A tracker from before M3a keeps `0`
+    whatever this becomes.
 
 - **M2g decision (dabo53ck, 2026-09-21)**: the integration **creates the person**
   of a new virtual tracker, because having to create one by hand and assign the

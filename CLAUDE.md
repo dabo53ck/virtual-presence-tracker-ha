@@ -4,16 +4,18 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e, M2f and M2g
-complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e, M2f, M2g and
+M3a complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
-machine), the config flow (real persons, reconfigure) plus the subentry flow
+machine, reminder state machine), the config flow (real persons, reconfigure)
+plus the subentry flow
 per virtual tracker (M2f: name and recipients only), the entities
 (`device_tracker` + `switch` + prompt `event` per tracker, the "only virtual
 trackers home" `binary_sensor` per entry, and since M2f three option `switch`es
-plus two `number`s per tracker for `ask_on_departure`, `reset_on_return`,
-`notify_on_expiry`, `answer_timeout` and `prompt_delay` — written into the
+plus (with M3a) three `number`s per tracker for `ask_on_departure`,
+`reset_on_return`, `notify_on_expiry`, `answer_timeout`, `prompt_delay` and
+`remind_after` — written into the
 subentry data **without reloading the entry**, which is what the reload
 fingerprint in `__init__.py` is for), the `answer_prompt` entity service
 on the switches, the built-in delivery of the prompt to the Companion App
@@ -28,6 +30,13 @@ M2e: that icon moved from the picture of the message (`data.image`) to the icon
 beside it (`data.icon_url`), where it replaces the app icon — a communication
 notification on iOS, the large icon on Android),
 the person a new tracker asks for (`persons.py`, M2g),
+the reminder for a tracker that has been on for too long (M3a: the option
+`remind_after` in hours with `0` = never, an anchor per tracker that is
+persisted and moved by every "still home" and every expiry, five more event
+types on the same `event` entity, the entity services `open_reminder` and
+`answer_reminder`, the switch attributes `reminder_open` /
+`reminder_expires_at`, and a Companion App message with its own tag and
+`VPT_REMIND_*` buttons — **no automatic switch-off**, deliberately),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -53,7 +62,13 @@ not live-tested either**: the form of a *new* tracker offers to create the
 marker and `persons.py` creates the person with the tracker assigned once Home
 Assistant has started — exactly once, never a duplicate of a person that is
 already there, never removed together with its tracker, and without reloading
-the entry. Pushed to the **private** repo
+the entry. **M3a (2026-09-21) is not live-tested either**: the reminder above,
+whose default for a *new* tracker (`NEW_TRACKER_REMIND_AFTER = 24` hours) is a
+**proposal awaiting dabo53ck's OK** — one line in `const.py`, and a tracker from
+before M3a keeps `0` whatever it becomes. In the same round the ask switch
+became an `EntityCategory.CONFIG` entity, so all six settings of a tracker now
+sit under "Configuration" on its device page (still writable by automations).
+Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.

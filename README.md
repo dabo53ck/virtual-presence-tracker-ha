@@ -74,14 +74,20 @@ the integration only knows what you, an automation, or an answered prompt tell i
   a dashboard, Telegram — can carry the question instead. The action **Open
   prompt** asks the question on demand, which is also how you try the whole
   chain out without leaving the house.
+- A **reminder** for a tracker that has been on for too long: "is Kid still
+  home?", after the number of hours you set. A forgotten switch is the one way
+  this integration can make things worse than before — the house counts as
+  occupied for days — and this is the safety net against it.
 
 ## What it does not do
 
 - It does not detect anything by itself. A virtual tracker only knows what you,
   an automation or an answered prompt tell it.
-- It does not deliver the prompt anywhere except to the Home Assistant Companion
-  App. Any other channel is an automation of your own on the event entity (there
-  is a ready-made example below).
+- It does not deliver the prompt or the reminder anywhere except to the Home
+  Assistant Companion App. Any other channel is an automation of your own on the
+  event entity (there is a ready-made example below).
+- It does not switch a tracker off by itself when nobody answers. It reminds
+  you; switching off stays your decision.
 - It does not change what your automations do — it only changes who counts as
   being at home.
 - It does not manage your persons beyond the one step it offers: a **new**
@@ -106,11 +112,11 @@ when it ends.
 ## Status
 
 **Pre-release / in development.** The trackers, switches, the household sensor,
-the prompt on the last departure and its delivery to the Companion App work. A
-reminder for a tracker that has been on for very long is not built yet, and
-neither are the evidence sources (BLE tag, tablet Wi-Fi, door contact) that could
-set a tracker home by themselves. See [`docs/DESIGN.md`](docs/DESIGN.md) for the
-design and the milestone plan.
+the prompt on the last departure, the reminder for a tracker that has been on
+for too long and the delivery of both to the Companion App work. What is not
+built yet are the evidence sources (BLE tag, tablet Wi-Fi, door contact) that
+could set a tracker home by themselves. See [`docs/DESIGN.md`](docs/DESIGN.md)
+for the design and the milestone plan.
 
 ## Installation
 
@@ -173,9 +179,9 @@ Each tracker gives you three entities to work with, for a tracker named *Kid*:
 |---|---|
 | `switch.kid_at_home` | The control. Turn it on when the kid is at home. |
 | `device_tracker.kid` | Follows the switch. Assign this one to a person. |
-| `event.kid_prompt` | Announces the prompt (see below). Idle unless the tracker asks. |
+| `event.kid_prompt` | Announces the prompt and the reminder (see below). Idle until one of them happens. |
 
-Next to them sit the five entities that hold the tracker's settings — see "The
+Next to them sit the six entities that hold the tracker's settings — see "The
 tracker's settings".
 
 The entity IDs are built from the tracker's name and the entity names in the
@@ -230,7 +236,9 @@ or let an automation flip it. That is the whole daily routine.
   **Reset when someone comes home** **off** for it: otherwise the tracker
   would switch itself off the first time you come home, while the guests are
   still there. Switch it on when they arrive and off when they leave. A single
-  tracker can stand for a whole group ("Guests").
+  tracker can stand for a whole group ("Guests"). Because nothing switches this
+  one off for you, set **Remind me after** to the length of a typical stay —
+  48 hours, say — so you are asked instead of finding out a week later.
 - **Somebody who comes and goes, like a carer or a cleaner.** Leave **Ask when
   the house empties** on for their tracker and pick who is asked: whenever the
   last of you leaves, you are asked whether they are still in the house.
@@ -249,6 +257,7 @@ one and it takes effect immediately — nothing reloads, nothing goes
 | **Time to answer** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
 | **Delay before asking** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
 | **Tell me when nobody answers** (switch) | Sends a short note when a prompt expires. | off |
+| **Remind me after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
 use — the only thing under **Controls** is the tracker's own switch. That is
@@ -259,7 +268,8 @@ morning.
 
 The defaults above are what a tracker you add now starts with. A tracker created
 before these entities existed keeps behaving exactly as it did: its **Ask when
-the house empties** switch is off until you turn it on.
+the house empties** switch is off and its **Remind me after** is 0 until you
+change them.
 
 Only the name and **Who is asked?** are still in a form — **Edit virtual
 tracker** on the integration's page — because they are not a value to flip.
@@ -366,8 +376,8 @@ Assistant instance.
 
 ### The event entity
 
-`event.kid_prompt` publishes everything that happens to the prompt of that
-tracker. Its `event_type` is one of:
+`event.kid_prompt` publishes everything that happens to the prompt — and to the
+reminder — of that tracker. Its `event_type` is one of:
 
 | `event_type` | Meaning |
 |---|---|
@@ -376,13 +386,22 @@ tracker. Its `event_type` is one of:
 | `answered_no` | Somebody answered no; nothing changed. |
 | `expired` | Nobody answered in time; nothing changed. |
 | `cancelled` | The prompt was taken back. `reason` says why: `person_home`, `switched_on` or `option_disabled`. |
+| `reminder_started` | The reminder is open. `expires_at` says until when. |
+| `reminder_answered_yes` | Somebody answered "still home"; nothing changed. |
+| `reminder_answered_no` | Somebody answered "switch off"; the tracker is now off. |
+| `reminder_expired` | Nobody answered in time; nothing changed. |
+| `reminder_cancelled` | The reminder was taken back. `reason` says why: `switched_off` or `option_disabled`. |
 
-Every event also carries `prompt_id` (identifies this one prompt from start to
-finish) and `tracker` (the tracker's name). `answered_yes` and `answered_no` carry
-`answered_by` — the person who answered, or nothing if the caller did not say.
+Every prompt event also carries `prompt_id` (identifies this one prompt from
+start to finish) and `tracker` (the tracker's name); every reminder event
+carries `reminder_id` and `tracker`. The two IDs never mix: a reminder event
+has no `prompt_id`, and a prompt event has no `reminder_id`. The four
+`answered` events carry `answered_by` — the person who answered, or nothing if
+the caller did not say.
 
-The switch has two matching attributes, so a dashboard or a template can see the
-same thing without listening for events: `prompt_open` and `prompt_expires_at`.
+The switch has four matching attributes, so a dashboard or a template can see
+the same thing without listening for events: `prompt_open`,
+`prompt_expires_at`, `reminder_open` and `reminder_expires_at`.
 
 ### The answer action
 
@@ -545,6 +564,88 @@ with the exception of a prompt you opened yourself. A message that is still on a
 phone is taken off it in every one of these cases, including the ones that
 happen while Home Assistant starts up again.
 
+## Remind me when a tracker has been on for too long
+
+A virtual tracker that somebody forgets to switch off is the one way this
+integration can leave you worse off than before: the house counts as occupied
+day after day, the vacuum never runs, the alarm never arms. **Remind me after**
+is the safety net. Set it to the number of hours after which you want to be
+asked, and when a tracker has been on for that long your phone gets:
+
+> **Is Kid still home?**
+> Kid has been marked as home for 24 hours. Answer within 10 minutes.
+> \[ Yes, still home ] \[ No, switch off ]
+
+- **Yes, still home** changes nothing and starts the waiting time again, so the
+  next reminder comes after another full interval.
+- **No, switch off** switches the tracker off, exactly as if you had used the
+  switch.
+- **No answer** changes nothing either — the tracker stays on, and you are
+  asked again after another interval. Nothing is ever switched off by itself.
+
+**0 means never**, and that is what every tracker created before this feature
+keeps: it stays silent until you set a number. A tracker you add now starts at
+**24 hours**.
+
+The reminder goes to the same people as the prompt (**Who is asked?**) and
+gives them the same time to answer (**Time to answer**). It is announced by the
+same event entity, `event.kid_prompt`, with its own event types, and the
+switch carries `reminder_open` and `reminder_expires_at` while it is waiting.
+Leave **Who is asked?** empty and nothing is sent at all — the events and the
+actions still work, so your own automation can deliver it.
+
+The counting starts when the tracker is switched on, and it starts again every
+time somebody answers "still home" or lets a reminder run out. Switching the
+tracker off ends it; switching it on starts it over. If you raise **Remind me
+after** the next reminder moves further away, and if you lower it below the
+time the tracker has already been on, you are asked straight away — which is
+the point of a safety net.
+
+A reminder survives a restart of Home Assistant: it keeps the time it has left,
+or reports `reminder_expired` if its time ran out while Home Assistant was off,
+or is withdrawn (`reminder_cancelled`, reason `switched_off`) if the tracker
+was switched off meanwhile. A tracker whose interval passed while Home
+Assistant was down is asked about shortly after the start.
+
+### The reminder actions
+
+```yaml
+action: virtual_presence_tracker.answer_reminder
+target:
+  entity_id: switch.kid_at_home
+data:
+  answer: "yes"          # or "no", which switches the tracker off
+  answered_by: person.dabo53ck   # optional
+```
+
+```yaml
+action: virtual_presence_tracker.open_reminder
+target:
+  entity_id: switch.kid_at_home
+```
+
+**Open reminder** asks right now, without waiting for **Remind me after** to
+pass — it even works for a tracker whose interval is 0. It refuses, without
+changing anything, if the tracker is **switched off** (there is nobody to
+remind you about) or if a reminder for it is **already open**. **Answer
+reminder** fails with "there is no open reminder" if nothing is waiting, so a
+late answer cannot switch anything off by accident.
+
+### Try the reminder without waiting for hours
+
+1. Switch the tracker on.
+2. **Developer tools → Actions**, pick **Virtual Presence Tracker: Open
+   reminder**.
+3. Choose the tracker's switch (`switch.kid_at_home`) as the target and press
+   **Perform action**.
+
+The question appears on the phones of everybody under **Who is asked?**,
+`event.kid_prompt` fires `reminder_started`, and the switch gets
+`reminder_open: true`. Answer on the phone, answer with **Answer reminder**,
+switch the tracker off or let the time run out — all of it behaves exactly as
+it does after a real interval. Set **Time to answer** to a minute while you are
+testing.
+
 ## Troubleshooting: repair issues
 
 The integration checks its own setup and reports what it cannot fix by itself
@@ -602,8 +703,13 @@ prompt if there is one.
 Yes, unless you switch that off for the tracker — see "Ask when the house
 empties". Pick who is asked and the question goes to their phone by itself;
 leave that empty and an automation of yours delivers it, with the example above
-as a starting point. A reminder for a tracker that has been on for very long is still
-to come.
+as a starting point. It also asks again when a tracker has been on for a long
+time — see "Remind me when a tracker has been on for too long".
+
+**Does it switch a forgotten tracker off by itself?**
+No. It reminds you and leaves the decision to you: "no, switch off" on the
+notification does it, and so does the switch. Nothing in this integration ever
+changes a tracker without somebody saying so.
 
 **Why is the tracker's `source_type` "router"?**
 Home Assistant's device trackers have to declare where their information comes
