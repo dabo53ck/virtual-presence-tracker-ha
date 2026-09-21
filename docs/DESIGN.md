@@ -35,8 +35,9 @@ restore its last state immediately; cover with a test in M1.
   notification options, global defaults. Only one household per HA instance;
   relaxing this later is easy, tightening it would not be.
 - **Config subentry per virtual tracker** (config subentries): free-form
-  name, per-tracker options (ask on last departure, reset on return, max
-  duration). Any number of trackers.
+  name, the recipients of its prompt and its options (ask on last departure,
+  reset on return, the two timings, the expiry notice). Any number of trackers.
+  The options are set through entities of the tracker, not through the form.
 - Per tracker: `switch` + `device_tracker` (`BaseScannerEntity`, mirrors the
   switch). Both are thin views of a manager-owned state that is persisted in a
   `Store` and loaded *before* the platforms are set up (see technical notes).
@@ -83,7 +84,7 @@ restore its last state immediately; cover with a test in M1.
    and leaves a valid entry; the `no_tracker` issue then names the path to the
    button.
 
-## Event & service contract (M2a, frozen; grown in M2b and M2d)
+## Event & service contract (M2a, frozen; grown in M2b, M2d and M2f)
 
 Everything in this section is a **public API**. Automations, scripts and
 blueprints are written against it, and changing a name or a key breaks them
@@ -91,25 +92,56 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 
 ### Per-tracker options (subentry data)
 
-| Key | Type | Range | Default | Label |
+| Key | Type | Range | Default of a missing key | Label |
 |---|---|---|---|---|
-| `ask_on_departure` | bool | - | `False` | Ask when the house becomes empty |
+| `reset_on_return` | bool | - | `True` | Reset when someone comes home |
+| `ask_on_departure` | bool | - | `False` | Ask when the house empties |
 | `answer_timeout` | int, minutes | 1-120 | `10` | Time to answer |
 | `prompt_delay` | int, seconds | 0-600 | `0` | Delay before asking |
 | `notify_persons` (M2b) | list of `person` entity IDs | the entry's real persons | `[]` | Who is asked? |
-| `notify_on_expiry` (M2b) | bool | - | `False` | Tell me when nobody answered |
+| `notify_on_expiry` (M2b) | bool | - | `False` | Tell me when nobody answers |
+
+The **keys are unchanged since M2b**; what changed with M2f is who writes them.
+The first five have an entity each (below) and are written from the tracker's
+device page **without reloading the config entry**; `notify_persons` stays in
+the form, because it is a list of persons rather than a value.
 
 A subentry from before M2a or M2b simply has none of the keys and uses the
-defaults, so there is no migration. `NumberSelector` returns floats; the flow
-stores `int`.
+defaults, so there is no migration - and a missing `ask_on_departure` still
+means "does not ask", which is what every tracker from before the prompt relies
+on. A tracker **added from M2f on** is written with all five keys spelled out
+and with **`ask_on_departure: True`**: a new tracker asks, an old one does not
+start to.
 
-Field order in the tracker form: name, `reset_on_return`, `ask_on_departure`,
-`answer_timeout`, `prompt_delay`, `notify_persons`, `notify_on_expiry`.
+The tracker form holds nothing but name and `notify_persons` (M2f).
 `notify_persons` is an `EntitySelector` (domain `person`, `multiple`) whose
 `include_entities` are the entry's configured real persons plus whatever the
 tracker already has stored - a recipient that lost its real-person status can
 therefore still be submitted and is rejected with the error `person_not_real`
-instead of a voluptuous failure. The flow checks the same rule server-side.
+instead of a voluptuous failure. The flow checks the same rule server-side. For
+a **new** tracker every real person of the entry is pre-selected; the
+**reconfigure** step merges (`{**subentry.data, notify_persons: ...}`), so the
+five settings pass through the form untouched.
+
+### Option entities (M2f, one set per tracker)
+
+On the tracker's device `(DOMAIN, subentry_id)`, `has_entity_name`, with the
+option key as the translation key and as the suffix of the unique ID.
+
+| Entity | Platform | Key | Unique ID | Category |
+|---|---|---|---|---|
+| Ask when the house empties | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | none |
+| Reset when someone comes home | `switch` | `reset_on_return` | `<subentry_id>_reset_on_return` | `CONFIG` |
+| Tell me when nobody answers | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
+| Time to answer | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
+| Delay before asking | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
+
+The ask switch is the one that is **not** a configuration entity: it is turned
+off for an evening and on again afterwards, like the tracker itself, and a
+category would keep it out of default dashboards and of voice assistants. The
+numbers are `NumberMode.BOX`, step 1, `NumberDeviceClass.DURATION` with
+`UnitOfTime.MINUTES` / `UnitOfTime.SECONDS` (both are in the unit set the
+device class allows), and the ranges of the constants they have always had.
 
 ### Event entity (one per tracker)
 
@@ -253,10 +285,18 @@ answered_yes / answered_no / expired / cancelled -> idle.
 - **Cancelled**: a real person comes home while a prompt is open
   (`person_home`, regardless of the tracker's reset option); the tracker is
   switched on by hand or by an automation while a prompt is scheduled or open
-  (`switched_on`); the option is switched off while a prompt is open
-  (`option_disabled`). Answering yes ends the prompt *before* it sets the
-  tracker home, so it never also emits `cancelled`. The prompt of a removed
+  (`switched_on`); the ask option is switched off while a prompt is scheduled
+  or open (`option_disabled`). Answering yes ends the prompt *before* it sets
+  the tracker home, so it never also emits `cancelled`. The prompt of a removed
   tracker is dropped silently.
+- **Switching the ask option off** (M2f) now happens *live*, through the
+  switch, instead of through a form that reloaded the entry - so the
+  cancellation is immediate and not a catch-up: the manager keeps the last
+  value it saw per tracker and takes the question back the moment the value
+  goes from on to off. A prompt that was **opened by hand** is left alone, for
+  the same reason the resume leaves it alone: it was never opened because the
+  option was on. `async_resume_prompts()` keeps its own checks unchanged, for
+  the case where the option changed while Home Assistant was down.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -290,6 +330,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
   | `device_tracker.<title>` | `<subentry_id>_tracker` | none |
   | `switch.<title>_at_home` | `<subentry_id>_at_home` | one per tracker, `(DOMAIN, subentry_id)`, named after the tracker |
   | `binary_sensor.only_virtual_trackers_home` | `<entry_id>_only_virtual_home` | none |
+  | the five option entities (M2f) | `<subentry_id>_<option key>` | the tracker's device |
 
   The tracker sets `_attr_name` and leaves `has_entity_name` off: it has no
   device, so its own name is the full name and the entity ID follows the title
@@ -323,8 +364,8 @@ answered_yes / answered_no / expired / cancelled -> idle.
   `DeviceInfo.via_device` is deprecated in 2026.9 (removed in 2027.8) in favour
   of `via_device_id`, which needs the target device to exist before the
   platforms are forwarded. Not worth the coupling for a cosmetic link.
-- **Icons**: the switch and the sensor have `translation_key`s and entries in
-  `icons.json`. The tracker deliberately has neither, so it falls back to the
+- **Icons**: the switch, the sensor and the five option entities have
+  `translation_key`s and entries in `icons.json`. The tracker deliberately has neither, so it falls back to the
   `device_tracker` component icons (`mdi:account` / `mdi:account-arrow-right`),
   which are exactly right for a person.
 - **Platform order**: platforms are forwarded after `async_load()` /
@@ -535,6 +576,38 @@ answered_yes / answered_no / expired / cancelled -> idle.
   `ConfigSubentryFlow.async_update_reload_and_abort()` raises while an update
   listener exists, and the `ConfigFlow` variant reports a deprecation that
   breaks in HA 2026.12.
+- **The reload fingerprint** (M2f): the update listener above reloaded on
+  *every* change, which stopped being acceptable when the five options became
+  entities. A reload unloads the platforms, and an entity that is removed and
+  added again goes through `unavailable`: `device_tracker.kid` flickers,
+  `person.kid` follows it, and an automation that waits for somebody to come
+  home cannot tell that apart from an arrival. Flipping a switch must not do
+  that. `async_setup_entry` therefore stores a fingerprint in the runtime data
+  — the entry title, `entry.data`, and per subentry its title and all of its
+  data **except** `LIVE_OPTION_KEYS` — and the listener compares it: equal means
+  nothing but those options changed, so the manager is told
+  (`async_options_changed()`), the repair issues are re-checked and the entry
+  stays loaded; anything else reloads as before. The stored fingerprint never
+  has to be refreshed on the live path: it ignores exactly the keys that may
+  change without a reload, and a reload builds it again anyway.
+- **Writing an option** (M2f): `hass.config_entries.async_update_subentry(entry,
+  subentry, data={**subentry.data, key: value})`. It replaces the data
+  wholesale, hence the copy; it returns `False` and notifies nobody when the
+  value is the one that was there. The subentry data is updated *synchronously*,
+  but the update listeners are started as tasks (`_async_save_and_notify()`), so
+  `HouseholdManager.async_set_option()` calls `async_options_changed()` itself
+  right after the write: the entity that was just used shows the new value
+  before the service call returns, instead of after the next tick. The listener
+  path then runs the same method a second time and finds everything done —
+  which is what makes a change that arrives any other way work as well.
+- **No option is cached**: the manager reads every one of them where it uses it
+  (`_ask_on_departure()`, `_answer_timeout()`, `_prompt_delay()`, the reset in
+  `_async_reset_trackers()`), and `delivery.py` reads `answer_timeout` and
+  `notify_on_expiry` out of the subentry at send time. The single exception is
+  deliberate: the manager remembers the *previous* ask value per tracker, in
+  order to notice the transition to off. An open prompt keeps the deadline it
+  was opened with when the timeout changes; the new value applies to the next
+  prompt.
 
 ## Milestones
 
@@ -548,6 +621,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M2c** (done) | The message carries the integration's own icon (the brand icon served under `/api/brands`), on the prompt and on the expiry notice. First built as the picture of the message (`data.image`); the live test on 2026-09-20 showed it, but on the wrong side - see M2e. |
 | **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone and Android tablet): the action opens the prompt, yes, cancelling by switching the tracker on and the expiry with its notice all behave as designed. |
 | **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Live-tested on 2026-09-20 (HA 2026.9.3): the icon replaces the app icon on the iPhone, and the prompt works on an Android tablet. |
+| **M2f** (done, not live-tested yet) | The settings of a tracker become entities on its device page (decided after a usability review, 2026-09-21): three switches and two numbers for `ask_on_departure`, `reset_on_return`, `notify_on_expiry`, `answer_timeout` and `prompt_delay`, so the form is down to name and recipients. The values stay in the subentry data, and writing one does **not** reload the entry any more — the update listener compares a fingerprint that leaves those five keys out, because a reload would take the trackers and their persons to `unavailable` for a moment. Switching the ask option off takes a scheduled or open automatic prompt back at once (`option_disabled`); a prompt opened by hand survives it. A new tracker is written with all five keys and asks by default, and its recipients come up with every real person ticked. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -635,6 +709,16 @@ Confirmed by dabo53ck (2026-09-19):
     chosen), the recipients get a short "no answer, <name> counts as not at
     home" message when the prompt expires — never on an answer or a
     cancellation.
+
+- **M2f decisions (dabo53ck, 2026-09-21, after a usability review)**: the
+  per-tracker settings become **entities on the tracker's device page**, which
+  leaves the form with name and recipients only - friendlier for people who do
+  not think in config flows. The ask switch is a normal control, the other four
+  are configuration entities. **A change must not reload the entry** (the
+  flicker of the trackers and their persons is the reason, and it is why the
+  fingerprint exists). **A new tracker asks by default**, while a tracker
+  without the key keeps meaning "does not ask", and the recipients of a new
+  tracker come up with every real person ticked.
 
 - **Branding (2026-09-20)**: the mark is a house in Home Assistant blue with a
   person drawn in dots ("somebody is home, but there is no tracker for them").

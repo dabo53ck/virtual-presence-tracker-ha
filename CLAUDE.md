@@ -4,13 +4,17 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d and M2e complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e and M2f complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
 machine), the config flow (real persons, reconfigure) plus the subentry flow
-per virtual tracker (name, reset, prompt options, recipients), the entities
+per virtual tracker (M2f: name and recipients only), the entities
 (`device_tracker` + `switch` + prompt `event` per tracker, the "only virtual
-trackers home" `binary_sensor` per entry), the `answer_prompt` entity service
+trackers home" `binary_sensor` per entry, and since M2f three option `switch`es
+plus two `number`s per tracker for `ask_on_departure`, `reset_on_return`,
+`notify_on_expiry`, `answer_timeout` and `prompt_delay` — written into the
+subentry data **without reloading the entry**, which is what the reload
+fingerprint in `__init__.py` is for), the `answer_prompt` entity service
 on the switches, the built-in delivery of the prompt to the Companion App
 (`delivery.py` + `messages.py`, M2b: actionable notification per recipient,
 answers from the buttons, clearing on every ending, optional expiry notice;
@@ -37,7 +41,11 @@ the icon, but as a thumbnail on the right of the message — which is what M2e
 fixes. M1f and M1g passed their live tests the same day. M2d and M2e were
 live-tested on 2026-09-20 on an iPhone and on an Android tablet: the action opens
 the prompt, the icon replaces the Companion App's own icon, and answering "yes",
-cancelling and the expiry with its notice behave as designed. Pushed to the **private** repo
+cancelling and the expiry with its notice behave as designed. **M2f (2026-09-21)
+is not live-tested yet**: the settings of a tracker became entities, a new
+tracker asks by default and comes up with every real person ticked as a
+recipient, and switching "Ask when the house empties" off takes a scheduled or
+open automatic prompt back at once (`option_disabled`). Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.

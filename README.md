@@ -60,7 +60,10 @@ the integration only knows what you, an automation, or an answered prompt tell i
   least one virtual tracker is at home and none of your real persons is.
 - **Automatic reset**: when the first real person comes back to an empty house,
   the trackers switch off again, so nobody stays "at home" for days by mistake.
-- An optional **prompt** when the last real person leaves: "is Kid at home?",
+- **Settings as entities**: whether a tracker asks, when it resets and the
+  timings of its prompt are switches and numbers on the tracker's own page —
+  changed with a tap, usable in automations, and without a reload.
+- A **prompt** when the last real person leaves: "is Kid at home?",
   sent to the phones of the people you pick as a **notification with Yes and No
   buttons**. Every prompt is also announced by an **event entity** and can be
   answered with the action **Answer prompt**, so any other channel — a speaker,
@@ -138,10 +141,11 @@ on would look like a real arrival and reset all your trackers.
 ### 2. Add a virtual tracker
 
 The form for your first virtual tracker opens by itself once you have chosen the
-real persons. Give the tracker a name — the name of the child, grandparent or
-guest it stands for — and decide whether it should reset when a real person comes
-home (see below). The same form holds the options for the prompt, which is off by
-default (see "Ask when the house becomes empty").
+real persons. It asks for two things: a name — the name of the child,
+grandparent or guest it stands for — and **who is asked** when the house
+empties, which starts with everybody ticked. Everything else the tracker can be
+set to is an entity of its own on the tracker's page (see "The tracker's
+settings"), so there is nothing else to decide here.
 
 If you close that form, the integration is set up but has nothing to do, and a
 repair issue reminds you of it. You can add a tracker at any time under
@@ -149,13 +153,16 @@ repair issue reminds you of it. You can add a tracker at any time under
 virtual tracker**, which is also where you add the second and every further
 tracker. Renaming a tracker later does not change any entity IDs.
 
-Each tracker gives you three entities, for a tracker named *Kid*:
+Each tracker gives you three entities to work with, for a tracker named *Kid*:
 
 | Entity | What it is for |
 |---|---|
 | `switch.kid_at_home` | The control. Turn it on when the kid is at home. |
 | `device_tracker.kid` | Follows the switch. Assign this one to a person. |
-| `event.kid_prompt` | Announces the prompt (see below). Idle unless you switch the prompt on. |
+| `event.kid_prompt` | Announces the prompt (see below). Idle unless the tracker asks. |
+
+Next to them sit the five entities that hold the tracker's settings — see "The
+tracker's settings".
 
 The entity IDs are built from the tracker's name and the entity names in the
 **language of your Home Assistant**. The examples in this README use English; on
@@ -186,22 +193,50 @@ or let an automation flip it. That is the whole daily routine.
 
 ## Typical setups
 
-- **A child alone after school.** Keep **Reset when a real person comes home**
-  on, and switch on the prompt with your own phone under **Who is asked?**: when
-  the last of you leaves, your phone asks "Is Kid home alone?" and one tap
-  answers it. Or put the switch on an NFC tag by the door.
+- **A child alone after school.** Keep **Reset when someone comes home** on and
+  leave your own phone under **Who is asked?**: when the last of you leaves,
+  your phone asks "Is Kid home alone?" and one tap answers it. Or put the switch
+  on an NFC tag by the door.
 - **A babysitter for an evening.** Create a tracker "Babysitter" (or reuse one
   called "Guest"). Before you go, switch it on — or answer **Yes** when your
   phone asks. When the first of you comes back, it switches itself off; if the
   sitter leaves earlier, switch it off yourself.
 - **Grandparents or guests for several days.** Create a tracker for them and turn
-  **Reset when a real person comes home** **off** for it: otherwise the tracker
+  **Reset when someone comes home** **off** for it: otherwise the tracker
   would switch itself off the first time you come home, while the guests are
   still there. Switch it on when they arrive and off when they leave. A single
   tracker can stand for a whole group ("Guests").
-- **Somebody who comes and goes, like a carer or a cleaner.** Switch on the
-  prompt for their tracker and pick who is asked: whenever the last of you
-  leaves, you are asked whether they are still in the house.
+- **Somebody who comes and goes, like a carer or a cleaner.** Leave **Ask when
+  the house empties** on for their tracker and pick who is asked: whenever the
+  last of you leaves, you are asked whether they are still in the house.
+
+## The tracker's settings
+
+Everything a tracker can be set to is an entity of that tracker, on its page
+under **Settings → Devices & services → Virtual Presence Tracker → Kid**. Change
+one and it takes effect immediately — nothing reloads, nothing goes
+`unavailable`, and your automations do not notice.
+
+| Entity | What it does | Default |
+|---|---|---|
+| **Ask when the house empties** (switch) | Whether this tracker asks at all when the last real person leaves. | on |
+| **Reset when someone comes home** (switch) | Switches the tracker off again when the first real person enters the empty house. | on |
+| **Time to answer** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
+| **Delay before asking** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
+| **Tell me when nobody answers** (switch) | Sends a short note when a prompt expires. | off |
+
+The first one sits with the tracker's own switch under **Controls**; the other
+four are under **Configuration**, out of the way of everyday use. All of them
+work in automations and scripts like any other switch or number — switch **Ask
+when the house empties** off for an evening with guests, for example, and on
+again the next morning.
+
+The defaults above are what a tracker you add now starts with. A tracker created
+before these entities existed keeps behaving exactly as it did: its **Ask when
+the house empties** switch is off until you turn it on.
+
+Only the name and **Who is asked?** are still in a form — **Edit virtual
+tracker** on the integration's page — because they are not a value to flip.
 
 ## The "only virtual trackers home" sensor
 
@@ -227,18 +262,18 @@ guessing; automations should treat `unknown` as "do nothing".
 A virtual tracker that stays on for days is worse than no tracker at all, so the
 default is to switch it off again when the household stops being empty: the
 moment the number of real persons at home goes from **0 to 1**, every tracker
-with the option **Reset when a real person comes home** switches off.
+whose **Reset when someone comes home** switch is on switches off.
 
 - Nothing happens when a *second* person arrives: if you are at home and somebody
   else comes back, a tracker that is on stays on.
 - Nothing happens when people leave.
 - Nothing happens right after a restart: a person whose state was never known
   before cannot trigger a reset.
-- The option is per tracker. Turn it **off** for a tracker you always set by
+- The setting is per tracker. Turn it **off** for a tracker you always set by
   hand — above all one for guests who stay for several days, since the family
   will come home more than once during the visit.
 
-## Ask when the house becomes empty
+## Ask when the house empties
 
 The tracker can ask instead of waiting to be told: when the last of your real
 persons leaves and the tracker is off, it opens a **prompt** — "is Kid at home?".
@@ -246,16 +281,12 @@ Answer **yes** and the tracker switches on. Answer **no**, answer nothing, or le
 somebody come home in the meantime, and **nothing changes**: the house keeps
 counting as empty. There is never a default answer.
 
-The prompt is **off by default** and switched on per tracker, under **Edit
-virtual tracker**:
-
-| Option | Default | What it does |
-|---|---|---|
-| Ask when the house becomes empty | off | Whether this tracker asks at all. |
-| Time to answer | 10 min | How long the prompt stays open (1–120). |
-| Delay before asking | 0 s | How long to wait after the last departure (0–600). |
-| Who is asked? | nobody | The real persons whose phones get the question. |
-| Tell me when nobody answered | off | Sends a short note when the prompt expires. |
+A tracker you add asks by default. Its **Ask when the house empties** switch
+turns that off and on again at any time — during the day, from an automation, or
+from a dashboard — and switching it off while a question is already open takes
+that question back, off your phones as well. **Time to answer** and **Delay
+before asking** set the timing, and **Who is asked?** in the tracker's form
+decides whose phones the question goes to (see "The tracker's settings").
 
 You can also switch the tracker on by hand before you leave. A tracker that is
 already on does not ask anything.
@@ -293,7 +324,7 @@ What it needs:
 If Home Assistant has no phone for somebody you picked, a repair issue says so
 (see below) — the prompt itself still runs.
 
-**Tell me when nobody answered** adds a short note when the prompt expires ("No
+**Tell me when nobody answers** adds a short note when the prompt expires ("No
 answer: Kid counts as not at home."). It is off by default, and it is only ever
 sent on an expiry — never when somebody answers or when the question is
 withdrawn.
@@ -356,8 +387,8 @@ question goes to the phones under **Who is asked?**, the event entity announces
 it, and every way of ending it works as usual.
 
 It ignores everything that decides whether to ask *by itself*: who is at home,
-the **Ask when the house becomes empty** option — a tracker with the option off
-can still be asked about this way — and **Delay before asking**, because "now"
+the **Ask when the house empties** switch — a tracker with that switch off can
+still be asked about this way — and **Delay before asking**, because "now"
 means now. If a prompt of that tracker was still waiting for its delay, it opens
 immediately instead, as that same prompt.
 
@@ -478,14 +509,15 @@ integration. When it comes back:
 
 A prompt you opened yourself with **Open prompt** is an exception to the first
 case: it was never about an empty house, so neither a person being at home nor
-the option being off withdraws it after a restart. It still expires on time.
+the switch being off withdraws it after a restart. It still expires on time.
 
 A prompt that was still waiting for its **Delay before asking** is forgotten
-instead: it had not been announced yet, so there is nothing to take back. Changing
-a tracker's options reloads the integration, and switching the prompt option off
-while a prompt is open withdraws it with the reason `option_disabled`. A message
-that is still on a phone is taken off it in every one of these cases, including
-the ones that happen while Home Assistant starts up again.
+instead: it had not been announced yet, so there is nothing to take back.
+Switching **Ask when the house empties** off withdraws an open or waiting prompt
+with the reason `option_disabled` — at once, not at the next restart, and again
+with the exception of a prompt you opened yourself. A message that is still on a
+phone is taken off it in every one of these cases, including the ones that
+happen while Home Assistant starts up again.
 
 ## Troubleshooting: repair issues
 
@@ -539,10 +571,10 @@ tracker the integration only stores whether it is on and since when, plus an ope
 prompt if there is one.
 
 **Does it ask me whether somebody is at home?**
-Yes, if you switch that on for the tracker — see "Ask when the house becomes
-empty". Pick who is asked and the question goes to their phone by itself; leave
-that empty and an automation of yours delivers it, with the example above as a
-starting point. A reminder for a tracker that has been on for very long is still
+Yes, unless you switch that off for the tracker — see "Ask when the house
+empties". Pick who is asked and the question goes to their phone by itself;
+leave that empty and an automation of yours delivers it, with the example above
+as a starting point. A reminder for a tracker that has been on for very long is still
 to come.
 
 **Why is the tracker's `source_type` "router"?**
