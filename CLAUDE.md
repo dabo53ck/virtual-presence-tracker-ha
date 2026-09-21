@@ -4,7 +4,8 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e and M2f complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e, M2f and M2g
+complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
 machine), the config flow (real persons, reconfigure) plus the subentry flow
@@ -26,6 +27,7 @@ keeps such a prompt alive across a restart;
 M2e: that icon moved from the picture of the message (`data.image`) to the icon
 beside it (`data.icon_url`), where it replaces the app icon — a communication
 notification on iOS, the large icon on Android),
+the person a new tracker asks for (`persons.py`, M2g),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -45,7 +47,13 @@ cancelling and the expiry with its notice behave as designed. **M2f (2026-09-21)
 is not live-tested yet**: the settings of a tracker became entities, a new
 tracker asks by default and comes up with every real person ticked as a
 recipient, and switching "Ask when the house empties" off takes a scheduled or
-open automatic prompt back at once (`option_disabled`). Pushed to the **private** repo
+open automatic prompt back at once (`option_disabled`). **M2g (2026-09-21) is
+not live-tested either**: the form of a *new* tracker offers to create the
+`person` it needs (ticked by default); the flow only stores a `create_person`
+marker and `persons.py` creates the person with the tracker assigned once Home
+Assistant has started — exactly once, never a duplicate of a person that is
+already there, never removed together with its tracker, and without reloading
+the entry. Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
 "Event & service contract" section is frozen public API.

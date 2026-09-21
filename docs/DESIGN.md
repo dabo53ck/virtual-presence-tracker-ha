@@ -83,6 +83,13 @@ restore its last state immediately; cover with a test in M1.
    of a button on a page the user never opened. Closing that form is allowed
    and leaves a valid entry; the `no_tracker` issue then names the path to the
    button.
+8. **The person of a new tracker** (M2g, done): the form of a *new* tracker
+   offers to create the `person` the tracker needs, ticked by default, which
+   takes the one manual step out of the setup that nothing else can do for the
+   user. Only for new trackers, only once, never a duplicate of a person that
+   is already there, and never removed again when the tracker is deleted -
+   a person is the user's data. `tracker_not_assigned` stays as the fallback
+   for everybody who unticks the box or whose person could not be created.
 
 ## Event & service contract (M2a, frozen; grown in M2b, M2d and M2f)
 
@@ -105,6 +112,11 @@ The **keys are unchanged since M2b**; what changed with M2f is who writes them.
 The first five have an entity each (below) and are written from the tracker's
 device page **without reloading the config entry**; `notify_persons` stays in
 the form, because it is a list of persons rather than a value.
+
+A subentry may additionally carry `create_person: True` (M2g) for the short
+while between the form and the start. That key is a **marker, not an option**
+and deliberately no part of this contract: it is written by the form of a new
+tracker, acted on once, and taken off again (see the technical notes).
 
 A subentry from before M2a or M2b simply has none of the keys and uses the
 defaults, so there is no migration - and a missing `ask_on_departure` still
@@ -600,6 +612,54 @@ answered_yes / answered_no / expired / cancelled -> idle.
   before the service call returns, instead of after the next tick. The listener
   path then runs the same method a second time and finds everything done —
   which is what makes a change that arrives any other way work as well.
+- **Creating the person of a new tracker** (M2g, `persons.py`, checked against
+  the `person` sources at **both** `2026.6.0` — our floor — and `2026.9.3`,
+  2026-09-21). The two helpers are byte-identical at the two tags:
+  `async_create_person(hass, name, *, user_id=None, device_trackers=None)`
+  (line 93 at 2026.6.0, line 96 at 2026.9.3) and the `@callback`
+  `persons_with_entity(hass, entity_id)` (line 133 / 136), which returns the
+  `person` entity IDs whose `device_trackers` contain the entity and returns
+  `[]` when `person` is not set up. `async_create_person` is not private in
+  practice: core calls it from `onboarding/views.py` (line 199 / 219), and
+  there too only after the component is up (`async_wait_component`). It writes
+  through `hass.data[person.DOMAIN][1]`, the `PersonStorageCollection`, which
+  is only put there at the very end of `person.async_setup()` (line 382 /
+  392) — hence the same timing as the repair issues (`async_at_started`) plus
+  a check of `hass.config.components`, and hence a marker in the subentry data
+  instead of a person created by the flow: at form time neither the collection
+  nor the tracker's own entity is guaranteed to exist.
+  Three findings shape the rules around the call. **Duplicates are not
+  prevented by core**: `PersonStorageCollection._get_suggested_id()` returns
+  the plain *name* and `IDManager.generate_id()` slugifies it and appends
+  `_2`, `_3`… (`helpers/collection.py`, line 96), so a second "Kid" is created
+  silently. The integration therefore checks the person *states* itself, case
+  insensitively (`State.name`, which covers YAML and storage persons alike),
+  and creates nothing when the name is taken — taking somebody else's person
+  over is not ours to decide, and `tracker_not_assigned` already names the two
+  clicks. **`device_trackers` is only validated for domain and format**
+  (`CREATE_FIELDS` uses `cv.entities_domain(device_tracker)`), not for
+  existence, so the entity ID is looked up in the entity registry
+  (`async_tracker_entities()`, the same helper the issues use) rather than
+  guessed from the name. And **the person entity exists when the call
+  returns**: `async_create_item()` awaits `notify_changes()`, which awaits
+  `_CollectionLifeCycle._collection_changed()` and
+  `EntityComponent.async_add_entities()`. That is what makes re-checking the
+  repair issues right afterwards deterministic, and it is why
+  `tracker_not_assigned` is merely *held back* while a marker is pending
+  instead of being ordered against the person: the issues run first (they are
+  started first, and their callback is a plain `@callback` while this one is a
+  coroutine task), see the marker and skip that tracker; the person work then
+  clears the marker and asks for a re-check.
+- **No `person` dependency in the manifest** (M2g), for the same reasons as
+  `mobile_app` above. hassfest does check the imports of a custom integration
+  (`script/hassfest/dependencies.py`: `_validate_dependency_imports()` runs
+  outside the `if not config.specific_integrations` branch), but `person` is
+  part of `ALLOWED_USED_COMPONENTS` there, so importing it needs no
+  declaration. `dependencies` would force `person` to be set up, and
+  `after_dependencies` would only move the load order, which is irrelevant for
+  work that happens after the start; both would be accepted by hassfest
+  (`after_dependencies` is in `INTEGRATION_MANIFEST_SCHEMA`, which the custom
+  schema extends) and buy nothing.
 - **No option is cached**: the manager reads every one of them where it uses it
   (`_ask_on_departure()`, `_answer_timeout()`, `_prompt_delay()`, the reset in
   `_async_reset_trackers()`), and `delivery.py` reads `answer_timeout` and
@@ -622,6 +682,7 @@ answered_yes / answered_no / expired / cancelled -> idle.
 | **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone and Android tablet): the action opens the prompt, yes, cancelling by switching the tracker on and the expiry with its notice all behave as designed. |
 | **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Live-tested on 2026-09-20 (HA 2026.9.3): the icon replaces the app icon on the iPhone, and the prompt works on an Android tablet. |
 | **M2f** (done, not live-tested yet) | The settings of a tracker become entities on its device page (decided after a usability review, 2026-09-21): three switches and two numbers for `ask_on_departure`, `reset_on_return`, `notify_on_expiry`, `answer_timeout` and `prompt_delay`, so the form is down to name and recipients. The values stay in the subentry data, and writing one does **not** reload the entry any more — the update listener compares a fingerprint that leaves those five keys out, because a reload would take the trackers and their persons to `unavailable` for a moment. Switching the ask option off takes a scheduled or open automatic prompt back at once (`option_disabled`); a prompt opened by hand survives it. A new tracker is written with all five keys and asks by default, and its recipients come up with every real person ticked. |
+| **M2g** (done, not live-tested yet) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; max-duration alert, services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -719,6 +780,16 @@ Confirmed by dabo53ck (2026-09-19):
   fingerprint exists). **A new tracker asks by default**, while a tracker
   without the key keeps meaning "does not ask", and the recipients of a new
   tracker come up with every real person ticked.
+
+- **M2g decision (dabo53ck, 2026-09-21)**: the integration **creates the person**
+  of a new virtual tracker, because having to create one by hand and assign the
+  tracker to it is the biggest hurdle a new user faces - and the one step that
+  nothing about the integration shows. Ticked by default, offered for **new
+  trackers only**, and never a second person of a name that is already there.
+  The person is **not** removed with its tracker: a person is the user's own
+  data, may carry other trackers and may be named in automations. A tracker
+  whose box is unticked keeps the old path, and the repair issue keeps naming
+  it.
 
 - **Branding (2026-09-20)**: the mark is a house in Home Assistant blue with a
   person drawn in dots ("somebody is home, but there is no tracker for them").

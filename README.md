@@ -55,7 +55,11 @@ the integration only knows what you, an automation, or an answered prompt tell i
 
 - A **switch** per virtual tracker: on means "this person is at home".
 - A **device tracker** per virtual tracker that follows the switch (`home` /
-  `not_home`). This is the entity you assign to a person.
+  `not_home`). This is the entity a person needs to have.
+- **The person for a new tracker, created for you**: a person without a login,
+  named like the tracker and with the tracker already assigned — the step that
+  used to be manual, and the one people forgot. Optional, and only ever for a
+  tracker you are adding.
 - A **binary sensor** "Only virtual trackers home" for the household: on when at
   least one virtual tracker is at home and none of your real persons is.
 - **Automatic reset**: when the first real person comes back to an empty house,
@@ -80,8 +84,11 @@ the integration only knows what you, an automation, or an answered prompt tell i
   is a ready-made example below).
 - It does not change what your automations do — it only changes who counts as
   being at home.
-- It does not manage your persons. Creating the person and assigning the tracker
-  to it is a manual step (see below), and it is the step people forget.
+- It does not manage your persons beyond the one step it offers: a **new**
+  tracker can have its person created for you, once, when you add it. It never
+  changes a person you already have, never creates a second person of the same
+  name, and never deletes a person — not even when you delete its tracker.
+  Untick the box in the form and the person stays yours to create (see below).
 
 ## Requirements
 
@@ -141,11 +148,18 @@ on would look like a real arrival and reset all your trackers.
 ### 2. Add a virtual tracker
 
 The form for your first virtual tracker opens by itself once you have chosen the
-real persons. It asks for two things: a name — the name of the child,
-grandparent or guest it stands for — and **who is asked** when the house
-empties, which starts with everybody ticked. Everything else the tracker can be
-set to is an entity of its own on the tracker's page (see "The tracker's
-settings"), so there is nothing else to decide here.
+real persons. It asks for three things: a name — the name of the child,
+grandparent or guest it stands for — **who is asked** when the house empties,
+which starts with everybody ticked, and whether to **create a person for this
+tracker**, which is ticked as well. Everything else the tracker can be set to is
+an entity of its own on the tracker's page (see "The tracker's settings"), so
+there is nothing else to decide here.
+
+**Create a person for this tracker** does the step that used to be yours: it
+creates a person without a login, named like the tracker, and assigns the
+tracker's device tracker to it — which is what makes anybody count as being at
+home. Leave it ticked unless you already have a person for this tracker; then
+untick it and assign the tracker yourself, as described in step 3.
 
 If you close that form, the integration is set up but has nothing to do, and a
 repair issue reminds you of it. You can add a tracker at any time under
@@ -170,12 +184,17 @@ a German instance the same entities are `switch.kid_zuhause` and
 `event.kid_ruckfrage`. Look yours up under **Settings → Devices & services →
 Entities**.
 
-### 3. Create a person and assign the tracker — required
+### 3. The person behind the tracker
 
-This step is what makes everything else work. Without it the tracker is just an
-entity nobody looks at.
+This is what makes everything else work: without a person, the tracker is just
+an entity nobody looks at. If you left **Create a person for this tracker**
+ticked, it is done already — `person.kid` exists and follows `device_tracker.kid`
+— and you can skip straight to step 4.
 
-1. **Settings → People → Add person.**
+Do it by hand if you unticked the box, if you already have a person for this
+tracker, or if the person could not be created (a repair issue tells you so):
+
+1. **Settings → People → Add person**, or open the person you already have.
 2. Enter the name, and leave the login option off — the person does not need a
    user account.
 3. In the list of device trackers at the bottom of the dialog, pick the virtual
@@ -185,6 +204,12 @@ entity nobody looks at.
 From now on `person.kid` is `home` while the switch is on, `zone.home` counts the
 person, and every automation and dashboard card that asks "is anybody home" sees
 them.
+
+Two things the integration deliberately leaves alone: a person that already
+goes by the tracker's name is never touched or doubled (you get the repair issue
+below instead, and two clicks fix it), and deleting a tracker never deletes its
+person — it is yours, it may carry other trackers and it may be named in your
+automations.
 
 ### 4. Use the switch
 
@@ -533,10 +558,12 @@ Add virtual tracker**; the hint disappears with the first tracker.
 
 **"The virtual tracker … is not assigned to a person"**
 The tracker's `device_tracker` is not part of any person, so switching it on makes
-nobody count as being at home. This is the step that is easy to forget. Go to
-**Settings → People**, open the person the tracker stands for (or add one, no
-login needed) and pick `device_tracker.<name>` in its list of device trackers. If
-you do not need the tracker any more, delete it on the integration's page.
+nobody count as being at home. You see this for a tracker you added without
+letting the integration create its person, for one that already had a person of
+that name, and for one whose person was deleted later. Go to **Settings →
+People**, open the person the tracker stands for (or add one, no login needed)
+and pick `device_tracker.<name>` in its list of device trackers. If you do not
+need the tracker any more, delete it on the integration's page.
 
 **"The real person … has a virtual tracker attached"**
 A person you configured as a *real* person carries one of the virtual trackers.
