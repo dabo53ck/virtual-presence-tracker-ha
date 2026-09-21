@@ -1,9 +1,14 @@
 """Switch platform of the Virtual Presence Tracker integration.
 
-One switch per virtual tracker. It is the control the user sees: a dashboard
-toggle, an NFC tag or an automation flips it, and the device tracker follows.
-It also carries the two prompt actions, as entity services: the switch is the
-entity a prompt is about, so targeting it is targeting the tracker.
+The "at home" switch of a virtual tracker is the control the user sees: a
+dashboard toggle, an NFC tag or an automation flips it, and the device tracker
+follows. It also carries the two prompt actions, as entity services: the switch
+is the entity a prompt is about, so targeting it is targeting the tracker.
+
+Next to it sit the three switches of the tracker's boolean options (M2f). They
+write the subentry data the options have always lived in, so that changing one
+is a tap on the tracker's device page instead of a form - and, unlike the form,
+without reloading the entry.
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ import voluptuous as vol
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv, entity_platform
@@ -28,13 +34,20 @@ from .const import (
     ATTR_PROMPT_EXPIRES_AT,
     ATTR_PROMPT_OPEN,
     ATTR_SINCE,
+    CONF_ASK_ON_DEPARTURE,
+    CONF_NOTIFY_ON_EXPIRY,
+    CONF_RESET_ON_RETURN,
     DOMAIN,
     PERSON_DOMAIN,
     SERVICE_ANSWER_PROMPT,
     SERVICE_OPEN_PROMPT,
     SUBENTRY_TYPE_TRACKER,
 )
-from .entity import VirtualTrackerEntity, tracker_device_info
+from .entity import (
+    VirtualTrackerEntity,
+    VirtualTrackerOptionEntity,
+    tracker_device_info,
+)
 from .manager import HouseholdManager, OpenPromptResult
 
 PARALLEL_UPDATES = 0
@@ -56,11 +69,16 @@ async def async_setup_entry(
     entry: VirtualPresenceTrackerConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up one switch per virtual tracker."""
+    """Set up the switches of every virtual tracker."""
     manager = entry.runtime_data.manager
     for subentry in entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER):
         async_add_entities(
-            [VirtualTrackerSwitch(manager, subentry)],
+            [
+                VirtualTrackerSwitch(manager, subentry),
+                AskOnDepartureSwitch(manager, subentry),
+                ResetOnReturnSwitch(manager, subentry),
+                NotifyOnExpirySwitch(manager, subentry),
+            ],
             config_subentry_id=subentry.subentry_id,
         )
 
@@ -134,3 +152,47 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
                 translation_key=translation_key,
                 translation_placeholders={"entity_id": self.entity_id},
             )
+
+
+class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
+    """A switch that shows and writes one boolean option of a tracker."""
+
+    @property
+    def is_on(self) -> bool:
+        """Return what the tracker has stored for this option."""
+        return bool(self._option)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Switch the option on."""
+        self._async_set_option(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Switch the option off."""
+        self._async_set_option(False)
+
+
+class AskOnDepartureSwitch(VirtualTrackerOptionSwitch):
+    """Whether the tracker asks when the house empties.
+
+    The one option of a tracker that is a control rather than a setting: it is
+    switched off for an evening with guests and on again afterwards, so it gets
+    no entity category and stays on the device page next to the tracker itself.
+    Switching it off while the tracker is being asked about takes the question
+    back at once (the manager does that, reason ``option_disabled``).
+    """
+
+    _option_key = CONF_ASK_ON_DEPARTURE
+
+
+class ResetOnReturnSwitch(VirtualTrackerOptionSwitch):
+    """Whether the tracker switches itself off when the house is entered."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _option_key = CONF_RESET_ON_RETURN
+
+
+class NotifyOnExpirySwitch(VirtualTrackerOptionSwitch):
+    """Whether the recipients hear about a prompt nobody answered."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _option_key = CONF_NOTIFY_ON_EXPIRY

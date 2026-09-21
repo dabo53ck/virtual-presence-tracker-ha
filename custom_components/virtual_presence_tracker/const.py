@@ -32,10 +32,13 @@ SUBENTRY_TYPE_TRACKER: Final = "tracker"
 CONF_RESET_ON_RETURN: Final = "reset_on_return"
 DEFAULT_RESET_ON_RETURN: Final = True
 
-# Per-tracker prompt options. Off by default: a tracker that is not configured
-# for it behaves exactly as it did before the prompt existed.
+# Per-tracker prompt options. A tracker whose subentry does not carry the key
+# does not ask: that is what every tracker from before the prompt existed looks
+# like, and it must keep behaving as it did. A tracker added from M2f on stores
+# the option explicitly and asks (NEW_TRACKER_ASK_ON_DEPARTURE).
 CONF_ASK_ON_DEPARTURE: Final = "ask_on_departure"
 DEFAULT_ASK_ON_DEPARTURE: Final = False
+NEW_TRACKER_ASK_ON_DEPARTURE: Final = True
 CONF_ANSWER_TIMEOUT: Final = "answer_timeout"
 DEFAULT_ANSWER_TIMEOUT: Final = 10
 MIN_ANSWER_TIMEOUT: Final = 1
@@ -50,6 +53,20 @@ MAX_PROMPT_DELAY: Final = 600
 CONF_NOTIFY_PERSONS: Final = "notify_persons"
 CONF_NOTIFY_ON_EXPIRY: Final = "notify_on_expiry"
 DEFAULT_NOTIFY_ON_EXPIRY: Final = False
+
+# The options a tracker carries an entity for (M2f), with the value that
+# applies while the key is missing. They are the only keys of a subentry that
+# may change without reloading the config entry: a reload would take the
+# trackers and their persons away for a moment, which is not something a
+# switch is allowed to do (see docs/DESIGN.md).
+OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
+    CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
+    CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
+    CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+    CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
+    CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+}
+LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"

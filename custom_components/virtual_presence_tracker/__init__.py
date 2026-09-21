@@ -9,11 +9,13 @@ docs/DESIGN.md).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 
+from .const import LIVE_OPTION_KEYS
 from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
@@ -22,9 +24,18 @@ from .migration import async_remove_legacy_household_device
 PLATFORMS = [
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
+    Platform.NUMBER,
     Platform.BINARY_SENSOR,
     Platform.EVENT,
 ]
+
+# Everything about an entry that a reload is needed for. The five options of a
+# tracker are deliberately left out of it: they have entities of their own now,
+# and reloading the entry because somebody flipped a switch would take the
+# device trackers and their persons to `unavailable` for a moment - long enough
+# for the user's own "somebody came home" automations to fire (see
+# docs/DESIGN.md).
+type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 
 @dataclass
@@ -33,9 +44,36 @@ class VirtualPresenceTrackerData:
 
     manager: HouseholdManager
     delivery: PromptDelivery
+    issues: HouseholdIssues
+    fingerprint: ReloadFingerprint
 
 
 type VirtualPresenceTrackerConfigEntry = ConfigEntry[VirtualPresenceTrackerData]
+
+
+@callback
+def _async_reload_fingerprint(entry: ConfigEntry) -> ReloadFingerprint:
+    """Return what the entry looks like to everything that needs a reload.
+
+    The title and the data of the entry, plus every subentry with its title and
+    all of its data except the options that are written by an entity. Two equal
+    fingerprints therefore mean: nothing changed but those options.
+    """
+    return (
+        entry.title,
+        dict(entry.data),
+        {
+            subentry_id: (
+                subentry.title,
+                {
+                    key: value
+                    for key, value in subentry.data.items()
+                    if key not in LIVE_OPTION_KEYS
+                },
+            )
+            for subentry_id, subentry in entry.subentries.items()
+        },
+    )
 
 
 async def async_setup_entry(
@@ -48,7 +86,13 @@ async def async_setup_entry(
     await manager.async_load()
     manager.async_start()
     delivery = PromptDelivery(hass, entry, manager)
-    entry.runtime_data = VirtualPresenceTrackerData(manager=manager, delivery=delivery)
+    issues = HouseholdIssues(hass, entry)
+    entry.runtime_data = VirtualPresenceTrackerData(
+        manager=manager,
+        delivery=delivery,
+        issues=issues,
+        fingerprint=_async_reload_fingerprint(entry),
+    )
     # Home Assistant notifies update listeners when the real persons change and
     # when a tracker subentry is added, changed or removed, but it never
     # reloads the entry by itself. Without the reload the manager would keep
@@ -71,7 +115,6 @@ async def async_setup_entry(
     # the entity registry, which only knows them once they are added. Stopping
     # on unload clears the issues of this entry, and setting the entry up again
     # raises the ones that still apply.
-    issues = HouseholdIssues(hass, entry)
     issues.async_start()
     entry.async_on_unload(issues.async_stop)
     return True
@@ -80,7 +123,22 @@ async def async_setup_entry(
 async def _async_entry_updated(
     hass: HomeAssistant, entry: VirtualPresenceTrackerConfigEntry
 ) -> None:
-    """Reload the entry after its persons or trackers changed."""
+    """Reload the entry after its persons or trackers changed.
+
+    A change of nothing but the options an entity writes is the one case that
+    does *not* reload: the manager reads them where it uses them, and the
+    entities are told to write their new state. Anything else - the real
+    persons, a renamed tracker, its recipients, a tracker that was added or
+    removed - needs the manager, the delivery and the platforms to be built
+    again.
+    """
+    data: VirtualPresenceTrackerData | None = getattr(entry, "runtime_data", None)
+    if data is not None and data.fingerprint == _async_reload_fingerprint(entry):
+        data.manager.async_options_changed()
+        # Whether a recipient without a phone is worth reporting depends on the
+        # ask option, and nothing else re-checks while the entry stays loaded.
+        data.issues.async_recheck()
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 

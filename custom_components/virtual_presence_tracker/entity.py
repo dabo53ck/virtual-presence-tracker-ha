@@ -7,6 +7,8 @@ written whenever the manager reports a change, and it holds no state of its own
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -76,3 +78,33 @@ class VirtualTrackerEntity(VirtualPresenceEntity):
     def _is_home(self) -> bool:
         """Return whether this entity's tracker is at home."""
         return self._manager.is_home(self._subentry_id)
+
+
+class VirtualTrackerOptionEntity(VirtualTrackerEntity):
+    """Base for the entities that show and write one option of a tracker.
+
+    The option itself stays where it has always been, in the data of the
+    tracker's config subentry: these entities are a live view on it and a way
+    to write it, not a second place to keep it. The entity name and the icon
+    come from the option key, which is also the translation key.
+    """
+
+    _attr_has_entity_name = True
+    _option_key: str
+
+    def __init__(self, manager: HouseholdManager, subentry: ConfigSubentry) -> None:
+        """Initialise the entity of one option of one virtual tracker."""
+        super().__init__(manager, subentry)
+        self._attr_translation_key = self._option_key
+        self._attr_unique_id = f"{subentry.subentry_id}_{self._option_key}"
+        self._attr_device_info = tracker_device_info(subentry)
+
+    @property
+    def _option(self) -> Any:
+        """Return what the tracker has stored for this option."""
+        return self._manager.option(self._subentry_id, self._option_key)
+
+    @callback
+    def _async_set_option(self, value: bool | int) -> None:
+        """Write this option of the tracker."""
+        self._manager.async_set_option(self._subentry_id, self._option_key, value)

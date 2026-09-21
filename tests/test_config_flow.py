@@ -18,11 +18,11 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
-    DEFAULT_ASK_ON_DEPARTURE,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
+    NEW_TRACKER_ASK_ON_DEPARTURE,
     SUBENTRY_TYPE_TRACKER,
 )
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState, FlowType
@@ -40,10 +40,14 @@ TRACKER_A_ENTITY = "device_tracker.kid"
 
 
 def tracker_data(**overrides: Any) -> dict[str, Any]:
-    """Return the subentry data a tracker form produces, with the defaults."""
+    """Return the subentry data a new tracker is written with.
+
+    All five options are spelled out, so that the entities on the tracker's
+    device page have a value from the start - and a new tracker asks.
+    """
     return {
         CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
-        CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
+        CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
         CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
         CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
         CONF_NOTIFY_PERSONS: [],
@@ -173,7 +177,7 @@ async def test_user_flow_continues_with_the_tracker_form(hass: HomeAssistant) ->
     assert in_progress[0]["handler"] == (entry.entry_id, SUBENTRY_TYPE_TRACKER)
 
     result = await hass.config_entries.subentries.async_configure(
-        flow_id, {CONF_NAME: "Kid", CONF_RESET_ON_RETURN: True}
+        flow_id, {CONF_NAME: "Kid"}
     )
     await hass.async_block_till_done()
 
@@ -338,9 +342,7 @@ async def test_subentry_adds_a_tracker(
     """A tracker is stored under its name and known to the manager."""
     await setup_entry(hass, config_entry)
 
-    result = await add_tracker(
-        hass, config_entry, {CONF_NAME: "  Kid  ", CONF_RESET_ON_RETURN: False}
-    )
+    result = await add_tracker(hass, config_entry, {CONF_NAME: "  Kid  "})
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -349,87 +351,43 @@ async def test_subentry_adds_a_tracker(
     subentries = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
     assert len(subentries) == 1
     assert subentries[0].title == "Kid"
-    assert dict(subentries[0].data) == tracker_data(**{CONF_RESET_ON_RETURN: False})
+    # A new tracker is written with every option spelled out, and it asks.
+    assert dict(subentries[0].data) == tracker_data()
+    assert subentries[0].data[CONF_ASK_ON_DEPARTURE] is True
 
     # The entry was reloaded, so the new tracker has a state.
     assert config_entry.runtime_data.manager.tracker_ids == [subentries[0].subentry_id]
 
 
-async def test_subentry_offers_the_documented_defaults(
+async def test_the_form_asks_for_the_name_and_the_recipients_only(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """A form filled in with nothing but a name produces the defaults."""
+    """The four settings that have an entity now are gone from the form."""
     await setup_entry(hass, config_entry)
 
     result = await hass.config_entries.subentries.async_init(
         (config_entry.entry_id, SUBENTRY_TYPE_TRACKER), context={"source": SOURCE_USER}
     )
-    assert result["data_schema"]({CONF_NAME: "Kid"}) == {
-        CONF_NAME: "Kid",
-        **tracker_data(),
-    }
+    schema: vol.Schema = result["data_schema"]
+
+    assert [str(key) for key in schema.schema] == [CONF_NAME, CONF_NOTIFY_PERSONS]
+    assert schema({CONF_NAME: "Kid"}) == {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: []}
 
 
-async def test_subentry_stores_the_prompt_options(
+async def test_subentry_stores_the_recipients(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """The prompt options are stored, and the numbers are stored as ints."""
-    await setup_entry(hass, config_entry)
-
-    await add_tracker(
-        hass,
-        config_entry,
-        {
-            CONF_NAME: "Kid",
-            CONF_RESET_ON_RETURN: True,
-            CONF_ASK_ON_DEPARTURE: True,
-            # A number selector hands out floats.
-            CONF_ANSWER_TIMEOUT: 15.0,
-            CONF_PROMPT_DELAY: 30.0,
-        },
-    )
-    await hass.async_block_till_done()
-
-    subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
-    assert dict(subentry.data) == tracker_data(
-        **{
-            CONF_ASK_ON_DEPARTURE: True,
-            CONF_ANSWER_TIMEOUT: 15,
-            CONF_PROMPT_DELAY: 30,
-        }
-    )
-    assert isinstance(subentry.data[CONF_ANSWER_TIMEOUT], int)
-    assert isinstance(subentry.data[CONF_PROMPT_DELAY], int)
-
-
-async def test_subentry_stores_the_delivery_options(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """The recipients and the expiry notice are stored as chosen."""
+    """The recipients are stored as chosen, the rest keeps its defaults."""
     add_persons(hass)
     await setup_entry(hass, config_entry)
 
     await add_tracker(
-        hass,
-        config_entry,
-        {
-            CONF_NAME: "Kid",
-            CONF_RESET_ON_RETURN: True,
-            CONF_ASK_ON_DEPARTURE: True,
-            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
-            CONF_NOTIFY_ON_EXPIRY: True,
-        },
+        hass, config_entry, {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: [PERSON_DABO53CK]}
     )
     await hass.async_block_till_done()
 
     subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
-    assert dict(subentry.data) == tracker_data(
-        **{
-            CONF_ASK_ON_DEPARTURE: True,
-            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
-            CONF_NOTIFY_ON_EXPIRY: True,
-        }
-    )
+    assert dict(subentry.data) == tracker_data(**{CONF_NOTIFY_PERSONS: [PERSON_DABO53CK]})
 
 
 async def test_subentry_offers_only_the_real_persons(
@@ -448,6 +406,28 @@ async def test_subentry_offers_only_the_real_persons(
     )
     assert selector.config["include_entities"] == [PERSON_DABO53CK, PERSON_KING53CK]
     assert selector.config["multiple"] is True
+
+
+async def test_a_new_tracker_starts_with_every_real_person_ticked(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """The recipients of a new tracker are pre-selected, and can be emptied."""
+    add_persons(hass)
+    await setup_entry(hass, config_entry)
+
+    result = await hass.config_entries.subentries.async_init(
+        (config_entry.entry_id, SUBENTRY_TYPE_TRACKER), context={"source": SOURCE_USER}
+    )
+    assert suggested(result, CONF_NOTIFY_PERSONS) == [PERSON_DABO53CK, PERSON_KING53CK]
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: []}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
+    assert subentry.data[CONF_NOTIFY_PERSONS] == []
 
 
 async def test_subentry_rejects_a_recipient_who_is_not_real(
@@ -480,13 +460,7 @@ async def test_subentry_rejects_a_recipient_who_is_not_real(
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {
-            CONF_NAME: "Kid",
-            CONF_RESET_ON_RETURN: True,
-            CONF_ASK_ON_DEPARTURE: True,
-            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK],
-            CONF_NOTIFY_ON_EXPIRY: False,
-        },
+        {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: [PERSON_DABO53CK, PERSON_KING53CK]},
     )
 
     assert result["type"] is FlowResultType.FORM
@@ -494,41 +468,12 @@ async def test_subentry_rejects_a_recipient_who_is_not_real(
     assert result["description_placeholders"] == {"persons": PERSON_KING53CK}
 
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {
-            CONF_NAME: "Kid",
-            CONF_RESET_ON_RETURN: True,
-            CONF_ASK_ON_DEPARTURE: True,
-            CONF_NOTIFY_PERSONS: [PERSON_DABO53CK],
-            CONF_NOTIFY_ON_EXPIRY: False,
-        },
+        result["flow_id"], {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: [PERSON_DABO53CK]}
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
     assert entry.subentries[TRACKER_A].data[CONF_NOTIFY_PERSONS] == [PERSON_DABO53CK]
-
-
-@pytest.mark.parametrize(
-    ("key", "value"),
-    [
-        (CONF_ANSWER_TIMEOUT, 0),
-        (CONF_ANSWER_TIMEOUT, 121),
-        (CONF_PROMPT_DELAY, -1),
-        (CONF_PROMPT_DELAY, 601),
-    ],
-)
-async def test_subentry_rejects_values_out_of_range(
-    hass: HomeAssistant, config_entry: MockConfigEntry, key: str, value: int
-) -> None:
-    """The number selectors keep the timeout and the delay in their range."""
-    await setup_entry(hass, config_entry)
-
-    result = await hass.config_entries.subentries.async_init(
-        (config_entry.entry_id, SUBENTRY_TYPE_TRACKER), context={"source": SOURCE_USER}
-    )
-    with pytest.raises(vol.Invalid):
-        result["data_schema"]({CONF_NAME: "Kid", key: value})
 
 
 async def test_subentry_needs_a_name(
@@ -537,9 +482,7 @@ async def test_subentry_needs_a_name(
     """A blank name is refused."""
     await setup_entry(hass, config_entry)
 
-    result = await add_tracker(
-        hass, config_entry, {CONF_NAME: "   ", CONF_RESET_ON_RETURN: True}
-    )
+    result = await add_tracker(hass, config_entry, {CONF_NAME: "   "})
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_NAME: "name_required"}
@@ -553,15 +496,13 @@ async def test_subentry_rejects_a_duplicate_name(
     """Names are compared without case and without surrounding spaces."""
     entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
 
-    result = await add_tracker(
-        hass, entry, {CONF_NAME: name, CONF_RESET_ON_RETURN: True}
-    )
+    result = await add_tracker(hass, entry, {CONF_NAME: name})
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_NAME: "name_exists"}
 
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {CONF_NAME: "Granny", CONF_RESET_ON_RETURN: True}
+        result["flow_id"], {CONF_NAME: "Granny"}
     )
     await hass.async_block_till_done()
 
@@ -572,37 +513,27 @@ async def test_subentry_rejects_a_duplicate_name(
 async def test_subentry_reconfigure_renames_and_keeps_the_id(
     hass: HomeAssistant,
 ) -> None:
-    """Renaming changes title and option but not the subentry ID."""
+    """Renaming changes the title but not the subentry ID or the settings."""
+    settings = tracker_data(
+        **{
+            CONF_RESET_ON_RETURN: False,
+            CONF_ASK_ON_DEPARTURE: False,
+            CONF_ANSWER_TIMEOUT: 20,
+            CONF_PROMPT_DELAY: 45,
+            CONF_NOTIFY_ON_EXPIRY: True,
+        }
+    )
     entry = await setup_entry(
-        hass,
-        make_entry(
-            make_subentry(
-                TRACKER_A,
-                "Kid",
-                **tracker_data(**{CONF_ASK_ON_DEPARTURE: True, CONF_PROMPT_DELAY: 45}),
-            )
-        ),
+        hass, make_entry(make_subentry(TRACKER_A, "Kid", **settings))
     )
 
     result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "reconfigure"
     assert suggested(result, CONF_NAME) == "Kid"
-    assert suggested(result, CONF_RESET_ON_RETURN) is True
-    # The form comes up with what the tracker is configured with today.
-    assert suggested(result, CONF_ASK_ON_DEPARTURE) is True
-    assert suggested(result, CONF_ANSWER_TIMEOUT) == DEFAULT_ANSWER_TIMEOUT
-    assert suggested(result, CONF_PROMPT_DELAY) == 45
 
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {
-            CONF_NAME: "Kiddo",
-            CONF_RESET_ON_RETURN: False,
-            CONF_ASK_ON_DEPARTURE: False,
-            CONF_ANSWER_TIMEOUT: 20,
-            CONF_PROMPT_DELAY: 0,
-        },
+        result["flow_id"], {CONF_NAME: "Kiddo"}
     )
     await hass.async_block_till_done()
 
@@ -611,10 +542,29 @@ async def test_subentry_reconfigure_renames_and_keeps_the_id(
 
     subentry = entry.subentries[TRACKER_A]
     assert subentry.title == "Kiddo"
-    assert dict(subentry.data) == tracker_data(
-        **{CONF_RESET_ON_RETURN: False, CONF_ANSWER_TIMEOUT: 20}
-    )
+    # Everything the entities of the tracker write survives the form.
+    assert dict(subentry.data) == settings
     assert entry.runtime_data.manager.tracker_ids == [TRACKER_A]
+
+
+async def test_subentry_reconfigure_keeps_the_settings_of_an_old_tracker(
+    hass: HomeAssistant,
+) -> None:
+    """A tracker without the keys does not get them from the form either.
+
+    A missing key means "no" for the ask option, and a form that wrote the
+    defaults in would silently switch the prompt on.
+    """
+    entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_NAME: "Kid"}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert dict(entry.subentries[TRACKER_A].data) == {CONF_NOTIFY_PERSONS: []}
 
 
 async def test_subentry_reconfigure_keeps_its_own_name(hass: HomeAssistant) -> None:
@@ -626,20 +576,17 @@ async def test_subentry_reconfigure_keeps_its_own_name(hass: HomeAssistant) -> N
 
     result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {CONF_NAME: "Kid", CONF_RESET_ON_RETURN: False}
+        result["flow_id"], {CONF_NAME: "Kid"}
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
     assert entry.subentries[TRACKER_A].title == "Kid"
-    assert dict(entry.subentries[TRACKER_A].data) == tracker_data(
-        **{CONF_RESET_ON_RETURN: False}
-    )
 
     # The name of the other tracker is still taken.
     result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {CONF_NAME: "granny", CONF_RESET_ON_RETURN: False}
+        result["flow_id"], {CONF_NAME: "granny"}
     )
 
     assert result["type"] is FlowResultType.FORM

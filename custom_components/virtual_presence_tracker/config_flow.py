@@ -25,12 +25,8 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
-    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     TextSelector,
 )
 
@@ -44,15 +40,11 @@ from .const import (
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
-    DEFAULT_ASK_ON_DEPARTURE,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
-    MAX_ANSWER_TIMEOUT,
-    MAX_PROMPT_DELAY,
-    MIN_ANSWER_TIMEOUT,
-    MIN_PROMPT_DELAY,
+    NEW_TRACKER_ASK_ON_DEPARTURE,
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
@@ -73,7 +65,12 @@ PERSONS_SCHEMA = vol.Schema(
 
 
 def _tracker_schema(entry: ConfigEntry, subentry: ConfigSubentry | None) -> vol.Schema:
-    """Return the form of one virtual tracker.
+    """Return the form of one virtual tracker: its name and who is asked.
+
+    Everything else a tracker can be set to has an entity of its own on the
+    tracker's device page (M2f), so the form only holds what has nowhere else
+    to go: the name, which is the subentry title, and the recipients, which are
+    a list of persons rather than a value.
 
     Only the real persons of this household can be asked, so they are what the
     person selector offers. What the tracker already has stored is offered too,
@@ -89,44 +86,13 @@ def _tracker_schema(entry: ConfigEntry, subentry: ConfigSubentry | None) -> vol.
     return vol.Schema(
         {
             vol.Required(CONF_NAME): TextSelector(),
-            vol.Required(
-                CONF_RESET_ON_RETURN, default=DEFAULT_RESET_ON_RETURN
-            ): BooleanSelector(),
-            vol.Required(
-                CONF_ASK_ON_DEPARTURE, default=DEFAULT_ASK_ON_DEPARTURE
-            ): BooleanSelector(),
-            vol.Required(
-                CONF_ANSWER_TIMEOUT, default=DEFAULT_ANSWER_TIMEOUT
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=MIN_ANSWER_TIMEOUT,
-                    max=MAX_ANSWER_TIMEOUT,
-                    step=1,
-                    mode=NumberSelectorMode.BOX,
-                    unit_of_measurement="min",
-                )
-            ),
-            vol.Required(
-                CONF_PROMPT_DELAY, default=DEFAULT_PROMPT_DELAY
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=MIN_PROMPT_DELAY,
-                    max=MAX_PROMPT_DELAY,
-                    step=1,
-                    mode=NumberSelectorMode.BOX,
-                    unit_of_measurement="s",
-                )
-            ),
-            # An empty selection is a valid answer, and the default one: it
-            # means that the integration sends nothing at all.
+            # An empty selection is a valid answer: it means that the
+            # integration sends nothing at all.
             vol.Required(CONF_NOTIFY_PERSONS, default=list): EntitySelector(
                 EntitySelectorConfig(
                     domain=PERSON_DOMAIN, multiple=True, include_entities=candidates
                 )
             ),
-            vol.Required(
-                CONF_NOTIFY_ON_EXPIRY, default=DEFAULT_NOTIFY_ON_EXPIRY
-            ): BooleanSelector(),
         }
     )
 
@@ -293,16 +259,24 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
             recipients = list(user_input[CONF_NOTIFY_PERSONS])
-            # NumberSelector hands out floats; the options are whole minutes
-            # and whole seconds, and that is what is stored.
-            data = {
-                CONF_RESET_ON_RETURN: user_input[CONF_RESET_ON_RETURN],
-                CONF_ASK_ON_DEPARTURE: user_input[CONF_ASK_ON_DEPARTURE],
-                CONF_ANSWER_TIMEOUT: int(user_input[CONF_ANSWER_TIMEOUT]),
-                CONF_PROMPT_DELAY: int(user_input[CONF_PROMPT_DELAY]),
-                CONF_NOTIFY_PERSONS: recipients,
-                CONF_NOTIFY_ON_EXPIRY: user_input[CONF_NOTIFY_ON_EXPIRY],
-            }
+            # A new tracker is written with all of its options spelled out, so
+            # that the entities of the tracker's device page have something to
+            # show from the start - and a new tracker asks (the code default
+            # for a *missing* key stays "no", which is what every tracker from
+            # before the prompt relies on). An existing tracker keeps whatever
+            # its entities have written since.
+            data = (
+                {
+                    CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
+                    CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
+                    CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
+                    CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+                    CONF_NOTIFY_PERSONS: recipients,
+                    CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+                }
+                if subentry is None
+                else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}
+            )
             skip = subentry.subentry_id if subentry is not None else None
             strangers = [
                 person
@@ -326,8 +300,16 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 )
 
         suggested: dict[str, Any] = user_input or {}
-        if not suggested and subentry is not None:
-            suggested = {CONF_NAME: subentry.title, **subentry.data}
+        if not suggested:
+            # A new tracker comes up with every real person ticked: asking
+            # everybody is the answer that needs no thought, and taking
+            # somebody out is one click. An existing tracker comes up with
+            # what it has.
+            suggested = (
+                {CONF_NOTIFY_PERSONS: list(entry.data.get(CONF_PERSONS, []))}
+                if subentry is None
+                else {CONF_NAME: subentry.title, **subentry.data}
+            )
 
         return self.async_show_form(
             step_id=step_id,

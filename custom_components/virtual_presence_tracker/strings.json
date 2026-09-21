@@ -44,43 +44,23 @@
           "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. Assign it to a person of its own afterwards, and that person counts as being at home for as long as the tracker is switched on.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Reset when a real person comes home",
-            "ask_on_departure": "Ask when the house becomes empty",
-            "answer_timeout": "Time to answer",
-            "prompt_delay": "Delay before asking",
-            "notify_persons": "Who is asked?",
-            "notify_on_expiry": "Tell me when nobody answered"
+            "notify_persons": "Who is asked?"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days.",
-            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is always announced by the tracker's event entity and can be answered with the action \"Answer prompt\"; pick recipients below to have it sent to their phones as well.",
-            "answer_timeout": "How long the prompt stays open, in minutes. Without an answer nothing changes and the house counts as empty.",
-            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the question, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts and takes the message off the other phones. Leave empty to send nothing at all and deliver the prompt with an automation of your own.",
-            "notify_on_expiry": "Sends a short note to the same phones when nobody answered in time. Nothing is sent when somebody answers or when the prompt is withdrawn."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the question when the house empties, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the prompt with an automation of your own.\n\nEverything else is set on the tracker's device page: whether it asks when the house empties, the time to answer, the delay before asking, the reset when somebody comes home and the note when nobody answers."
           }
         },
         "reconfigure": {
           "title": "Edit the virtual tracker",
-          "description": "Rename the tracker or change when it is reset and when it asks. Renaming is safe: the entities of the tracker keep their identity.",
+          "description": "Rename the tracker or change who is asked about it. Renaming is safe: the entities of the tracker keep their identity.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Reset when a real person comes home",
-            "ask_on_departure": "Ask when the house becomes empty",
-            "answer_timeout": "Time to answer",
-            "prompt_delay": "Delay before asking",
-            "notify_persons": "Who is asked?",
-            "notify_on_expiry": "Tell me when nobody answered"
+            "notify_persons": "Who is asked?"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "reset_on_return": "Switches the tracker off again as soon as the first real person enters the empty house, so that it cannot stay switched on for days.",
-            "ask_on_departure": "Opens a prompt when the last real person leaves and this tracker is off. The prompt is always announced by the tracker's event entity and can be answered with the action \"Answer prompt\"; pick recipients below to have it sent to their phones as well.",
-            "answer_timeout": "How long the prompt stays open, in minutes. Without an answer nothing changes and the house counts as empty.",
-            "prompt_delay": "How long to wait after the last real person left before the prompt opens, in seconds. Keep it below the delay of your own \"nobody home\" automations.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the question, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts and takes the message off the other phones. Leave empty to send nothing at all and deliver the prompt with an automation of your own.",
-            "notify_on_expiry": "Sends a short note to the same phones when nobody answered in time. Nothing is sent when somebody answers or when the prompt is withdrawn."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the question when the house empties, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the prompt with an automation of your own.\n\nEverything else is set on the tracker's device page: whether it asks when the house empties, the time to answer, the delay before asking, the reset when somebody comes home and the note when nobody answers."
           }
         }
       },
@@ -116,9 +96,26 @@
         }
       }
     },
+    "number": {
+      "answer_timeout": {
+        "name": "Time to answer"
+      },
+      "prompt_delay": {
+        "name": "Delay before asking"
+      }
+    },
     "switch": {
+      "ask_on_departure": {
+        "name": "Ask when the house empties"
+      },
       "at_home": {
         "name": "At home"
+      },
+      "notify_on_expiry": {
+        "name": "Tell me when nobody answers"
+      },
+      "reset_on_return": {
+        "name": "Reset when someone comes home"
       }
     }
   },
@@ -180,7 +177,7 @@
     },
     "open_prompt": {
       "name": "Open prompt",
-      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when the house becomes empty\" option and the delay; everything after that is the usual prompt, including the notification and the time to answer."
+      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when the house empties\" switch and the delay; everything after that is the usual prompt, including the notification and the time to answer."
     }
   }
 }

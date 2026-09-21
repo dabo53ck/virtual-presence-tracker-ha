@@ -13,12 +13,32 @@
         "default": "mdi:comment-question-outline"
       }
     },
+    "number": {
+      "answer_timeout": {
+        "default": "mdi:timer-outline"
+      },
+      "prompt_delay": {
+        "default": "mdi:timer-sand"
+      }
+    },
     "switch": {
+      "ask_on_departure": {
+        "default": "mdi:comment-question",
+        "state": {
+          "off": "mdi:comment-off-outline"
+        }
+      },
       "at_home": {
         "default": "mdi:home-account",
         "state": {
           "off": "mdi:home-outline"
         }
+      },
+      "notify_on_expiry": {
+        "default": "mdi:bell-alert-outline"
+      },
+      "reset_on_return": {
+        "default": "mdi:restore"
       }
     }
   },

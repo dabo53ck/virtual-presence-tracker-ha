@@ -44,43 +44,23 @@
           "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Weise ihn anschließend einer eigenen Person zu – diese Person gilt dann als zu Hause, solange der Tracker eingeschaltet ist.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
-            "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
-            "answer_timeout": "Zeit zum Antworten",
-            "prompt_delay": "Wartezeit vor der Nachfrage",
-            "notify_persons": "Wer wird gefragt?",
-            "notify_on_expiry": "Melden, wenn niemand geantwortet hat"
+            "notify_persons": "Wer wird gefragt?"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
-            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird immer über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden; wähle unten Empfänger aus, damit sie zusätzlich auf deren Handys geschickt wird.",
-            "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
-            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt und nimmt die Nachricht von den anderen Handys wieder weg. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.",
-            "notify_on_expiry": "Schickt eine kurze Info an dieselben Handys, wenn niemand rechtzeitig geantwortet hat. Bei einer Antwort oder einer zurückgezogenen Rückfrage wird nichts geschickt."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf."
           }
         },
         "reconfigure": {
           "title": "Virtuellen Tracker bearbeiten",
-          "description": "Benenne den Tracker um oder ändere, wann er zurückgesetzt wird und wann er nachfragt. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "description": "Benenne den Tracker um oder ändere, wer zu ihm gefragt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
           "data": {
             "name": "Name",
-            "reset_on_return": "Zurücksetzen, wenn eine echte Person heimkommt",
-            "ask_on_departure": "Nachfragen, wenn das Haus leer wird",
-            "answer_timeout": "Zeit zum Antworten",
-            "prompt_delay": "Wartezeit vor der Nachfrage",
-            "notify_persons": "Wer wird gefragt?",
-            "notify_on_expiry": "Melden, wenn niemand geantwortet hat"
+            "notify_persons": "Wer wird gefragt?"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "reset_on_return": "Schaltet den Tracker wieder aus, sobald die erste echte Person das leere Haus betritt, damit er nicht tagelang eingeschaltet bleiben kann.",
-            "ask_on_departure": "Öffnet eine Rückfrage, wenn die letzte echte Person geht und dieser Tracker aus ist. Die Rückfrage wird immer über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden; wähle unten Empfänger aus, damit sie zusätzlich auf deren Handys geschickt wird.",
-            "answer_timeout": "Wie lange die Rückfrage offen bleibt, in Minuten. Ohne Antwort ändert sich nichts und das Haus gilt als leer.",
-            "prompt_delay": "Wie lange nach dem Weggehen der letzten echten Person gewartet wird, bis die Rückfrage aufgeht, in Sekunden. Halte den Wert kleiner als die Verzögerung deiner eigenen „Niemand zu Hause“-Automationen.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt und nimmt die Nachricht von den anderen Handys wieder weg. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.",
-            "notify_on_expiry": "Schickt eine kurze Info an dieselben Handys, wenn niemand rechtzeitig geantwortet hat. Bei einer Antwort oder einer zurückgezogenen Rückfrage wird nichts geschickt."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf."
           }
         }
       },
@@ -116,9 +96,26 @@
         }
       }
     },
+    "number": {
+      "answer_timeout": {
+        "name": "Antwortzeit"
+      },
+      "prompt_delay": {
+        "name": "Verzögerung vor der Rückfrage"
+      }
+    },
     "switch": {
+      "ask_on_departure": {
+        "name": "Nachfragen bei leerem Haus"
+      },
       "at_home": {
         "name": "Zuhause"
+      },
+      "notify_on_expiry": {
+        "name": "Info bei Ablauf"
+      },
+      "reset_on_return": {
+        "name": "Zurücksetzen bei Rückkehr"
       }
     }
   },
@@ -180,7 +177,7 @@
     },
     "open_prompt": {
       "name": "Rückfrage öffnen",
-      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, die Option „Nachfragen, wenn das Haus leer wird“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
+      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen bei leerem Haus“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }

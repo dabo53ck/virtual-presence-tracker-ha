@@ -41,15 +41,12 @@ from .const import (
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
-    DEFAULT_ANSWER_TIMEOUT,
-    DEFAULT_ASK_ON_DEPARTURE,
-    DEFAULT_PROMPT_DELAY,
-    DEFAULT_RESET_ON_RETURN,
     EVENT_ANSWERED_NO,
     EVENT_ANSWERED_YES,
     EVENT_CANCELLED,
     EVENT_EXPIRED,
     EVENT_PROMPT_STARTED,
+    OPTION_DEFAULTS,
     REASON_OPTION_DISABLED,
     REASON_PERSON_HOME,
     REASON_SWITCHED_ON,
@@ -201,6 +198,11 @@ class HouseholdManager:
         self._expiry: dict[str, CALLBACK_TYPE] = {}
         self._scheduled: dict[str, _Scheduled] = {}
         self._prompt_listeners: dict[str, list[PromptListener]] = {}
+        # What the ask option of each tracker was the last time the manager
+        # looked. The options live in the subentry data and can now be written
+        # from an entity, so switching one off has to be noticed rather than
+        # reported - and only the ask option has anything to take back.
+        self._asking: dict[str, bool] = {}
 
     async def async_load(self) -> None:
         """Load the persisted tracker states and prompts.
@@ -236,6 +238,9 @@ class HouseholdManager:
             )
         self._trackers = trackers
         self._prompts = prompts
+        self._asking = {
+            subentry_id: self._ask_on_departure(subentry_id) for subentry_id in trackers
+        }
 
         if (stored_trackers.keys() | stored_prompts.keys()) - set(known_ids):
             self._async_schedule_save()
@@ -426,6 +431,64 @@ class HouseholdManager:
             {ATTR_ANSWERED_BY: answered_by},
         )
         return True
+
+    def option(self, subentry_id: str, key: str) -> Any:
+        """Return one of the options a tracker has an entity for.
+
+        The subentry data is the single source of truth and is read every time:
+        the entities of these options are views on it, exactly as the switch is
+        a view on the tracker state.
+        """
+        return self._option(subentry_id, key, OPTION_DEFAULTS[key])
+
+    @callback
+    def async_set_option(self, subentry_id: str, key: str, value: bool | int) -> None:
+        """Write one option of a tracker and let everything follow at once.
+
+        The write goes into the subentry data, where the option has always
+        lived. Home Assistant hands the change to the update listeners as a
+        task, so the reaction is triggered here as well: the entity that was
+        just used has to show the new value now, not after the next tick. Doing
+        it twice costs nothing - the second run finds everything done.
+        """
+        subentry = self.entry.subentries.get(subentry_id)
+        if subentry is None:
+            return
+        self.hass.config_entries.async_update_subentry(
+            self.entry, subentry, data={**subentry.data, key: value}
+        )
+        self.async_options_changed()
+
+    @callback
+    def async_options_changed(self) -> None:
+        """Take in a change of the options that did not reload the entry.
+
+        Only the ask option has a consequence of its own: switching it off
+        while its tracker is being asked about takes the question back, the
+        same way it used to when the form still reloaded the entry. Everything
+        else - the reset, the timeout, the delay, the expiry notice - is read
+        where it is used, so it is enough to let the entities write their new
+        state.
+        """
+        for subentry_id in list(self._trackers):
+            asking = self._ask_on_departure(subentry_id)
+            if self._asking.get(subentry_id, asking) and not asking:
+                self._async_asking_switched_off(subentry_id)
+            self._asking[subentry_id] = asking
+            self._async_notify(self._tracker_listeners.get(subentry_id, []))
+
+    @callback
+    def _async_asking_switched_off(self, subentry_id: str) -> None:
+        """Take back what the ask option had started, if anything.
+
+        A prompt somebody opened by hand stays: it was never opened because the
+        option was on, so switching the option off says nothing about it - the
+        same reasoning that keeps it alive across a restart.
+        """
+        prompt = self._prompts.get(subentry_id)
+        if prompt is not None and prompt.manual:
+            return
+        self._async_cancel_prompt(subentry_id, REASON_OPTION_DISABLED)
 
     @callback
     def async_add_prompt_listener(
@@ -660,20 +723,16 @@ class HouseholdManager:
         return subentry.data.get(key, default)
 
     def _ask_on_departure(self, subentry_id: str) -> bool:
-        """Return whether a tracker asks when the house becomes empty."""
-        return bool(
-            self._option(subentry_id, CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE)
-        )
+        """Return whether a tracker asks when the house empties."""
+        return bool(self.option(subentry_id, CONF_ASK_ON_DEPARTURE))
 
     def _answer_timeout(self, subentry_id: str) -> int:
         """Return how many minutes a prompt of a tracker stays open."""
-        return int(
-            self._option(subentry_id, CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT)
-        )
+        return int(self.option(subentry_id, CONF_ANSWER_TIMEOUT))
 
     def _prompt_delay(self, subentry_id: str) -> int:
         """Return how many seconds a tracker waits before it asks."""
-        return int(self._option(subentry_id, CONF_PROMPT_DELAY, DEFAULT_PROMPT_DELAY))
+        return int(self.option(subentry_id, CONF_PROMPT_DELAY))
 
     @callback
     def _async_reset_trackers(self) -> None:
@@ -681,10 +740,7 @@ class HouseholdManager:
         for subentry_id, tracker in list(self._trackers.items()):
             if not tracker.home:
                 continue
-            subentry = self.entry.subentries.get(subentry_id)
-            if subentry is not None and not subentry.data.get(
-                CONF_RESET_ON_RETURN, DEFAULT_RESET_ON_RETURN
-            ):
+            if not self.option(subentry_id, CONF_RESET_ON_RETURN):
                 continue
             _LOGGER.debug("Resetting tracker %s: a real person came home", subentry_id)
             self._async_set_tracker(subentry_id, False)

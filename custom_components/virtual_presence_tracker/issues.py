@@ -120,6 +120,18 @@ class HouseholdIssues:
         # can be found again without remembering what was raised.
         self._prefix = f"{entry.entry_id}_"
         self._unsubs: list[CALLBACK_TYPE] = []
+        self._checking = False
+
+    @callback
+    def async_recheck(self) -> None:
+        """Check again, for a change that nothing else here follows.
+
+        Before Home Assistant has started there is nothing to check: the person
+        states do not exist yet, and checking would report every tracker as
+        unassigned.
+        """
+        if self._checking:
+            self._async_check()
 
     @callback
     def async_start(self) -> None:
@@ -137,6 +149,7 @@ class HouseholdIssues:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        self._checking = False
         self._async_apply({})
 
     @callback
@@ -155,6 +168,7 @@ class HouseholdIssues:
             self._unsubs.append(
                 hass.bus.async_listen(event_type, self._async_service_changed)
             )
+        self._checking = True
         self._async_check()
 
     @callback
