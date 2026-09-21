@@ -15,18 +15,24 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_EXPIRES_AT,
     ATTR_PROMPT_ID,
     ATTR_REASON,
+    ATTR_REMINDER_ID,
     ATTR_TRACKER,
     CONF_ASK_ON_DEPARTURE,
     CONF_PERSONS,
+    CONF_REMIND_AFTER,
     DOMAIN,
     EVENT_CANCELLED,
     EVENT_EXPIRED,
     EVENT_PROMPT_STARTED,
-    PROMPT_EVENT_TYPES,
+    EVENT_REMINDER_CANCELLED,
+    EVENT_REMINDER_EXPIRED,
+    EVENT_REMINDER_STARTED,
     REASON_PERSON_HOME,
+    REASON_SWITCHED_OFF,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
+    TRACKER_EVENT_TYPES,
 )
 from homeassistant.components.event import ATTR_EVENT_TYPE, ATTR_EVENT_TYPES
 from homeassistant.const import (
@@ -52,9 +58,11 @@ EVENT_B = "event.granny_prompt"
 SWITCH_A = "switch.kid_at_home"
 
 
-def make_entry(*, asking: bool = True) -> MockConfigEntry:
+def make_entry(*, asking: bool = True, remind_after: int = 0) -> MockConfigEntry:
     """Return an entry with two trackers, asking or not."""
-    data = {CONF_ASK_ON_DEPARTURE: asking}
+    data: dict[str, Any] = {CONF_ASK_ON_DEPARTURE: asking}
+    if remind_after:
+        data[CONF_REMIND_AFTER] = remind_after
     return MockConfigEntry(
         domain=DOMAIN,
         title="Virtual Presence Tracker",
@@ -134,7 +142,9 @@ async def test_one_event_entity_per_tracker(hass: HomeAssistant) -> None:
     assert state is not None
     assert state.state == STATE_UNKNOWN
     assert state.attributes[ATTR_FRIENDLY_NAME] == "Kid Prompt"
-    assert state.attributes[ATTR_EVENT_TYPES] == PROMPT_EVENT_TYPES
+    # One entity for both questions about the tracker: the prompt and the
+    # reminder, each with its own event types.
+    assert state.attributes[ATTR_EVENT_TYPES] == TRACKER_EVENT_TYPES
     assert hass.states.get(EVENT_B) is not None
 
 
@@ -252,3 +262,83 @@ async def test_a_prompt_is_taken_back_when_somebody_is_home_again(
     state = hass.states.get(EVENT_A)
     assert state.attributes[ATTR_EVENT_TYPE] == EVENT_CANCELLED
     assert state.attributes[ATTR_REASON] == REASON_PERSON_HOME
+
+
+def stored_reminder(
+    *, minutes_left: float | None, hours_at_home: float, home: bool = True
+) -> dict[str, Any]:
+    """Return a storage payload for the first tracker, with or without a reminder."""
+    now = dt_util.utcnow()
+    at_home = (now - timedelta(hours=hours_at_home)).isoformat()
+    data: dict[str, Any] = {
+        "trackers": {TRACKER_A: {"home": home, "since": at_home, "anchor": at_home}}
+    }
+    if minutes_left is not None:
+        data["reminders"] = {
+            TRACKER_A: {
+                "reminder_id": "rem",
+                "started_at": (now - timedelta(minutes=1)).isoformat(),
+                "expires_at": (now + timedelta(minutes=minutes_left)).isoformat(),
+            }
+        }
+    return {
+        "version": STORAGE_VERSION,
+        "minor_version": 1,
+        "key": STORE_KEY,
+        "data": data,
+    }
+
+
+async def test_the_reminder_reaches_the_event_entity(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    """A reminder is published with its own ID, its tracker and its deadline."""
+    hass_storage[STORE_KEY] = stored_reminder(minutes_left=None, hours_at_home=5)
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    entry = await setup_entry(hass, make_entry(asking=False, remind_after=2))
+
+    state = hass.states.get(EVENT_A)
+    assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_STARTED
+    assert state.attributes[ATTR_TRACKER] == "Kid"
+    assert state.attributes[ATTR_REMINDER_ID]
+    assert (
+        state.attributes[ATTR_EXPIRES_AT]
+        == entry.runtime_data.manager.reminder_expires_at(TRACKER_A).isoformat()
+    )
+    # The reminder is not a prompt and never claims to be one.
+    assert ATTR_PROMPT_ID not in state.attributes
+    # The second tracker was never at home, so nothing was said about it.
+    assert hass.states.get(EVENT_B).state == STATE_UNKNOWN
+
+    await unload(hass, entry)
+
+
+async def test_a_reminder_that_expired_while_off_is_published(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    """The catch-up event needs the entity, so it is fired after the platforms."""
+    hass_storage[STORE_KEY] = stored_reminder(minutes_left=-5, hours_at_home=5)
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    entry = await setup_entry(hass, make_entry(asking=False, remind_after=2))
+
+    state = hass.states.get(EVENT_A)
+    assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_EXPIRED
+    assert state.attributes[ATTR_REMINDER_ID] == "rem"
+    assert state.attributes[ATTR_TRACKER] == "Kid"
+
+    await unload(hass, entry)
+
+
+async def test_a_reminder_is_taken_back_when_the_tracker_is_off(
+    hass: HomeAssistant, hass_storage: dict[str, Any]
+) -> None:
+    """A tracker switched off while Home Assistant was down loses its reminder."""
+    hass_storage[STORE_KEY] = stored_reminder(
+        minutes_left=5, hours_at_home=5, home=False
+    )
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    await setup_entry(hass, make_entry(asking=False, remind_after=2))
+
+    state = hass.states.get(EVENT_A)
+    assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_CANCELLED
+    assert state.attributes[ATTR_REASON] == REASON_SWITCHED_OFF

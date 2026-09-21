@@ -1,8 +1,8 @@
-"""Texts of the built-in prompt notification.
+"""Texts of the built-in notifications: the prompt and the reminder.
 
-The notification is sent by the integration itself, so its texts cannot come
-from `strings.json` - that file only translates what the frontend renders. They
-live here instead, in English and German, and the language of the Home
+The notifications are sent by the integration itself, so their texts cannot
+come from `strings.json` - that file only translates what the frontend renders.
+They live here instead, in English and German, and the language of the Home
 Assistant instance picks one (see docs/DESIGN.md).
 """
 
@@ -23,6 +23,15 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "no": "No",
         "expired_title": "No answer",
         "expired_message": "No answer: {tracker} counts as not at home.",
+        "reminder_title": "Is {tracker} still home?",
+        "reminder_message": "{tracker} has been marked as home for {hours}. "
+        "Answer within {minutes}.",
+        "reminder_yes": "Yes, still home",
+        "reminder_no": "No, switch off",
+        "hours": "{hours} hours",
+        "hours_one": "1 hour",
+        "minutes": "{minutes} minutes",
+        "minutes_one": "1 minute",
     },
     "de": {
         "title": "Ist {tracker} alleine zu Hause?",
@@ -34,6 +43,15 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "no": "Nein",
         "expired_title": "Keine Antwort",
         "expired_message": "Keine Antwort: {tracker} gilt als nicht zu Hause.",
+        "reminder_title": "Ist {tracker} noch zu Hause?",
+        "reminder_message": "{tracker} ist seit {hours} als zu Hause markiert. "
+        "Antworte innerhalb von {minutes}.",
+        "reminder_yes": "Ja, noch da",
+        "reminder_no": "Nein, ausschalten",
+        "hours": "{hours} Stunden",
+        "hours_one": "1 Stunde",
+        "minutes": "{minutes} Minuten",
+        "minutes_one": "1 Minute",
     },
 }
 
@@ -82,3 +100,39 @@ def async_expired_title(hass: HomeAssistant) -> str:
 def async_expired_message(hass: HomeAssistant, tracker: str) -> str:
     """Return the message of the notice about an unanswered prompt."""
     return async_texts(hass)["expired_message"].format(tracker=tracker)
+
+
+@callback
+def async_reminder_title(hass: HomeAssistant, tracker: str) -> str:
+    """Return the title of the reminder notification."""
+    return async_texts(hass)["reminder_title"].format(tracker=tracker)
+
+
+@callback
+def async_reminder_message(
+    hass: HomeAssistant, tracker: str, hours: int, minutes: int
+) -> str:
+    """Return the message of the reminder notification.
+
+    The two durations are built first, so that a single hour and a single
+    minute read as one - "1 hour", "1 Stunde" - instead of as "1 hours".
+    """
+    texts = async_texts(hass)
+    return texts["reminder_message"].format(
+        tracker=tracker,
+        hours=(
+            texts["hours_one"] if hours == 1 else texts["hours"].format(hours=hours)
+        ),
+        minutes=(
+            texts["minutes_one"]
+            if minutes == 1
+            else texts["minutes"].format(minutes=minutes)
+        ),
+    )
+
+
+@callback
+def async_reminder_answer_titles(hass: HomeAssistant) -> tuple[str, str]:
+    """Return the titles of the yes and the no button of the reminder."""
+    texts = async_texts(hass)
+    return texts["reminder_yes"], texts["reminder_no"]

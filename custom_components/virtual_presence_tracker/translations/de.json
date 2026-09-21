@@ -49,7 +49,7 @@
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr, die Info bei Ablauf und die Erinnerung für einen Tracker, der lange eingeschaltet ist.",
             "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
           }
         },
@@ -62,7 +62,7 @@
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Frage mit Ja- und Nein-Button bekommt, wenn das Haus leer wird. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Rückfrage mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr und die Info bei Ablauf."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: ob er bei leerem Haus nachfragt, die Antwortzeit, die Verzögerung vor der Rückfrage, das Zurücksetzen bei Rückkehr, die Info bei Ablauf und die Erinnerung für einen Tracker, der lange eingeschaltet ist."
           }
         }
       },
@@ -92,7 +92,12 @@
               "answered_yes": "Mit Ja beantwortet",
               "answered_no": "Mit Nein beantwortet",
               "expired": "Nicht beantwortet",
-              "cancelled": "Zurückgezogen"
+              "cancelled": "Zurückgezogen",
+              "reminder_started": "Erinnert",
+              "reminder_answered_yes": "Erinnerung mit Ja beantwortet",
+              "reminder_answered_no": "Erinnerung mit Nein beantwortet",
+              "reminder_expired": "Erinnerung nicht beantwortet",
+              "reminder_cancelled": "Erinnerung zurückgezogen"
             }
           }
         }
@@ -104,6 +109,9 @@
       },
       "prompt_delay": {
         "name": "Verzögerung vor der Rückfrage"
+      },
+      "remind_after": {
+        "name": "Erinnerung nach"
       }
     },
     "switch": {
@@ -125,11 +133,20 @@
     "no_open_prompt": {
       "message": "Für {entity_id} ist keine Rückfrage offen, es gibt also nichts zu beantworten."
     },
+    "no_open_reminder": {
+      "message": "Für {entity_id} ist keine Erinnerung offen, es gibt also nichts zu beantworten."
+    },
     "prompt_already_open": {
       "message": "Für {entity_id} ist bereits eine Rückfrage offen, es gibt also nichts erneut zu fragen."
     },
+    "reminder_already_open": {
+      "message": "Für {entity_id} ist bereits eine Erinnerung offen, es gibt also nichts erneut zu fragen."
+    },
     "tracker_already_home": {
       "message": "{entity_id} ist bereits eingeschaltet, es gibt also niemanden, nach dem zu fragen wäre."
+    },
+    "tracker_not_home": {
+      "message": "{entity_id} ist ausgeschaltet, es gibt also niemanden, an den zu erinnern wäre."
     }
   },
   "issues": {
@@ -160,6 +177,12 @@
         "yes": "Ja, sie sind zu Hause",
         "no": "Nein, es ist niemand zu Hause"
       }
+    },
+    "reminder_answer": {
+      "options": {
+        "yes": "Ja, noch zu Hause",
+        "no": "Nein, Tracker ausschalten"
+      }
     }
   },
   "services": {
@@ -177,9 +200,27 @@
         }
       }
     },
+    "answer_reminder": {
+      "name": "Erinnerung beantworten",
+      "description": "Beantwortet die offene Erinnerung eines virtuellen Trackers. „Ja“ lässt den Tracker eingeschaltet und startet die Wartezeit neu, „Nein“ schaltet den Tracker aus.",
+      "fields": {
+        "answer": {
+          "name": "Antwort",
+          "description": "Ob die Person, für die der Tracker steht, noch zu Hause ist."
+        },
+        "answered_by": {
+          "name": "Beantwortet von",
+          "description": "Die Person, die geantwortet hat. Wird nur an die Event-Entität des Trackers weitergereicht, für Automationen, die wissen wollen, wer geantwortet hat."
+        }
+      }
+    },
     "open_prompt": {
       "name": "Rückfrage öffnen",
       "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen bei leerem Haus“ und die Verzögerung werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
+    },
+    "open_reminder": {
+      "name": "Erinnerung öffnen",
+      "description": "Fragt sofort nach, ob die Person, für die ein virtueller Tracker steht, noch zu Hause ist – ohne auf „Erinnerung nach“ zu warten. Der Tracker muss eingeschaltet sein; alles Weitere läuft wie bei jeder Erinnerung, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }

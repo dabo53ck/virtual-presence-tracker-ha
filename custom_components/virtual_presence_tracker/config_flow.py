@@ -40,6 +40,7 @@ from .const import (
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
+    CONF_REMIND_AFTER,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_CREATE_PERSON,
@@ -48,6 +49,7 @@ from .const import (
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
     NEW_TRACKER_ASK_ON_DEPARTURE,
+    NEW_TRACKER_REMIND_AFTER,
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
 )
@@ -271,16 +273,18 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
             recipients = list(user_input[CONF_NOTIFY_PERSONS])
             # A new tracker is written with all of its options spelled out, so
             # that the entities of the tracker's device page have something to
-            # show from the start - and a new tracker asks (the code default
-            # for a *missing* key stays "no", which is what every tracker from
-            # before the prompt relies on). An existing tracker keeps whatever
-            # its entities have written since.
+            # show from the start - and a new tracker asks and reminds (the
+            # code default for a *missing* key stays "no" and "never", which is
+            # what every tracker from before the prompt and the reminder relies
+            # on). An existing tracker keeps whatever its entities have written
+            # since.
             data = (
                 {
                     CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
                     CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
                     CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
                     CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+                    CONF_REMIND_AFTER: NEW_TRACKER_REMIND_AFTER,
                     CONF_NOTIFY_PERSONS: recipients,
                     CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
                 }

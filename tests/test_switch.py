@@ -15,14 +15,21 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_ANSWERED_BY,
     ATTR_PROMPT_EXPIRES_AT,
     ATTR_PROMPT_OPEN,
+    ATTR_REMINDER_EXPIRES_AT,
+    ATTR_REMINDER_OPEN,
     ATTR_SINCE,
     CONF_ASK_ON_DEPARTURE,
     DOMAIN,
     EVENT_ANSWERED_NO,
     EVENT_ANSWERED_YES,
     EVENT_PROMPT_STARTED,
+    EVENT_REMINDER_ANSWERED_NO,
+    EVENT_REMINDER_ANSWERED_YES,
+    EVENT_REMINDER_STARTED,
     SERVICE_ANSWER_PROMPT,
+    SERVICE_ANSWER_REMINDER,
     SERVICE_OPEN_PROMPT,
+    SERVICE_OPEN_REMINDER,
 )
 from homeassistant.components.event import ATTR_EVENT_TYPE
 from homeassistant.components.switch import (
@@ -93,6 +100,33 @@ async def open_prompt(hass: HomeAssistant, entity_id: str) -> None:
     await hass.async_block_till_done()
 
 
+async def answer_reminder(hass: HomeAssistant, entity_id: str, **data: Any) -> None:
+    """Call the reminder answer action on one switch."""
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_ANSWER_REMINDER,
+        {ATTR_ENTITY_ID: entity_id, **data},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+
+async def open_reminder(hass: HomeAssistant, entity_id: str) -> None:
+    """Call the reminder open action on one switch."""
+    await hass.services.async_call(
+        DOMAIN, SERVICE_OPEN_REMINDER, {ATTR_ENTITY_ID: entity_id}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+
+async def remind(hass: HomeAssistant, entry: MockConfigEntry) -> None:
+    """Set the entry up, switch the tracker on and open a reminder about it."""
+    await setup_entry(hass, entry)
+    await call_switch(hass, SERVICE_TURN_ON, SWITCH_A)
+    await open_reminder(hass, SWITCH_A)
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is True
+
+
 async def ask(hass: HomeAssistant, entry: MockConfigEntry) -> None:
     """Set the entry up and open a prompt by emptying the house."""
     hass.states.async_set(PERSON_A, STATE_HOME)
@@ -133,6 +167,8 @@ async def test_one_switch_per_subentry(
     assert state.attributes[ATTR_SINCE] is None
     assert state.attributes[ATTR_PROMPT_OPEN] is False
     assert state.attributes[ATTR_PROMPT_EXPIRES_AT] is None
+    assert state.attributes[ATTR_REMINDER_OPEN] is False
+    assert state.attributes[ATTR_REMINDER_EXPIRES_AT] is None
 
 
 async def test_switching_drives_the_tracker(
@@ -334,6 +370,143 @@ async def test_the_answer_only_reaches_our_switches(
     assert hass.states.get(SWITCH_A).state == STATE_OFF
 
     await answer(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+
+async def test_the_switch_shows_an_open_reminder(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """While a tracker is being reminded about, its switch says so."""
+    await remind(hass, tracker_entry)
+
+    state = hass.states.get(SWITCH_A)
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_REMINDER_OPEN] is True
+    expires_at = tracker_entry.runtime_data.manager.reminder_expires_at(TRACKER_A)
+    assert state.attributes[ATTR_REMINDER_EXPIRES_AT] == expires_at.isoformat()
+    # The prompt attributes are untouched by it.
+    assert state.attributes[ATTR_PROMPT_OPEN] is False
+    # The tracker that was not asked about is untouched too.
+    assert hass.states.get(SWITCH_B).attributes[ATTR_REMINDER_OPEN] is False
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES})
+
+    state = hass.states.get(SWITCH_A)
+    assert state.attributes[ATTR_REMINDER_OPEN] is False
+    assert state.attributes[ATTR_REMINDER_EXPIRES_AT] is None
+
+
+async def test_opening_the_reminder_from_the_action(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """The action asks about a tracker that has no interval set at all."""
+    await remind(hass, tracker_entry)
+
+    assert hass.states.get(EVENT_A).attributes[ATTR_EVENT_TYPE] == (
+        EVENT_REMINDER_STARTED
+    )
+    # Nothing was written to the tracker's options by asking.
+    assert dict(tracker_entry.subentries[TRACKER_A].data) == {}
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES})
+
+
+async def test_answering_the_reminder_with_yes_keeps_the_tracker_on(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """A yes leaves everything as it is and names who answered."""
+    await remind(hass, tracker_entry)
+
+    await answer_reminder(
+        hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES, ATTR_ANSWERED_BY: PERSON_A}
+    )
+
+    assert hass.states.get(SWITCH_A).state == STATE_ON
+    assert hass.states.get(TRACKER_A_ENTITY).state == STATE_HOME
+    state = hass.states.get(EVENT_A)
+    assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_ANSWERED_YES
+    assert state.attributes[ATTR_ANSWERED_BY] == PERSON_A
+
+
+async def test_answering_the_reminder_with_no_switches_the_tracker_off(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """A no does what the user would have done by hand."""
+    await remind(hass, tracker_entry)
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+    assert hass.states.get(SWITCH_A).state == STATE_OFF
+    assert hass.states.get(TRACKER_A_ENTITY).state == STATE_NOT_HOME
+    state = hass.states.get(EVENT_A)
+    assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_ANSWERED_NO
+    assert state.attributes[ATTR_ANSWERED_BY] is None
+
+
+async def test_answering_a_tracker_that_was_not_reminded_about(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """Without an open reminder the answer is refused with a clear message."""
+    await remind(hass, tracker_entry)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await answer_reminder(hass, SWITCH_B, **{ATTR_ANSWER: ANSWER_NO})
+
+    assert err.value.translation_key == "no_open_reminder"
+    # The other tracker's reminder is untouched by the failed call.
+    assert tracker_entry.runtime_data.manager.reminder_open(TRACKER_A) is True
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES})
+
+
+async def test_opening_a_reminder_for_a_tracker_that_is_away(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """Nobody is reminded about somebody who is not marked as being at home."""
+    await setup_entry(hass, tracker_entry)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await open_reminder(hass, SWITCH_A)
+
+    assert err.value.translation_key == "tracker_not_home"
+    assert hass.states.get(SWITCH_A).attributes[ATTR_REMINDER_OPEN] is False
+
+
+async def test_opening_a_reminder_that_is_already_open(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """A tracker that is already being reminded about is not asked twice."""
+    await remind(hass, tracker_entry)
+    expires_at = hass.states.get(SWITCH_A).attributes[ATTR_REMINDER_EXPIRES_AT]
+
+    with pytest.raises(ServiceValidationError) as err:
+        await open_reminder(hass, SWITCH_A)
+
+    assert err.value.translation_key == "reminder_already_open"
+    assert hass.states.get(SWITCH_A).attributes[ATTR_REMINDER_EXPIRES_AT] == expires_at
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES})
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {ATTR_ANSWER: "maybe"},
+        {ATTR_ANSWER: ANSWER_YES, ATTR_ANSWERED_BY: "light.kitchen"},
+    ],
+)
+async def test_the_reminder_answer_is_validated(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry, data: dict[str, Any]
+) -> None:
+    """The action only takes yes or no, and only a person as the answerer."""
+    await remind(hass, tracker_entry)
+
+    with pytest.raises(vol.Invalid):
+        await answer_reminder(hass, SWITCH_A, **data)
+
+    assert tracker_entry.runtime_data.manager.reminder_open(TRACKER_A) is True
+
+    await answer_reminder(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_YES})
 
 
 @pytest.mark.parametrize(

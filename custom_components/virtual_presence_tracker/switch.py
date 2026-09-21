@@ -2,8 +2,9 @@
 
 The "at home" switch of a virtual tracker is the control the user sees: a
 dashboard toggle, an NFC tag or an automation flips it, and the device tracker
-follows. It also carries the two prompt actions, as entity services: the switch
-is the entity a prompt is about, so targeting it is targeting the tracker.
+follows. It also carries the four question actions, as entity services: the
+switch is the entity a prompt or a reminder is about, so targeting it is
+targeting the tracker.
 
 Next to it sit the three switches of the tracker's boolean options (M2f). They
 write the subentry data the options have always lived in, so that changing one
@@ -33,6 +34,8 @@ from .const import (
     ATTR_ANSWERED_BY,
     ATTR_PROMPT_EXPIRES_AT,
     ATTR_PROMPT_OPEN,
+    ATTR_REMINDER_EXPIRES_AT,
+    ATTR_REMINDER_OPEN,
     ATTR_SINCE,
     CONF_ASK_ON_DEPARTURE,
     CONF_NOTIFY_ON_EXPIRY,
@@ -40,7 +43,9 @@ from .const import (
     DOMAIN,
     PERSON_DOMAIN,
     SERVICE_ANSWER_PROMPT,
+    SERVICE_ANSWER_REMINDER,
     SERVICE_OPEN_PROMPT,
+    SERVICE_OPEN_REMINDER,
     SUBENTRY_TYPE_TRACKER,
 )
 from .entity import (
@@ -48,11 +53,11 @@ from .entity import (
     VirtualTrackerOptionEntity,
     tracker_device_info,
 )
-from .manager import HouseholdManager, OpenPromptResult
+from .manager import HouseholdManager, OpenPromptResult, OpenReminderResult
 
 PARALLEL_UPDATES = 0
 
-ANSWER_PROMPT_SCHEMA = {
+ANSWER_SCHEMA = {
     vol.Required(ATTR_ANSWER): vol.In([ANSWER_YES, ANSWER_NO]),
     vol.Optional(ATTR_ANSWERED_BY): cv.entity_domain(PERSON_DOMAIN),
 }
@@ -61,6 +66,10 @@ ANSWER_PROMPT_SCHEMA = {
 OPEN_PROMPT_ERRORS = {
     OpenPromptResult.TRACKER_AT_HOME: "tracker_already_home",
     OpenPromptResult.PROMPT_OPEN: "prompt_already_open",
+}
+OPEN_REMINDER_ERRORS = {
+    OpenReminderResult.TRACKER_AWAY: "tracker_not_home",
+    OpenReminderResult.REMINDER_OPEN: "reminder_already_open",
 }
 
 
@@ -85,10 +94,16 @@ async def async_setup_entry(
     # Registering twice is a no-op, so a reload does not have to care.
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
-        SERVICE_ANSWER_PROMPT, ANSWER_PROMPT_SCHEMA, "async_answer_prompt"
+        SERVICE_ANSWER_PROMPT, ANSWER_SCHEMA, "async_answer_prompt"
     )
     platform.async_register_entity_service(
         SERVICE_OPEN_PROMPT, None, "async_open_prompt"
+    )
+    platform.async_register_entity_service(
+        SERVICE_ANSWER_REMINDER, ANSWER_SCHEMA, "async_answer_reminder"
+    )
+    platform.async_register_entity_service(
+        SERVICE_OPEN_REMINDER, None, "async_open_reminder"
     )
 
 
@@ -114,11 +129,18 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
         """Return when the tracker last changed and whether it is being asked about."""
         since = self._manager.since(self._subentry_id)
         expires_at = self._manager.prompt_expires_at(self._subentry_id)
+        reminder_expires_at = self._manager.reminder_expires_at(self._subentry_id)
         return {
             ATTR_SINCE: since.isoformat() if since is not None else None,
             ATTR_PROMPT_OPEN: self._manager.prompt_open(self._subentry_id),
             ATTR_PROMPT_EXPIRES_AT: (
                 expires_at.isoformat() if expires_at is not None else None
+            ),
+            ATTR_REMINDER_OPEN: self._manager.reminder_open(self._subentry_id),
+            ATTR_REMINDER_EXPIRES_AT: (
+                reminder_expires_at.isoformat()
+                if reminder_expires_at is not None
+                else None
             ),
         }
 
@@ -147,6 +169,29 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
         """Open a prompt about this tracker now, without waiting for a departure."""
         result = self._manager.async_open_prompt(self._subentry_id)
         if (translation_key := OPEN_PROMPT_ERRORS.get(result)) is not None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key=translation_key,
+                translation_placeholders={"entity_id": self.entity_id},
+            )
+
+    async def async_answer_reminder(
+        self, answer: str, answered_by: str | None = None
+    ) -> None:
+        """Answer the open reminder of this tracker."""
+        if not self._manager.async_answer_reminder(
+            self._subentry_id, answer == ANSWER_YES, answered_by
+        ):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="no_open_reminder",
+                translation_placeholders={"entity_id": self.entity_id},
+            )
+
+    async def async_open_reminder(self) -> None:
+        """Ask about this tracker now, without waiting for the reminder interval."""
+        result = self._manager.async_open_reminder(self._subentry_id)
+        if (translation_key := OPEN_REMINDER_ERRORS.get(result)) is not None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key=translation_key,

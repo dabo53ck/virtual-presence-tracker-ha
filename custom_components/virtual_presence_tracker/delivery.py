@@ -1,10 +1,11 @@
-"""Built-in delivery of the prompt through the Companion App.
+"""Built-in delivery of the questions through the Companion App.
 
-A tracker whose prompt has recipients sends the question to their phones as an
-actionable `mobile_app` notification and takes the message back as soon as the
-prompt ends, whatever ended it. Without recipients nothing is sent at all and
-the prompt stays what it was: an event entity and an action (see
-docs/DESIGN.md).
+A tracker whose recipients are set sends its questions - the prompt when the
+house empties (M2b) and the reminder about a tracker that has been on for a
+long time (M3a) - to their phones as an actionable `mobile_app` notification,
+and takes the message back as soon as the question ends, whatever ended it.
+Without recipients nothing is sent at all and both stay what they were: an
+event entity and an action (see docs/DESIGN.md).
 
 Nothing here imports the `mobile_app` or the `notify` component: the
 integration works without either of them, and the mapping only needs the config
@@ -24,8 +25,11 @@ from homeassistant.util import slugify
 
 from .const import (
     ACTION_NO_PREFIX,
+    ACTION_REMIND_NO_PREFIX,
+    ACTION_REMIND_YES_PREFIX,
     ACTION_YES_PREFIX,
     ATTR_PROMPT_ID,
+    ATTR_REMINDER_ID,
     ATTR_USER_ID,
     CLEAR_NOTIFICATION,
     CONF_ANSWER_TIMEOUT,
@@ -40,9 +44,11 @@ from .const import (
     EVENT_EXPIRED,
     EVENT_NOTIFICATION_ACTION,
     EVENT_PROMPT_STARTED,
+    EVENT_REMINDER_STARTED,
     MOBILE_APP_DOMAIN,
     NOTIFICATION_ICON,
     NOTIFICATION_INFO_TAG_PREFIX,
+    NOTIFICATION_REMINDER_TAG_PREFIX,
     NOTIFICATION_TAG_PREFIX,
     NOTIFY_DOMAIN,
     PERSON_DOMAIN,
@@ -54,6 +60,9 @@ from .messages import (
     async_expired_title,
     async_prompt_message,
     async_prompt_title,
+    async_reminder_answer_titles,
+    async_reminder_message,
+    async_reminder_title,
 )
 
 if TYPE_CHECKING:
@@ -118,7 +127,12 @@ def async_notify_services(hass: HomeAssistant, person: str) -> list[str]:
 
 
 class PromptDelivery:
-    """Send the prompts of a config entry to the phones of their recipients."""
+    """Send the questions of a config entry to the phones of their recipients.
+
+    Named after the prompt it was built for (M2b); it carries the reminder of
+    M3a as well, which is the same message mechanics with texts, a tag and
+    button names of its own.
+    """
 
     def __init__(
         self,
@@ -134,7 +148,7 @@ class PromptDelivery:
 
     @callback
     def async_start(self) -> None:
-        """Follow the prompts of every tracker and the answers of the phones.
+        """Follow the questions of every tracker and the answers of the phones.
 
         Adding, changing or removing a tracker reloads the entry, so the
         listeners never go stale.
@@ -144,6 +158,12 @@ class PromptDelivery:
                 self._manager.async_add_prompt_listener(
                     subentry.subentry_id,
                     partial(self._async_prompt_event, subentry.subentry_id),
+                )
+            )
+            self._unsubs.append(
+                self._manager.async_add_reminder_listener(
+                    subentry.subentry_id,
+                    partial(self._async_reminder_event, subentry.subentry_id),
                 )
             )
         self._unsubs.append(
@@ -160,6 +180,15 @@ class PromptDelivery:
         self._unsubs.clear()
 
     @callback
+    def _async_services_of(self, subentry_id: str) -> list[str]:
+        """Return the notify services of every phone a tracker asks on."""
+        return [
+            service
+            for person in async_recipients(self.entry, subentry_id)
+            for service in async_notify_services(self.hass, person)
+        ]
+
+    @callback
     def _async_prompt_event(
         self, subentry_id: str, event_type: str, data: dict[str, Any]
     ) -> None:
@@ -167,11 +196,7 @@ class PromptDelivery:
         subentry = self.entry.subentries.get(subentry_id)
         if subentry is None:
             return
-        services = [
-            service
-            for person in async_recipients(self.entry, subentry_id)
-            for service in async_notify_services(self.hass, person)
-        ]
+        services = self._async_services_of(subentry_id)
         if not services:
             return
 
@@ -180,7 +205,7 @@ class PromptDelivery:
             payloads = [self._async_prompt_payload(subentry, prompt_id)]
         else:
             # Every other event ends the prompt, so the question goes away.
-            payloads = [_clear_payload(prompt_id)]
+            payloads = [_clear_payload(NOTIFICATION_TAG_PREFIX, prompt_id)]
             if event_type == EVENT_EXPIRED and subentry.data.get(
                 CONF_NOTIFY_ON_EXPIRY, DEFAULT_NOTIFY_ON_EXPIRY
             ):
@@ -190,6 +215,40 @@ class PromptDelivery:
             self.hass,
             self._async_send(services, payloads),
             name=f"{DOMAIN} {event_type} {prompt_id}",
+        )
+
+    @callback
+    def _async_reminder_event(
+        self, subentry_id: str, event_type: str, data: dict[str, Any]
+    ) -> None:
+        """Send or take back the message of one reminder.
+
+        The same mechanics as the prompt, with one thing left out: a reminder
+        that nobody answers sends no notice afterwards. The prompt's notice
+        exists because an unanswered prompt leaves the house counting as empty;
+        an unanswered reminder leaves everything exactly as it was, so there is
+        nothing to report.
+        """
+        subentry = self.entry.subentries.get(subentry_id)
+        if subentry is None:
+            return
+        services = self._async_services_of(subentry_id)
+        if not services:
+            return
+
+        reminder_id: str = data[ATTR_REMINDER_ID]
+        if event_type == EVENT_REMINDER_STARTED:
+            payloads = [
+                self._async_reminder_payload(subentry, subentry_id, reminder_id)
+            ]
+        else:
+            # Every other event ends the reminder, so the question goes away.
+            payloads = [_clear_payload(NOTIFICATION_REMINDER_TAG_PREFIX, reminder_id)]
+
+        self.entry.async_create_background_task(
+            self.hass,
+            self._async_send(services, payloads),
+            name=f"{DOMAIN} {event_type} {reminder_id}",
         )
 
     async def _async_send(
@@ -242,6 +301,43 @@ class PromptDelivery:
         }
 
     @callback
+    def _async_reminder_payload(
+        self, subentry: ConfigSubentry, subentry_id: str, reminder_id: str
+    ) -> dict[str, Any]:
+        """Return the actionable notification that asks whether somebody is still in.
+
+        The delivery hints are the prompt's, for the same reasons: a question
+        with a deadline is worth waking a phone for and is worthless once the
+        deadline has passed.
+        """
+        minutes = int(subentry.data.get(CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT))
+        yes, no = async_reminder_answer_titles(self.hass)
+        return {
+            "title": async_reminder_title(self.hass, subentry.title),
+            "message": async_reminder_message(
+                self.hass,
+                subentry.title,
+                self._manager.home_hours(subentry_id),
+                minutes,
+            ),
+            "data": {
+                "tag": f"{NOTIFICATION_REMINDER_TAG_PREFIX}{reminder_id}",
+                "actions": [
+                    {
+                        "action": f"{ACTION_REMIND_YES_PREFIX}{reminder_id}",
+                        "title": yes,
+                    },
+                    {"action": f"{ACTION_REMIND_NO_PREFIX}{reminder_id}", "title": no},
+                ],
+                "ttl": 0,
+                "priority": "high",
+                "timeout": minutes * 60,
+                "push": {"interruption-level": "time-sensitive"},
+                "icon_url": NOTIFICATION_ICON,
+            },
+        }
+
+    @callback
     def _async_expired_payload(
         self, subentry: ConfigSubentry, prompt_id: str
     ) -> dict[str, Any]:
@@ -257,28 +353,62 @@ class PromptDelivery:
 
     @callback
     def _async_notification_action(self, event: Event[dict[str, Any]]) -> None:
-        """Answer a prompt from a button somebody tapped on their phone.
+        """Answer a question from a button somebody tapped on their phone.
 
-        Only the action is taken from the event data, and only for a prompt
-        that is open right now: whoever answers first ends the prompt, and
-        every later answer - a second phone, a stale message, a message of a
-        tracker that is gone - finds nothing to answer.
+        Only the action is taken from the event data, and only for a question
+        that is open right now: whoever answers first ends it, and every later
+        answer - a second phone, a stale message, a message of a tracker that
+        is gone - finds nothing to answer.
+
+        The reminder prefixes are tested first, but the order does not matter:
+        none of the four is a prefix of another (see const.py), so an action
+        can only ever be one of them.
         """
         action = event.data.get("action")
         if not isinstance(action, str):
             return
-        if action.startswith(ACTION_YES_PREFIX):
-            answer, prompt_id = True, action.removeprefix(ACTION_YES_PREFIX)
+        if action.startswith(ACTION_REMIND_YES_PREFIX):
+            self._async_answer_reminder(
+                event, True, action.removeprefix(ACTION_REMIND_YES_PREFIX)
+            )
+        elif action.startswith(ACTION_REMIND_NO_PREFIX):
+            self._async_answer_reminder(
+                event, False, action.removeprefix(ACTION_REMIND_NO_PREFIX)
+            )
+        elif action.startswith(ACTION_YES_PREFIX):
+            self._async_answer_prompt(
+                event, True, action.removeprefix(ACTION_YES_PREFIX)
+            )
         elif action.startswith(ACTION_NO_PREFIX):
-            answer, prompt_id = False, action.removeprefix(ACTION_NO_PREFIX)
-        else:
-            return
+            self._async_answer_prompt(
+                event, False, action.removeprefix(ACTION_NO_PREFIX)
+            )
 
+    @callback
+    def _async_answer_prompt(
+        self, event: Event[dict[str, Any]], answer: bool, prompt_id: str
+    ) -> None:
+        """Answer the prompt a tapped button names, if it is still open."""
         subentry_id = self._manager.tracker_of_prompt(prompt_id)
         if subentry_id is None:
-            _LOGGER.debug("Ignoring the answer %s: no prompt waits for it", action)
+            _LOGGER.debug("Ignoring a prompt answer: no prompt %s waits", prompt_id)
             return
         self._manager.async_answer_prompt(
+            subentry_id, answer, self._async_person_of(event)
+        )
+
+    @callback
+    def _async_answer_reminder(
+        self, event: Event[dict[str, Any]], answer: bool, reminder_id: str
+    ) -> None:
+        """Answer the reminder a tapped button names, if it is still open."""
+        subentry_id = self._manager.tracker_of_reminder(reminder_id)
+        if subentry_id is None:
+            _LOGGER.debug(
+                "Ignoring a reminder answer: no reminder %s waits", reminder_id
+            )
+            return
+        self._manager.async_answer_reminder(
             subentry_id, answer, self._async_person_of(event)
         )
 
@@ -298,9 +428,9 @@ class PromptDelivery:
         return None
 
 
-def _clear_payload(prompt_id: str) -> dict[str, Any]:
-    """Return the message that takes a prompt off the phones."""
+def _clear_payload(tag_prefix: str, question_id: str) -> dict[str, Any]:
+    """Return the message that takes a question off the phones."""
     return {
         "message": CLEAR_NOTIFICATION,
-        "data": {"tag": f"{NOTIFICATION_TAG_PREFIX}{prompt_id}"},
+        "data": {"tag": f"{tag_prefix}{question_id}"},
     }

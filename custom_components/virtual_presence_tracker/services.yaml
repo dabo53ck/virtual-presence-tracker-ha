@@ -26,3 +26,32 @@ open_prompt:
     entity:
       integration: virtual_presence_tracker
       domain: switch
+
+answer_reminder:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch
+  fields:
+    answer:
+      required: true
+      example: "yes"
+      selector:
+        select:
+          translation_key: reminder_answer
+          options:
+            - "yes"
+            - "no"
+    answered_by:
+      required: false
+      example: person.dabo53ck
+      selector:
+        entity:
+          filter:
+            - domain: person
+
+open_reminder:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch

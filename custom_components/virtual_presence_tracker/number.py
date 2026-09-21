@@ -1,7 +1,8 @@
 """Number platform of the Virtual Presence Tracker integration.
 
-The two timings of a tracker's prompt: how long it stays open and how long it
-waits before it opens. Both live in the data of the tracker's config subentry,
+The timings of a tracker: how long its prompt stays open, how long it waits
+before it opens, and after how many hours at home the tracker reminds about
+itself (M3a). All of them live in the data of the tracker's config subentry,
 where they have always lived - these entities show the stored value and write
 it, without reloading the entry (see docs/DESIGN.md).
 """
@@ -17,10 +18,13 @@ from . import VirtualPresenceTrackerConfigEntry
 from .const import (
     CONF_ANSWER_TIMEOUT,
     CONF_PROMPT_DELAY,
+    CONF_REMIND_AFTER,
     MAX_ANSWER_TIMEOUT,
     MAX_PROMPT_DELAY,
+    MAX_REMIND_AFTER,
     MIN_ANSWER_TIMEOUT,
     MIN_PROMPT_DELAY,
+    MIN_REMIND_AFTER,
     SUBENTRY_TYPE_TRACKER,
 )
 from .entity import VirtualTrackerOptionEntity
@@ -40,6 +44,7 @@ async def async_setup_entry(
             [
                 AnswerTimeoutNumber(manager, subentry),
                 PromptDelayNumber(manager, subentry),
+                RemindAfterNumber(manager, subentry),
             ],
             config_subentry_id=subentry.subentry_id,
         )
@@ -88,3 +93,18 @@ class PromptDelayNumber(VirtualTrackerOptionNumber):
     _attr_native_unit_of_measurement = UnitOfTime.SECONDS
     _attr_native_min_value = MIN_PROMPT_DELAY
     _attr_native_max_value = MAX_PROMPT_DELAY
+
+
+class RemindAfterNumber(VirtualTrackerOptionNumber):
+    """After how many hours at home the tracker reminds about itself (M3a).
+
+    Zero means never, which is what a tracker without the option does and what
+    every tracker from before it keeps doing. Changing the value moves the
+    timer at once: lowering it below the time the tracker has already been on
+    asks straight away, which is the point of a safety net.
+    """
+
+    _option_key = CONF_REMIND_AFTER
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_native_min_value = MIN_REMIND_AFTER
+    _attr_native_max_value = MAX_REMIND_AFTER

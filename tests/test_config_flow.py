@@ -17,6 +17,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
+    CONF_REMIND_AFTER,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_NOTIFY_ON_EXPIRY,
@@ -24,6 +25,7 @@ from custom_components.virtual_presence_tracker.const import (
     DEFAULT_RESET_ON_RETURN,
     DOMAIN,
     NEW_TRACKER_ASK_ON_DEPARTURE,
+    NEW_TRACKER_REMIND_AFTER,
     SUBENTRY_TYPE_TRACKER,
 )
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState, FlowType
@@ -43,14 +45,15 @@ TRACKER_A_ENTITY = "device_tracker.kid"
 def tracker_data(**overrides: Any) -> dict[str, Any]:
     """Return the subentry data a new tracker is written with.
 
-    All five options are spelled out, so that the entities on the tracker's
-    device page have a value from the start - and a new tracker asks.
+    Every option is spelled out, so that the entities on the tracker's device
+    page have a value from the start - and a new tracker asks and reminds.
     """
     return {
         CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
         CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
         CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
         CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+        CONF_REMIND_AFTER: NEW_TRACKER_REMIND_AFTER,
         CONF_NOTIFY_PERSONS: [],
         CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
     } | overrides

@@ -6,9 +6,11 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+from freezegun.api import FrozenDateTimeFactory
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_fire_time_changed,
     async_mock_service,
 )
 
@@ -20,6 +22,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
+    CONF_REMIND_AFTER,
     CONF_USER_ID,
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
@@ -33,7 +36,12 @@ from custom_components.virtual_presence_tracker.const import (
 )
 from homeassistant.components.brands.const import ALLOWED_IMAGES
 from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import SERVICE_TURN_ON, STATE_HOME, STATE_NOT_HOME
+from homeassistant.const import (
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
+    STATE_HOME,
+    STATE_NOT_HOME,
+)
 from homeassistant.core import Context, HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
@@ -63,6 +71,7 @@ def make_entry(
     asking: bool = True,
     notify_on_expiry: bool = False,
     timeout: int = 10,
+    remind_after: int = 0,
 ) -> MockConfigEntry:
     """Return an entry with one tracker that asks and notifies."""
     return MockConfigEntry(
@@ -75,6 +84,7 @@ def make_entry(
                 "data": {
                     CONF_ASK_ON_DEPARTURE: asking,
                     CONF_ANSWER_TIMEOUT: timeout,
+                    CONF_REMIND_AFTER: remind_after,
                     CONF_NOTIFY_PERSONS: (
                         recipients if recipients is not None else [PERSON_A]
                     ),
@@ -715,6 +725,286 @@ async def test_a_failing_phone_does_not_stop_the_others(
     assert len(tablet) == 1
     assert entry.runtime_data.manager.prompt_open(TRACKER_A) is True
     assert f"Could not notify {NOTIFY_DOMAIN}.{PHONE_A}" in caplog.text
+
+    await unload(hass, entry)
+
+
+async def switch_on(hass: HomeAssistant) -> None:
+    """Switch the tracker on and let what follows settle."""
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_ON, {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+
+async def open_reminder(hass: HomeAssistant) -> None:
+    """Ask about the tracker by hand and let the message go out."""
+    await hass.services.async_call(
+        DOMAIN, "open_reminder", {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+
+def reminder_id_of(call: ServiceCall) -> str:
+    """Return the reminder ID a notification carries in its tag."""
+    tag: str = call.data["data"]["tag"]
+    return tag.removeprefix("vpt_reminder_")
+
+
+async def test_the_reminder_is_sent_to_the_phone(hass: HomeAssistant) -> None:
+    """The reminder arrives with its own buttons and its delivery hints."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, timeout=15))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+
+    assert len(calls) == 1
+    data = calls[0].data
+    assert data["title"] == "Is Kid still home?"
+    assert data["message"] == (
+        "Kid has been marked as home for 1 hour. Answer within 15 minutes."
+    )
+    reminder_id = reminder_id_of(calls[0])
+    assert data["data"]["tag"] == f"vpt_reminder_{reminder_id}"
+    assert data["data"]["actions"] == [
+        {"action": f"VPT_REMIND_YES_{reminder_id}", "title": "Yes, still home"},
+        {"action": f"VPT_REMIND_NO_{reminder_id}", "title": "No, switch off"},
+    ]
+    assert data["data"]["ttl"] == 0
+    assert data["data"]["priority"] == "high"
+    assert data["data"]["timeout"] == 15 * 60
+    assert data["data"]["push"] == {"interruption-level": "time-sensitive"}
+    # The same icon as the prompt, in place of the Companion App's own.
+    assert data["data"]["icon_url"] == NOTIFICATION_ICON
+    assert "image" not in data["data"]
+
+    await unload(hass, entry)
+
+
+async def test_the_reminder_counts_the_hours(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The message says how long the tracker has been marked as being at home."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, timeout=1))
+
+    await switch_on(hass)
+    freezer.tick(timedelta(hours=7, minutes=20))
+    await open_reminder(hass)
+
+    assert calls[0].data["message"] == (
+        "Kid has been marked as home for 7 hours. Answer within 1 minute."
+    )
+
+    await unload(hass, entry)
+
+
+async def test_the_reminder_is_sent_in_german(hass: HomeAssistant) -> None:
+    """A German instance reminds in German."""
+    hass.config.language = "de-DE"
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+
+    assert calls[0].data["title"] == "Ist Kid noch zu Hause?"
+    assert calls[0].data["message"] == (
+        "Kid ist seit 1 Stunde als zu Hause markiert. "
+        "Antworte innerhalb von 10 Minuten."
+    )
+    assert [action["title"] for action in calls[0].data["data"]["actions"]] == [
+        "Ja, noch da",
+        "Nein, ausschalten",
+    ]
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize(
+    ("prefix", "answer", "home"),
+    [("VPT_REMIND_YES_", "yes", True), ("VPT_REMIND_NO_", "no", False)],
+)
+async def test_an_answer_from_the_phone_answers_the_reminder(
+    hass: HomeAssistant, prefix: str, answer: str, home: bool
+) -> None:
+    """A tapped button answers the reminder and names who tapped it."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await answer_from_phone(hass, f"{prefix}{reminder_id}")
+
+    manager = entry.runtime_data.manager
+    assert manager.reminder_open(TRACKER_A) is False
+    assert manager.is_home(TRACKER_A) is home
+    state = hass.states.get("event.kid_prompt")
+    assert state.attributes["event_type"] == f"reminder_answered_{answer}"
+    assert state.attributes["answered_by"] == PERSON_A
+    # The question is taken off the phone, under its own tag.
+    assert calls[1].data == {
+        "message": "clear_notification",
+        "data": {"tag": f"vpt_reminder_{reminder_id}"},
+    }
+
+
+async def test_a_reminder_prefix_never_answers_a_prompt(hass: HomeAssistant) -> None:
+    """`VPT_REMIND_YES_<id>` does not start with `VPT_YES_`, and vice versa."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry())
+
+    await empty_the_house(hass)
+    prompt_id = prompt_id_of(calls[0])
+
+    await answer_from_phone(hass, f"VPT_REMIND_YES_{prompt_id}")
+    await answer_from_phone(hass, f"VPT_REMIND_NO_{prompt_id}")
+
+    manager = entry.runtime_data.manager
+    assert manager.prompt_open(TRACKER_A) is True
+    assert manager.is_home(TRACKER_A) is False
+    assert len(calls) == 1
+
+    await unload(hass, entry)
+
+
+async def test_a_prompt_prefix_never_answers_a_reminder(hass: HomeAssistant) -> None:
+    """The other direction: a prompt button leaves an open reminder alone."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await answer_from_phone(hass, f"VPT_YES_{reminder_id}")
+    await answer_from_phone(hass, f"VPT_NO_{reminder_id}")
+
+    manager = entry.runtime_data.manager
+    assert manager.reminder_open(TRACKER_A) is True
+    assert manager.is_home(TRACKER_A) is True
+    assert len(calls) == 1
+
+    await unload(hass, entry)
+
+
+async def test_a_late_reminder_answer_is_ignored(hass: HomeAssistant) -> None:
+    """The second phone to answer finds nothing left to answer."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await answer_from_phone(hass, f"VPT_REMIND_YES_{reminder_id}")
+    await answer_from_phone(hass, f"VPT_REMIND_NO_{reminder_id}")
+
+    manager = entry.runtime_data.manager
+    assert manager.is_home(TRACKER_A) is True
+    assert (
+        hass.states.get("event.kid_prompt").attributes["event_type"]
+        == "reminder_answered_yes"
+    )
+    # Cleared once, by the first answer.
+    assert len(calls) == 2
+
+
+async def test_switching_off_clears_the_reminder_from_the_phone(
+    hass: HomeAssistant,
+) -> None:
+    """Every ending takes the message off the phones, this one included."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_OFF, {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+    state = hass.states.get("event.kid_prompt")
+    assert state.attributes["event_type"] == "reminder_cancelled"
+    assert state.attributes["reason"] == "switched_off"
+    assert calls[1].data == {
+        "message": "clear_notification",
+        "data": {"tag": f"vpt_reminder_{reminder_id}"},
+    }
+
+
+async def test_an_expired_reminder_sends_no_notice(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The expiry notice belongs to the prompt only.
+
+    An unanswered prompt leaves the house counting as empty, which is worth a
+    word; an unanswered reminder leaves everything exactly as it was.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass, make_entry(asking=False, notify_on_expiry=True, timeout=5)
+    )
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    freezer.tick(timedelta(minutes=6))
+    async_fire_time_changed(hass)
+    await settle(hass)
+
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+    assert entry.runtime_data.manager.is_home(TRACKER_A) is True
+    assert hass.states.get("event.kid_prompt").attributes["event_type"] == (
+        "reminder_expired"
+    )
+    # Exactly one message after the question: the clearing, and nothing else.
+    assert len(calls) == 2
+    assert calls[1].data == {
+        "message": "clear_notification",
+        "data": {"tag": f"vpt_reminder_{reminder_id}"},
+    }
+
+    await unload(hass, entry)
+
+
+async def test_without_recipients_no_reminder_is_sent(hass: HomeAssistant) -> None:
+    """An empty selection leaves the reminder to the automations of the user."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, recipients=[]))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+
+    assert calls == []
+    # The reminder itself is untouched by the choice.
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is True
+
+    await unload(hass, entry)
+
+
+async def test_the_reminder_of_a_long_running_tracker_is_sent(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The timer and the delivery meet: no action needed to see the message."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, remind_after=2))
+
+    await switch_on(hass)
+    freezer.tick(timedelta(hours=2, seconds=1))
+    async_fire_time_changed(hass)
+    await settle(hass)
+
+    assert len(calls) == 1
+    assert calls[0].data["title"] == "Is Kid still home?"
+    assert calls[0].data["data"]["tag"].startswith("vpt_reminder_")
 
     await unload(hass, entry)
 

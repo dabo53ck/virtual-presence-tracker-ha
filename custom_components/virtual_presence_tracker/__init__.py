@@ -109,10 +109,11 @@ async def async_setup_entry(
     # message on the phones of a previous run, and this is what clears it.
     delivery.async_start()
     entry.async_on_unload(delivery.async_stop)
-    # After the platforms, because resuming a prompt can emit an event: the
-    # entity that carries it has to exist by then, or the event is lost.
-    # Forwarding the platforms waits for the entities to be added.
+    # After the platforms, because resuming a prompt or a reminder can emit an
+    # event: the entity that carries it has to exist by then, or the event is
+    # lost. Forwarding the platforms waits for the entities to be added.
     manager.async_resume_prompts()
+    manager.async_resume_reminders()
     # After the platforms: the repair issues look the tracker entities up in
     # the entity registry, which only knows them once they are added. Stopping
     # on unload clears the issues of this entry, and setting the entry up again

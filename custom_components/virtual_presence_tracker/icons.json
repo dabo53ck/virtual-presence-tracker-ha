@@ -19,6 +19,9 @@
       },
       "prompt_delay": {
         "default": "mdi:timer-sand"
+      },
+      "remind_after": {
+        "default": "mdi:alarm-snooze"
       }
     },
     "switch": {
@@ -46,8 +49,14 @@
     "answer_prompt": {
       "service": "mdi:comment-check-outline"
     },
+    "answer_reminder": {
+      "service": "mdi:alarm-check"
+    },
     "open_prompt": {
       "service": "mdi:comment-question"
+    },
+    "open_reminder": {
+      "service": "mdi:alarm-snooze"
     }
   }
 }
