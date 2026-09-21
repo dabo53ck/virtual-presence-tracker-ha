@@ -16,7 +16,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import (
     ATTR_DOMAIN,
     EVENT_SERVICE_REGISTERED,
@@ -38,7 +38,9 @@ from .const import (
     CONF_ASK_ON_DEPARTURE,
     CONF_CREATE_PERSON,
     CONF_PERSONS,
+    CONF_REMIND_AFTER,
     DEFAULT_ASK_ON_DEPARTURE,
+    DEFAULT_REMIND_AFTER,
     DOMAIN,
     NOTIFY_DOMAIN,
     PERSON_DOMAIN,
@@ -106,6 +108,20 @@ def _async_attached_trackers(
         for entity_id in state.attributes.get(ATTR_DEVICE_TRACKERS) or ()
         if entity_id in tracker_ids
     ]
+
+
+@callback
+def _async_asks_anybody(subentry: ConfigSubentry) -> bool:
+    """Return whether a tracker ever sends a question to a phone.
+
+    A tracker asks twice: when the house empties (`ask_on_departure`) and after
+    `remind_after` hours at home. Both go to the same recipients, so either one
+    is enough to make an unreachable recipient worth reporting - and a tracker
+    that does neither sends nothing at all.
+    """
+    return bool(
+        subentry.data.get(CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE)
+    ) or bool(subentry.data.get(CONF_REMIND_AFTER, DEFAULT_REMIND_AFTER))
 
 
 class HouseholdIssues:
@@ -238,7 +254,7 @@ class HouseholdIssues:
         # names them all is one notification instead of three.
         without_phone: dict[str, list[str]] = {}
         for subentry in subentries:
-            if not subentry.data.get(CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE):
+            if not _async_asks_anybody(subentry):
                 continue
             for person in async_recipients(self.entry, subentry.subentry_id):
                 if not async_notify_services(self.hass, person):

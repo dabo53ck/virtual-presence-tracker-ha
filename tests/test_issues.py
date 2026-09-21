@@ -15,6 +15,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_ASK_ON_DEPARTURE,
     CONF_DEVICE_NAME,
     CONF_NOTIFY_PERSONS,
+    CONF_REMIND_AFTER,
     CONF_USER_ID,
     DOMAIN,
     MOBILE_APP_DOMAIN,
@@ -97,7 +98,9 @@ def add_phone(hass: HomeAssistant, device_name: str, user_id: str) -> None:
     ).add_to_hass(hass)
 
 
-def asking_entry(*recipients: str, asking: bool = True) -> MockConfigEntry:
+def asking_entry(
+    *recipients: str, asking: bool = True, remind_after: int = 0
+) -> MockConfigEntry:
     """Return an entry with one tracker that asks the given persons."""
     return make_entry(
         make_subentry(
@@ -105,6 +108,7 @@ def asking_entry(*recipients: str, asking: bool = True) -> MockConfigEntry:
             "Kid",
             **{
                 CONF_ASK_ON_DEPARTURE: asking,
+                CONF_REMIND_AFTER: remind_after,
                 CONF_NOTIFY_PERSONS: list(recipients),
             },
         ),
@@ -344,17 +348,82 @@ async def test_a_recipient_with_a_phone_is_not_reported(hass: HomeAssistant) -> 
     assert issues(hass) == {}
 
 
-async def test_a_recipient_of_a_tracker_that_does_not_ask_is_not_reported(
+async def test_a_recipient_of_a_tracker_that_asks_nothing_is_not_reported(
     hass: HomeAssistant,
 ) -> None:
-    """Without the prompt nothing is ever sent, so nothing is missing."""
+    """Neither prompt nor reminder means nothing is ever sent."""
     await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
     await set_person(hass, PERSON_B, [DABO53CK_PHONE])
     await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
 
-    await setup_entry(hass, asking_entry(PERSON_A, asking=False))
+    await setup_entry(hass, asking_entry(PERSON_A, asking=False, remind_after=0))
 
     assert issues(hass) == {}
+
+
+async def test_a_recipient_of_a_tracker_that_only_reminds_is_reported(
+    hass: HomeAssistant,
+) -> None:
+    """A tracker that never asks still reminds, on the very same phones."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+
+    await setup_entry(hass, asking_entry(PERSON_A, asking=False, remind_after=24))
+
+    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A)
+    current = issues(hass)
+    assert reported in current
+    assert current[reported].translation_key == ISSUE_RECIPIENT_WITHOUT_PHONE
+    assert current[reported].translation_placeholders == {
+        "person": PERSON_A,
+        "tracker": "Kid",
+    }
+
+
+async def test_turning_the_reminder_off_clears_the_issue(hass: HomeAssistant) -> None:
+    """The last question going away clears it - without reloading the entry.
+
+    `remind_after` is one of the options an entity writes, so the change never
+    reaches the issues through a reload: the update listener has to re-check.
+    """
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+    entry = asking_entry(PERSON_A, asking=False, remind_after=24)
+    await setup_entry(hass, entry)
+    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A) in issues(hass)
+
+    loaded = entry.runtime_data
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_REMIND_AFTER: 0}
+    )
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+    # Same runtime data: the entry stayed loaded through the change.
+    assert entry.runtime_data is loaded
+
+
+async def test_turning_the_prompt_off_clears_the_issue(hass: HomeAssistant) -> None:
+    """The ask option alone still decides for a tracker that never reminds."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE], user_id=USER_A)
+    await set_person(hass, PERSON_B, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+    entry = asking_entry(PERSON_A)
+    await setup_entry(hass, entry)
+    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A) in issues(hass)
+
+    loaded = entry.runtime_data
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_ASK_ON_DEPARTURE: False}
+    )
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+    assert entry.runtime_data is loaded
 
 
 async def test_a_recipient_who_is_not_a_real_person_is_not_reported(

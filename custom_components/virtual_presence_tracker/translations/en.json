@@ -167,7 +167,7 @@
     },
     "recipient_without_phone": {
       "title": "{person} has no phone to be asked on",
-      "description": "{person} is set to be asked about {tracker} when the house becomes empty, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The prompt itself still works: it is announced by the tracker's event entity and can be answered with the action \"Answer prompt\"."
+      "description": "{person} is set to be asked about {tracker}, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The questions themselves still work: they are announced by the tracker's event entity and can be answered with the actions \"Answer prompt\" and \"Answer reminder\"."
     },
     "real_person_missing": {
       "title": "The real person {person} no longer exists",

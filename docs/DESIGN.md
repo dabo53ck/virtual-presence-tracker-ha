@@ -822,11 +822,14 @@ reminder_cancelled -> counting again (or off).
   the transition to off / to zero. An open prompt or reminder keeps the
   deadline it was opened with when the timeout changes; the new value applies
   to the next one.
-- **The repair issue `recipient_without_phone` still only looks at the ask
-  option** (M3a, known gap): a tracker whose recipients have no Companion App
-  but which only *reminds* is not reported. Widening the check is a change to
-  an existing issue rather than a new one, and M3a was asked not to add repair
-  issues - worth deciding before the first release.
+- **`recipient_without_phone` covers both questions** (widened on dabo53ck's call,
+  2026-09-21): it is raised for a tracker that sends a phone message at all -
+  `ask_on_departure` on **or** `remind_after` above zero - and whose recipients
+  cannot be reached. Either question goes to the same phones, so a tracker that
+  only reminds is just as unreachable as one that only asks; a tracker that
+  does neither sends nothing and is left alone. Both keys are live options, so
+  the change arrives through `async_recheck()` from the update listener instead
+  of through a reload.
 
 ## Milestones
 

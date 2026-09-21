@@ -683,8 +683,10 @@ integration's page.
 Somebody you picked under **Who is asked?** has no Companion App registered for
 their user account, so the question cannot reach them. Install the Home Assistant
 Companion App on that person's phone and sign in with **their own** user account,
-or take them out of **Who is asked?** on the tracker. The prompt itself keeps
-working through the event entity and the action.
+or take them out of **Who is asked?** on the tracker. It is reported for every
+tracker that sends anything at all — one that asks when the house empties, one
+that reminds, or both. The questions themselves keep working through the event
+entity and the actions.
 
 **"The real person … no longer exists"**
 A person you configured as a real person was deleted or renamed, so their presence

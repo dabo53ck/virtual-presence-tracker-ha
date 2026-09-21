@@ -167,7 +167,7 @@
     },
     "recipient_without_phone": {
       "title": "{person} hat kein Handy, auf dem gefragt werden könnte",
-      "description": "{person} soll gefragt werden, wenn das Haus leer wird ({tracker}), aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Rückfrage selbst funktioniert weiterhin: Sie wird über die Event-Entität des Trackers angekündigt und kann mit der Aktion „Rückfrage beantworten“ beantwortet werden."
+      "description": "{person} soll zu {tracker} gefragt werden, aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Fragen selbst funktionieren weiterhin: Sie werden über die Event-Entität des Trackers angekündigt und können mit den Aktionen „Rückfrage beantworten“ und „Erinnerung beantworten“ beantwortet werden."
     },
     "real_person_missing": {
       "title": "Die echte Person {person} gibt es nicht mehr",
