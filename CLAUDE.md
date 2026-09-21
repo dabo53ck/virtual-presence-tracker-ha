@@ -56,18 +56,24 @@ cancelling and the expiry with its notice behave as designed. **M2f (2026-09-21)
 is not live-tested yet**: the settings of a tracker became entities, a new
 tracker asks by default and comes up with every real person ticked as a
 recipient, and switching "Ask when empty" off takes a scheduled or
-open automatic prompt back at once (`option_disabled`). **M2g (2026-09-21) is
-not live-tested either**: the form of a *new* tracker offers to create the
+open automatic prompt back at once (`option_disabled`). **M2g was live-verified
+on 2026-09-21** (HA 2026.9.3): the form of a *new* tracker offers to create the
 `person` it needs (ticked by default); the flow only stores a `create_person`
 marker and `persons.py` creates the person with the tracker assigned once Home
-Assistant has started — exactly once, never a duplicate of a person that is
-already there, never removed together with its tracker, and without reloading
-the entry. **M3a (2026-09-21) is not live-tested either**: the reminder above,
-whose default for a *new* tracker (`NEW_TRACKER_REMIND_AFTER = 24` hours) is a
-**proposal awaiting dabo53ck's OK** — one line in `const.py`, and a tracker from
-before M3a keeps `0` whatever it becomes. In the same round the ask switch
-became an `EntityCategory.CONFIG` entity, so all six settings of a tracker now
-sit under "Configuration" on its device page (still writable by automations).
+Assistant has started — in the live test 40 ms after the tracker's entities,
+with the tracker assigned, no duplicate, no repair issue and `zone.home`
+untouched; never removed together with its tracker, and without reloading
+the entry. **M3a (2026-09-21) is not live-tested yet**: the reminder above,
+whose default for a *new* tracker (`NEW_TRACKER_REMIND_AFTER = 24` hours)
+dabo53ck confirmed on 2026-09-21 — one line in `const.py`, and a tracker from
+before M3a keeps `0`. An automatic switch-off after an unanswered reminder is
+**decided against** (dabo53ck, 2026-09-21), not a later step. In the same round the
+ask switch became an `EntityCategory.CONFIG` entity, so all six settings of a
+tracker now sit under "Configuration" on its device page (still writable by
+automations). On 2026-09-21 those six also got **shorter names** ("Ask when
+empty", "Reset on return", "Notice if unanswered", "Answer time", "Ask delay",
+"Remind after"); keys and unique IDs are untouched, so an existing install keeps
+its entity IDs.
 Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its

@@ -452,9 +452,9 @@ reminder_cancelled -> counting again (or off).
   nothing. `remind_after` is deliberately *not* re-checked for an open reminder
   on resume: an open reminder does not imply that the option is on, because it
   may have been opened by hand.
-- **Deliberately not built**: an automatic switch-off after an unanswered
-  reminder. See the decisions below - it is a possible later step, not an
-  omission.
+- **Decided against**: an automatic switch-off after an unanswered reminder.
+  See the decisions below - dabo53ck settled it on 2026-09-21, so this is a
+  closed question and not a later step.
 
 ## Technical notes (checked against HA 2026.9.3 sources, 2026-09-19)
 
@@ -856,7 +856,7 @@ reminder_cancelled -> counting again (or off).
 | **M2d** (done) | The entity service `open_prompt` on the switches: opens the prompt of a tracker at once, ignoring the real persons, the `ask_on_departure` option and the delay, so the whole chain can be tried out from Developer Tools without leaving the house. A prompt still waiting for its delay is taken over with its ID; a prompt opened by hand is marked `manual` and survives a restart that would withdraw an automatic one. Live-tested on 2026-09-20 (HA 2026.9.3, iPhone and Android tablet): the action opens the prompt, yes, cancelling by switching the tracker on and the expiry with its notice all behave as designed. |
 | **M2e** (done) | The icon moves from the picture of the message to the icon beside it: `data.icon_url` instead of `data.image` (the live test of M2c showed the attachment as a thumbnail on the right, where the app's own icon on the left was meant). On iOS that makes the prompt a communication notification with the icon as its avatar, on Android it is the large icon; no `image` is sent any more. Needs iOS Companion 2026.8.0 or newer for the avatar. Live-tested on 2026-09-20 (HA 2026.9.3): the icon replaces the app icon on the iPhone, and the prompt works on an Android tablet. |
 | **M2f** (done, not live-tested yet) | The settings of a tracker become entities on its device page (decided after a usability review, 2026-09-21): three switches and two numbers for `ask_on_departure`, `reset_on_return`, `notify_on_expiry`, `answer_timeout` and `prompt_delay`, so the form is down to name and recipients. The values stay in the subentry data, and writing one does **not** reload the entry any more — the update listener compares a fingerprint that leaves those five keys out, because a reload would take the trackers and their persons to `unavailable` for a moment. Switching the ask option off takes a scheduled or open automatic prompt back at once (`option_disabled`); a prompt opened by hand survives it. A new tracker is written with all five keys and asks by default, and its recipients come up with every real person ticked. |
-| **M2g** (done, not live-tested yet) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. |
+| **M2g** (done, live-tested) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. Live-tested on 2026-09-21 (HA 2026.9.3): a new entry created the person 40 ms after the tracker's entities, with the tracker assigned, no duplicate, no repair issue and `zone.home` untouched. |
 | **M3a** (done, not live-tested yet) | The reminder for a tracker that has been on for too long (2026-09-21), the max-duration item of M3 pulled forward: a per-tracker `remind_after` in hours (`0` = never, `number` entity, new trackers get 24), a reminder that is announced by the same `event` entity and sent to the same phones, "yes" / "no" / no answer with the usual rule that only an answer changes anything, the actions `open_reminder` and `answer_reminder`, two more switch attributes. Timers and the open reminder survive a restart through the persisted anchor. An automatic switch-off is deliberately **not** part of it. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
@@ -966,17 +966,15 @@ Confirmed by dabo53ck (2026-09-19):
   hours**, and `0` means never, so nothing changes for a tracker that has none
   (dabo53ck's "Testkind" included). "Yes" keeps the tracker on, "no" switches it
   off, no answer changes nothing - the same rule as for the prompt.
-  - **An automatic switch-off is deliberately not built.** dabo53ck has not
-    decided it, and it would be the first thing in the integration that changes
-    a tracker without anybody saying so. It is a **possible later step**: it
-    would need an option of its own (the reminder must stay usable without it)
-    and it would mean giving up the rule "no answer never changes anything"
-    knowingly, for that option only.
-  - **The default for a *new* tracker is `NEW_TRACKER_REMIND_AFTER = 24`
-    hours - a proposal, not a decision yet.** It is one line in `const.py` and
-    it is the only place the number appears, so changing it is a one-line
-    change until the first release. A tracker from before M3a keeps `0`
-    whatever this becomes.
+  - **An automatic switch-off after an unanswered reminder is decided
+    against** (dabo53ck, 2026-09-21): "no answer never changes anything" holds
+    everywhere, and a tracker that switches itself off would be the first thing
+    in the integration that changes a tracker without anybody saying so. This
+    is a decision, not a gap left open - the reminder asks, the user decides.
+  - **The default for a *new* tracker is 24 hours**
+    (`NEW_TRACKER_REMIND_AFTER`), confirmed by dabo53ck on 2026-09-21. It is one
+    line in `const.py` and the only place the number appears. A tracker from
+    before M3a keeps `0`.
 
 - **M2g decision (dabo53ck, 2026-09-21)**: the integration **creates the person**
   of a new virtual tracker, because having to create one by hand and assign the
@@ -1025,3 +1023,11 @@ prompt without anybody having to leave the house; on the iPhone it shows as a
 communication notification with our icon as its avatar on the left, and the
 whole chain (yes, cancelling, expiry with its notice) works on both phones.
 Nothing is open; nothing blocks M3.
+
+**Live test of M2g (2026-09-21, HA 2026.9.3)**: adding a virtual tracker to a
+new entry with the box ticked created the `person` 40 ms after the tracker's
+own entities, with the tracker already assigned - no duplicate person, no
+repair issue about an unassigned tracker, and `zone.home` untouched by the
+creation. **M3a has not been live-tested yet**: the reminder, its two actions
+and the `remind_after` number have only been exercised by the test suite so
+far.
