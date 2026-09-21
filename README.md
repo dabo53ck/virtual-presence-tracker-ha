@@ -414,9 +414,11 @@ data:
   answered_by: person.dabo53ck   # optional
 ```
 
-Target the tracker's **switch** (or its device). If that tracker has no open
-prompt, the action fails with "there is no open prompt" — an answer that arrives
-too late does not switch anything on by accident.
+Target the tracker's **At home** switch (or its device). The tracker's settings
+switches are not valid targets: pick one by hand and the action tells you so
+instead of doing anything. If that tracker has no open prompt, the action fails
+with "there is no open prompt" — an answer that arrives too late does not
+switch anything on by accident.
 
 ### The open action
 
@@ -623,6 +625,9 @@ action: virtual_presence_tracker.open_reminder
 target:
   entity_id: switch.kid_at_home
 ```
+
+Target the tracker's **At home** switch (or its device) here too; the settings
+switches are not valid targets and say so.
 
 **Open reminder** asks right now, without waiting for **Remind me after** to
 pass — it even works for a tracker whose interval is 0. It refuses, without

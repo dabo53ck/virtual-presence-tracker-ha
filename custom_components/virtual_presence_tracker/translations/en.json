@@ -136,6 +136,9 @@
     "no_open_reminder": {
       "message": "There is no open reminder for {entity_id}, so there is nothing to answer."
     },
+    "not_a_tracker_switch": {
+      "message": "{entity_id} is a setting of the tracker, not its at-home switch. Target the tracker's \"At home\" switch or its device instead."
+    },
     "prompt_already_open": {
       "message": "There is already an open prompt for {entity_id}, so there is nothing to ask again."
     },

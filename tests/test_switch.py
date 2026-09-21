@@ -488,6 +488,76 @@ async def test_opening_a_reminder_that_is_already_open(
 
 
 @pytest.mark.parametrize(
+    "entity_id",
+    [
+        "switch.kid_ask_when_the_house_empties",
+        "switch.kid_reset_when_someone_comes_home",
+        "switch.kid_tell_me_when_nobody_answers",
+    ],
+)
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        (SERVICE_ANSWER_PROMPT, {ATTR_ANSWER: ANSWER_YES}),
+        (SERVICE_OPEN_PROMPT, {}),
+        (SERVICE_ANSWER_REMINDER, {ATTR_ANSWER: ANSWER_YES}),
+        (SERVICE_OPEN_REMINDER, {}),
+    ],
+)
+async def test_a_settings_switch_is_not_a_target_for_the_questions(
+    hass: HomeAssistant,
+    tracker_entry: MockConfigEntry,
+    entity_id: str,
+    service: str,
+    data: dict[str, Any],
+) -> None:
+    """Naming a settings switch by hand says what to target instead.
+
+    The four actions are registered for the whole switch platform, so these
+    entities carry them although the questions are about the tracker. The
+    answer has to be a sentence, not an AttributeError.
+    """
+    await setup_entry(hass, tracker_entry)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN, service, {ATTR_ENTITY_ID: entity_id, **data}, blocking=True
+        )
+
+    assert err.value.translation_key == "not_a_tracker_switch"
+    assert err.value.translation_placeholders == {"entity_id": entity_id}
+    # Nothing of the tracker moved, and no question was opened.
+    assert hass.states.get(SWITCH_A).state == STATE_OFF
+    assert tracker_entry.runtime_data.manager.prompt_open(TRACKER_A) is False
+    assert tracker_entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+
+
+async def test_targeting_the_device_reaches_only_the_tracker_switch(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """A device target skips the settings, so it works without naming anything.
+
+    Home Assistant leaves entities with a category out when it expands a device
+    or an area, and every settings entity of a tracker has one.
+    """
+    await setup_entry(hass, tracker_entry)
+    device = dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, TRACKER_A), tracker_entry.entry_id
+    )
+    assert device is not None
+
+    await hass.services.async_call(
+        DOMAIN, SERVICE_OPEN_PROMPT, {"device_id": device.id}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert tracker_entry.runtime_data.manager.prompt_open(TRACKER_A) is True
+    assert hass.states.get(EVENT_A).attributes[ATTR_EVENT_TYPE] == EVENT_PROMPT_STARTED
+
+    await answer(hass, SWITCH_A, **{ATTR_ANSWER: ANSWER_NO})
+
+
+@pytest.mark.parametrize(
     "data",
     [
         {},

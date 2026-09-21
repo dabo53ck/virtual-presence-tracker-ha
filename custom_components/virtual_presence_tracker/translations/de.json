@@ -136,6 +136,9 @@
     "no_open_reminder": {
       "message": "Für {entity_id} ist keine Erinnerung offen, es gibt also nichts zu beantworten."
     },
+    "not_a_tracker_switch": {
+      "message": "{entity_id} ist eine Einstellung des Trackers, nicht sein Zuhause-Schalter. Nimm stattdessen den Schalter „Zuhause“ des Trackers oder sein Gerät als Ziel."
+    },
     "prompt_already_open": {
       "message": "Für {entity_id} ist bereits eine Rückfrage offen, es gibt also nichts erneut zu fragen."
     },

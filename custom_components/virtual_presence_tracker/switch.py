@@ -14,7 +14,7 @@ without reloading the entry.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 import voluptuous as vol
 
@@ -200,7 +200,15 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
 
 
 class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
-    """A switch that shows and writes one boolean option of a tracker."""
+    """A switch that shows and writes one boolean option of a tracker.
+
+    The four question actions are registered for the whole `switch` platform,
+    so these switches carry them too, although the questions are about the
+    tracker rather than about one of its settings. Targeting a device or an
+    area never lands here - Home Assistant leaves entities with a category out
+    of that - but naming one of these entities by hand does, and the answer has
+    to be a sentence the user can act on instead of an AttributeError.
+    """
 
     @property
     def is_on(self) -> bool:
@@ -214,6 +222,34 @@ class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Switch the option off."""
         self._async_set_option(False)
+
+    async def async_answer_prompt(
+        self, answer: str, answered_by: str | None = None
+    ) -> None:
+        """Refuse to answer a prompt: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    async def async_open_prompt(self) -> None:
+        """Refuse to open a prompt: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    async def async_answer_reminder(
+        self, answer: str, answered_by: str | None = None
+    ) -> None:
+        """Refuse to answer a reminder: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    async def async_open_reminder(self) -> None:
+        """Refuse to open a reminder: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    def _raise_not_a_tracker_switch(self) -> NoReturn:
+        """Say which entity the question should have been aimed at."""
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="not_a_tracker_switch",
+            translation_placeholders={"entity_id": self.entity_id},
+        )
 
 
 class AskOnDepartureSwitch(VirtualTrackerOptionSwitch):

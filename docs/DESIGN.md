@@ -201,7 +201,13 @@ able to confuse them.
 ### Services
 
 All four are **entity services** on the integration's `switch` entities (target
-the switch or its device).
+the tracker's "At home" switch or its device). The tracker's *settings*
+switches carry the actions as well, because a service is registered for a whole
+platform - naming one of them raises a `ServiceValidationError` with the
+translation key `not_a_tracker_switch` that says what to target instead.
+Targeting a device or an area never runs into that: Home Assistant leaves
+entities with an entity category out when it expands one, and all six settings
+entities have one.
 
 `virtual_presence_tracker.answer_prompt`:
 
