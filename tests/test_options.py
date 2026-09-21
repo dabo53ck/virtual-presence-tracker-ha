@@ -185,7 +185,7 @@ async def test_every_tracker_gets_the_option_entities(
 
     registry = er.async_get(hass)
     expected = {
-        ASK_A: (CONF_ASK_ON_DEPARTURE, None),
+        ASK_A: (CONF_ASK_ON_DEPARTURE, EntityCategory.CONFIG),
         RESET_A: (CONF_RESET_ON_RETURN, EntityCategory.CONFIG),
         EXPIRY_A: (CONF_NOTIFY_ON_EXPIRY, EntityCategory.CONFIG),
         TIMEOUT_A: (CONF_ANSWER_TIMEOUT, EntityCategory.CONFIG),

@@ -250,11 +250,12 @@ one and it takes effect immediately — nothing reloads, nothing goes
 | **Delay before asking** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
 | **Tell me when nobody answers** (switch) | Sends a short note when a prompt expires. | off |
 
-The first one sits with the tracker's own switch under **Controls**; the other
-four are under **Configuration**, out of the way of everyday use. All of them
-work in automations and scripts like any other switch or number — switch **Ask
-when the house empties** off for an evening with guests, for example, and on
-again the next morning.
+All of them sit under **Configuration** on that page, out of the way of everyday
+use — the only thing under **Controls** is the tracker's own switch. That is
+about where they are shown, not about what they can do: they work in automations
+and scripts like any other switch or number — switch **Ask when the house
+empties** off for an evening with guests, for example, and on again the next
+morning.
 
 The defaults above are what a tracker you add now starts with. A tracker created
 before these entities existed keeps behaving exactly as it did: its **Ask when

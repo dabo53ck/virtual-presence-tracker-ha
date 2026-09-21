@@ -174,13 +174,15 @@ class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
 class AskOnDepartureSwitch(VirtualTrackerOptionSwitch):
     """Whether the tracker asks when the house empties.
 
-    The one option of a tracker that is a control rather than a setting: it is
-    switched off for an evening with guests and on again afterwards, so it gets
-    no entity category and stays on the device page next to the tracker itself.
+    A setting like the other four, and therefore a configuration entity: it
+    belongs with them on the tracker's device page rather than next to the
+    tracker's own switch. Being a configuration entity changes nothing about
+    writing it - an automation or a script flips it like any other switch.
     Switching it off while the tracker is being asked about takes the question
     back at once (the manager does that, reason ``option_disabled``).
     """
 
+    _attr_entity_category = EntityCategory.CONFIG
     _option_key = CONF_ASK_ON_DEPARTURE
 
 

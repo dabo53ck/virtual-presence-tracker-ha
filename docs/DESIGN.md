@@ -142,16 +142,20 @@ option key as the translation key and as the suffix of the unique ID.
 
 | Entity | Platform | Key | Unique ID | Category |
 |---|---|---|---|---|
-| Ask when the house empties | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | none |
+| Ask when the house empties | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | `CONFIG` |
 | Reset when someone comes home | `switch` | `reset_on_return` | `<subentry_id>_reset_on_return` | `CONFIG` |
 | Tell me when nobody answers | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
 | Time to answer | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
 | Delay before asking | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
 
-The ask switch is the one that is **not** a configuration entity: it is turned
-off for an evening and on again afterwards, like the tracker itself, and a
-category would keep it out of default dashboards and of voice assistants. The
-numbers are `NumberMode.BOX`, step 1, `NumberDeviceClass.DURATION` with
+**All** of them are configuration entities (the ask switch became one after
+M2f, on dabo53ck's call): they are settings of the tracker and belong together
+under "Configuration" on its device page, away from the everyday control, which
+is the tracker's own switch. The category is a matter of where the frontend
+puts an entity and of what a voice assistant is offered by default; writing one
+is unaffected, so an automation or a script still flips the ask switch like any
+other switch. The numbers are `NumberMode.BOX`, step 1,
+`NumberDeviceClass.DURATION` with
 `UnitOfTime.MINUTES` / `UnitOfTime.SECONDS` (both are in the unit set the
 device class allows), and the ranges of the constants they have always had.
 
@@ -774,8 +778,11 @@ Confirmed by dabo53ck (2026-09-19):
 - **M2f decisions (dabo53ck, 2026-09-21, after a usability review)**: the
   per-tracker settings become **entities on the tracker's device page**, which
   leaves the form with name and recipients only - friendlier for people who do
-  not think in config flows. The ask switch is a normal control, the other four
-  are configuration entities. **A change must not reload the entry** (the
+  not think in config flows. All five are configuration entities - the ask
+  switch was a normal control at first and joined the others on dabo53ck's call
+  (2026-09-21), because it is a setting like the rest and reads better under
+  "Configuration" than next to the tracker's own switch; it stays writable from
+  an automation either way. **A change must not reload the entry** (the
   flicker of the trackers and their persons is the reason, and it is why the
   fingerprint exists). **A new tracker asks by default**, while a tracker
   without the key keeps meaning "does not ask", and the recipients of a new
