@@ -76,12 +76,12 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .conftest import PERSON_A, TRACKER_A, TRACKER_B, make_entry, make_subentry
 
-ASK_A = "switch.kid_ask_when_the_house_empties"
-RESET_A = "switch.kid_reset_when_someone_comes_home"
-EXPIRY_A = "switch.kid_tell_me_when_nobody_answers"
-TIMEOUT_A = "number.kid_time_to_answer"
-DELAY_A = "number.kid_delay_before_asking"
-REMIND_A = "number.kid_remind_me_after"
+ASK_A = "switch.kid_ask_when_empty"
+RESET_A = "switch.kid_reset_on_return"
+EXPIRY_A = "switch.kid_notice_if_unanswered"
+TIMEOUT_A = "number.kid_answer_time"
+DELAY_A = "number.kid_ask_delay"
+REMIND_A = "number.kid_remind_after"
 
 SWITCH_A = "switch.kid_at_home"
 TRACKER_A_ENTITY = "device_tracker.kid"
@@ -212,11 +212,8 @@ async def test_every_tracker_gets_the_option_entities(
         assert entity_entry.device_id == device.id
 
     # The second tracker has its own set, and the tracker's name is in front.
-    assert registry.async_get("switch.granny_ask_when_the_house_empties") is not None
-    assert (
-        hass.states.get(ASK_A).attributes[ATTR_FRIENDLY_NAME]
-        == "Kid Ask when the house empties"
-    )
+    assert registry.async_get("switch.granny_ask_when_empty") is not None
+    assert hass.states.get(ASK_A).attributes[ATTR_FRIENDLY_NAME] == "Kid Ask when empty"
 
 
 async def test_an_old_tracker_shows_the_defaults_of_a_missing_key(
@@ -270,10 +267,8 @@ async def test_the_entities_show_what_the_tracker_has_stored(
     assert float(hass.states.get(DELAY_A).state) == 90
     assert float(hass.states.get(REMIND_A).state) == 36
     # The other tracker is untouched by it.
-    assert (
-        hass.states.get("switch.granny_ask_when_the_house_empties").state == STATE_OFF
-    )
-    assert float(hass.states.get("number.granny_time_to_answer").state) == (
+    assert hass.states.get("switch.granny_ask_when_empty").state == STATE_OFF
+    assert float(hass.states.get("number.granny_answer_time").state) == (
         DEFAULT_ANSWER_TIMEOUT
     )
 

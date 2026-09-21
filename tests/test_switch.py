@@ -490,9 +490,9 @@ async def test_opening_a_reminder_that_is_already_open(
 @pytest.mark.parametrize(
     "entity_id",
     [
-        "switch.kid_ask_when_the_house_empties",
-        "switch.kid_reset_when_someone_comes_home",
-        "switch.kid_tell_me_when_nobody_answers",
+        "switch.kid_ask_when_empty",
+        "switch.kid_reset_on_return",
+        "switch.kid_notice_if_unanswered",
     ],
 )
 @pytest.mark.parametrize(

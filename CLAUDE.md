@@ -55,7 +55,7 @@ the prompt, the icon replaces the Companion App's own icon, and answering "yes",
 cancelling and the expiry with its notice behave as designed. **M2f (2026-09-21)
 is not live-tested yet**: the settings of a tracker became entities, a new
 tracker asks by default and comes up with every real person ticked as a
-recipient, and switching "Ask when the house empties" off takes a scheduled or
+recipient, and switching "Ask when empty" off takes a scheduled or
 open automatic prompt back at once (`option_disabled`). **M2g (2026-09-21) is
 not live-tested either**: the form of a *new* tracker offers to create the
 `person` it needs (ticked by default); the flow only stores a `create_person`

@@ -224,24 +224,24 @@ or let an automation flip it. That is the whole daily routine.
 
 ## Typical setups
 
-- **A child alone after school.** Keep **Reset when someone comes home** on and
-  leave your own phone under **Who is asked?**: when the last of you leaves,
-  your phone asks "Is Kid home alone?" and one tap answers it. Or put the switch
-  on an NFC tag by the door.
+- **A child alone after school.** Keep **Reset on return** on and leave your own
+  phone under **Who is asked?**: when the last of you leaves, your phone asks
+  "Is Kid home alone?" and one tap answers it. Or put the switch on an NFC tag
+  by the door.
 - **A babysitter for an evening.** Create a tracker "Babysitter" (or reuse one
   called "Guest"). Before you go, switch it on — or answer **Yes** when your
   phone asks. When the first of you comes back, it switches itself off; if the
   sitter leaves earlier, switch it off yourself.
 - **Grandparents or guests for several days.** Create a tracker for them and turn
-  **Reset when someone comes home** **off** for it: otherwise the tracker
-  would switch itself off the first time you come home, while the guests are
-  still there. Switch it on when they arrive and off when they leave. A single
-  tracker can stand for a whole group ("Guests"). Because nothing switches this
-  one off for you, set **Remind me after** to the length of a typical stay —
-  48 hours, say — so you are asked instead of finding out a week later.
+  **Reset on return** **off** for it: otherwise the tracker would switch itself
+  off the first time you come home, while the guests are still there. Switch it
+  on when they arrive and off when they leave. A single tracker can stand for a
+  whole group ("Guests"). Because nothing switches this one off for you, set
+  **Remind after** to the length of a typical stay — 48 hours, say — so you are
+  asked instead of finding out a week later.
 - **Somebody who comes and goes, like a carer or a cleaner.** Leave **Ask when
-  the house empties** on for their tracker and pick who is asked: whenever the
-  last of you leaves, you are asked whether they are still in the house.
+  empty** on for their tracker and pick who is asked: whenever the last of you
+  leaves, you are asked whether they are still in the house.
 
 ## The tracker's settings
 
@@ -252,24 +252,22 @@ one and it takes effect immediately — nothing reloads, nothing goes
 
 | Entity | What it does | Default |
 |---|---|---|
-| **Ask when the house empties** (switch) | Whether this tracker asks at all when the last real person leaves. | on |
-| **Reset when someone comes home** (switch) | Switches the tracker off again when the first real person enters the empty house. | on |
-| **Time to answer** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
-| **Delay before asking** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
-| **Tell me when nobody answers** (switch) | Sends a short note when a prompt expires. | off |
-| **Remind me after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
+| **Ask when empty** (switch) | Whether this tracker asks at all when the last real person leaves. | on |
+| **Reset on return** (switch) | Switches the tracker off again when the first real person enters the empty house. | on |
+| **Answer time** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
+| **Ask delay** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
+| **Notice if unanswered** (switch) | Sends a short note when a prompt expires. | off |
+| **Remind after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
 use — the only thing under **Controls** is the tracker's own switch. That is
 about where they are shown, not about what they can do: they work in automations
-and scripts like any other switch or number — switch **Ask when the house
-empties** off for an evening with guests, for example, and on again the next
-morning.
+and scripts like any other switch or number — switch **Ask when empty** off for
+an evening with guests, for example, and on again the next morning.
 
 The defaults above are what a tracker you add now starts with. A tracker created
 before these entities existed keeps behaving exactly as it did: its **Ask when
-the house empties** switch is off and its **Remind me after** is 0 until you
-change them.
+empty** switch is off and its **Remind after** is 0 until you change them.
 
 Only the name and **Who is asked?** are still in a form — **Edit virtual
 tracker** on the integration's page — because they are not a value to flip.
@@ -298,7 +296,7 @@ guessing; automations should treat `unknown` as "do nothing".
 A virtual tracker that stays on for days is worse than no tracker at all, so the
 default is to switch it off again when the household stops being empty: the
 moment the number of real persons at home goes from **0 to 1**, every tracker
-whose **Reset when someone comes home** switch is on switches off.
+whose **Reset on return** switch is on switches off.
 
 - Nothing happens when a *second* person arrives: if you are at home and somebody
   else comes back, a tracker that is on stays on.
@@ -309,7 +307,7 @@ whose **Reset when someone comes home** switch is on switches off.
   hand — above all one for guests who stay for several days, since the family
   will come home more than once during the visit.
 
-## Ask when the house empties
+## Asking when the house empties
 
 The tracker can ask instead of waiting to be told: when the last of your real
 persons leaves and the tracker is off, it opens a **prompt** — "is Kid at home?".
@@ -317,12 +315,12 @@ Answer **yes** and the tracker switches on. Answer **no**, answer nothing, or le
 somebody come home in the meantime, and **nothing changes**: the house keeps
 counting as empty. There is never a default answer.
 
-A tracker you add asks by default. Its **Ask when the house empties** switch
-turns that off and on again at any time — during the day, from an automation, or
-from a dashboard — and switching it off while a question is already open takes
-that question back, off your phones as well. **Time to answer** and **Delay
-before asking** set the timing, and **Who is asked?** in the tracker's form
-decides whose phones the question goes to (see "The tracker's settings").
+A tracker you add asks by default. Its **Ask when empty** switch turns that off
+and on again at any time — during the day, from an automation, or from a
+dashboard — and switching it off while a question is already open takes that
+question back, off your phones as well. **Answer time** and **Ask delay** set
+the timing, and **Who is asked?** in the tracker's form decides whose phones the
+question goes to (see "The tracker's settings").
 
 You can also switch the tracker on by hand before you leave. A tracker that is
 already on does not ask anything.
@@ -360,10 +358,9 @@ What it needs:
 If Home Assistant has no phone for somebody you picked, a repair issue says so
 (see below) — the prompt itself still runs.
 
-**Tell me when nobody answers** adds a short note when the prompt expires ("No
-answer: Kid counts as not at home."). It is off by default, and it is only ever
-sent on an expiry — never when somebody answers or when the question is
-withdrawn.
+**Notice if unanswered** adds a short note when the prompt expires ("No answer:
+Kid counts as not at home."). It is off by default, and it is only ever sent on
+an expiry — never when somebody answers or when the question is withdrawn.
 
 **Leaving "Who is asked?" empty means the integration sends nothing at all.** The
 prompt still opens, the event entity still announces it and the action still
@@ -429,15 +426,15 @@ target:
 ```
 
 Opens the prompt of that tracker **right now**, without waiting for anybody to
-leave. It has no options: the tracker's own **Time to answer** applies, the
+leave. It has no options: the tracker's own **Answer time** applies, the
 question goes to the phones under **Who is asked?**, the event entity announces
 it, and every way of ending it works as usual.
 
 It ignores everything that decides whether to ask *by itself*: who is at home,
-the **Ask when the house empties** switch — a tracker with that switch off can
-still be asked about this way — and **Delay before asking**, because "now"
-means now. If a prompt of that tracker was still waiting for its delay, it opens
-immediately instead, as that same prompt.
+the **Ask when empty** switch — a tracker with that switch off can still be
+asked about this way — and **Ask delay**, because "now" means now. If a prompt
+of that tracker was still waiting for its delay, it opens immediately instead,
+as that same prompt.
 
 Two cases it refuses, without changing anything: the tracker is **already
 switched on** (there is nobody to ask about), or a prompt for it is **already
@@ -462,8 +459,8 @@ The question appears on the phones of everybody under **Who is asked?**,
 `event.kid_prompt` fires `prompt_started`, and the switch gets `prompt_open:
 true`. Answer on the phone, answer with **Answer prompt**, switch the tracker on
 or let the time run out — all of it behaves exactly as it does after a real
-departure. Set **Time to answer** to a minute while you are testing if you do
-not want to wait ten.
+departure. Set **Answer time** to a minute while you are testing if you do not
+want to wait ten.
 
 ### Example: ask somewhere else
 
@@ -538,8 +535,8 @@ has a short `for:` (a minute, say), it fires **before** the answer arrives.
 Answering yes afterwards switches the tracker on and makes the person `home`
 again, but whatever already happened has happened.
 
-Two ways around it, and they combine: keep **Delay before asking** shorter than
-the delay of your own automations, and make those automations check
+Two ways around it, and they combine: keep **Ask delay** shorter than the delay
+of your own automations, and make those automations check
 `binary_sensor.only_virtual_trackers_home` or the `prompt_open` attribute of the
 switch before they act. Or skip the waiting altogether and switch the tracker on
 before you leave.
@@ -558,19 +555,19 @@ A prompt you opened yourself with **Open prompt** is an exception to the first
 case: it was never about an empty house, so neither a person being at home nor
 the switch being off withdraws it after a restart. It still expires on time.
 
-A prompt that was still waiting for its **Delay before asking** is forgotten
-instead: it had not been announced yet, so there is nothing to take back.
-Switching **Ask when the house empties** off withdraws an open or waiting prompt
-with the reason `option_disabled` — at once, not at the next restart, and again
-with the exception of a prompt you opened yourself. A message that is still on a
-phone is taken off it in every one of these cases, including the ones that
-happen while Home Assistant starts up again.
+A prompt that was still waiting for its **Ask delay** is forgotten instead: it
+had not been announced yet, so there is nothing to take back. Switching **Ask
+when empty** off withdraws an open or waiting prompt with the reason
+`option_disabled` — at once, not at the next restart, and again with the
+exception of a prompt you opened yourself. A message that is still on a phone is
+taken off it in every one of these cases, including the ones that happen while
+Home Assistant starts up again.
 
 ## Remind me when a tracker has been on for too long
 
 A virtual tracker that somebody forgets to switch off is the one way this
 integration can leave you worse off than before: the house counts as occupied
-day after day, the vacuum never runs, the alarm never arms. **Remind me after**
+day after day, the vacuum never runs, the alarm never arms. **Remind after**
 is the safety net. Set it to the number of hours after which you want to be
 asked, and when a tracker has been on for that long your phone gets:
 
@@ -590,7 +587,7 @@ keeps: it stays silent until you set a number. A tracker you add now starts at
 **24 hours**.
 
 The reminder goes to the same people as the prompt (**Who is asked?**) and
-gives them the same time to answer (**Time to answer**). It is announced by the
+gives them the same time to answer (**Answer time**). It is announced by the
 same event entity, `event.kid_prompt`, with its own event types, and the
 switch carries `reminder_open` and `reminder_expires_at` while it is waiting.
 Leave **Who is asked?** empty and nothing is sent at all — the events and the
@@ -598,10 +595,10 @@ actions still work, so your own automation can deliver it.
 
 The counting starts when the tracker is switched on, and it starts again every
 time somebody answers "still home" or lets a reminder run out. Switching the
-tracker off ends it; switching it on starts it over. If you raise **Remind me
-after** the next reminder moves further away, and if you lower it below the
-time the tracker has already been on, you are asked straight away — which is
-the point of a safety net.
+tracker off ends it; switching it on starts it over. If you raise **Remind
+after** the next reminder moves further away, and if you lower it below the time
+the tracker has already been on, you are asked straight away — which is the
+point of a safety net.
 
 A reminder survives a restart of Home Assistant: it keeps the time it has left,
 or reports `reminder_expired` if its time ran out while Home Assistant was off,
@@ -629,7 +626,7 @@ target:
 Target the tracker's **At home** switch (or its device) here too; the settings
 switches are not valid targets and say so.
 
-**Open reminder** asks right now, without waiting for **Remind me after** to
+**Open reminder** asks right now, without waiting for **Remind after** to
 pass — it even works for a tracker whose interval is 0. It refuses, without
 changing anything, if the tracker is **switched off** (there is nobody to
 remind you about) or if a reminder for it is **already open**. **Answer
@@ -648,7 +645,7 @@ The question appears on the phones of everybody under **Who is asked?**,
 `event.kid_prompt` fires `reminder_started`, and the switch gets
 `reminder_open: true`. Answer on the phone, answer with **Answer reminder**,
 switch the tracker off or let the time run out — all of it behaves exactly as
-it does after a real interval. Set **Time to answer** to a minute while you are
+it does after a real interval. Set **Answer time** to a minute while you are
 testing.
 
 ## Troubleshooting: repair issues

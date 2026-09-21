@@ -106,13 +106,13 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 
 | Key | Type | Range | Default of a missing key | Label |
 |---|---|---|---|---|
-| `reset_on_return` | bool | - | `True` | Reset when someone comes home |
-| `ask_on_departure` | bool | - | `False` | Ask when the house empties |
-| `answer_timeout` | int, minutes | 1-120 | `10` | Time to answer |
-| `prompt_delay` | int, seconds | 0-600 | `0` | Delay before asking |
+| `reset_on_return` | bool | - | `True` | Reset on return |
+| `ask_on_departure` | bool | - | `False` | Ask when empty |
+| `answer_timeout` | int, minutes | 1-120 | `10` | Answer time |
+| `prompt_delay` | int, seconds | 0-600 | `0` | Ask delay |
 | `notify_persons` (M2b) | list of `person` entity IDs | the entry's real persons | `[]` | Who is asked? |
-| `notify_on_expiry` (M2b) | bool | - | `False` | Tell me when nobody answers |
-| `remind_after` (M3a) | int, hours | 0-168 | `0` (never) | Remind me after |
+| `notify_on_expiry` (M2b) | bool | - | `False` | Notice if unanswered |
+| `remind_after` (M3a) | int, hours | 0-168 | `0` (never) | Remind after |
 
 The **keys are unchanged since M2b** except for the one M3a added; what changed
 with M2f is who writes them. All of them but `notify_persons` have an entity
@@ -150,12 +150,24 @@ option key as the translation key and as the suffix of the unique ID.
 
 | Entity | Platform | Key | Unique ID | Category |
 |---|---|---|---|---|
-| Ask when the house empties | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | `CONFIG` |
-| Reset when someone comes home | `switch` | `reset_on_return` | `<subentry_id>_reset_on_return` | `CONFIG` |
-| Tell me when nobody answers | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
-| Time to answer | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
-| Delay before asking | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
-| Remind me after (M3a) | `number` | `remind_after` | `<subentry_id>_remind_after` | `CONFIG` |
+| Ask when empty | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | `CONFIG` |
+| Reset on return | `switch` | `reset_on_return` | `<subentry_id>_reset_on_return` | `CONFIG` |
+| Notice if unanswered | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
+| Answer time | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
+| Ask delay | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
+| Remind after (M3a) | `number` | `remind_after` | `<subentry_id>_remind_after` | `CONFIG` |
+
+**The names in the first column are translations, not contract.** They were
+shortened on 2026-09-21 (the sentences M2f gave them - "Ask when the house
+empties", "Time to answer", "Delay before asking", "Remind me after", "Tell me
+when nobody answers", "Reset when someone comes home" - read badly on a device
+page, where the tracker's name already stands in front of each of them). Keys
+and unique IDs are untouched, so nothing that identifies an entity moved: an
+**existing install keeps every entity ID it has** - Home Assistant only builds
+one when an entity is registered for the first time - and sees nothing but new
+friendly names. Only a tracker added afterwards gets IDs from the new names
+(`switch.kid_ask_when_empty`, `number.kid_answer_time`, …). Renaming a name is
+therefore allowed where renaming a key never is.
 
 **All** of them are configuration entities (the ask switch became one after
 M2f, on dabo53ck's call): they are settings of the tracker and belong together
