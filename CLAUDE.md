@@ -36,7 +36,10 @@ persisted and moved by every "still home" and every expiry, five more event
 types on the same `event` entity, the entity services `open_reminder` and
 `answer_reminder`, the switch attributes `reminder_open` /
 `reminder_expires_at`, and a Companion App message with its own tag and
-`VPT_REMIND_*` buttons — **no automatic switch-off**, deliberately),
+`VPT_REMIND_*` buttons — **no automatic switch-off**, deliberately; an
+unanswered reminder sends the expiry notice of the generic "Notice if
+unanswered" option with a text of its own, added on 2026-09-21 after the live
+test found it missing),
 the repair issues and the person validation (`issues.py`, M1e) with
 translations en/de, an end-to-end test against the real `person` and `zone`
 components, and a README for users. The first live test passed (2026-09-20, HA
@@ -52,8 +55,9 @@ the icon, but as a thumbnail on the right of the message — which is what M2e
 fixes. M1f and M1g passed their live tests the same day. M2d and M2e were
 live-tested on 2026-09-20 on an iPhone and on an Android tablet: the action opens
 the prompt, the icon replaces the Companion App's own icon, and answering "yes",
-cancelling and the expiry with its notice behave as designed. **M2f (2026-09-21)
-is not live-tested yet**: the settings of a tracker became entities, a new
+cancelling and the expiry with its notice behave as designed. **M2f was
+live-tested on 2026-09-21** (HA 2026.9.3): the settings of a tracker became
+entities that write without a reload and survive a restart, a new
 tracker asks by default and comes up with every real person ticked as a
 recipient, and switching "Ask when empty" off takes a scheduled or
 open automatic prompt back at once (`option_disabled`). **M2g was live-verified
@@ -63,10 +67,14 @@ marker and `persons.py` creates the person with the tracker assigned once Home
 Assistant has started — in the live test 40 ms after the tracker's entities,
 with the tracker assigned, no duplicate, no repair issue and `zone.home`
 untouched; never removed together with its tracker, and without reloading
-the entry. **M3a (2026-09-21) is not live-tested yet**: the reminder above,
-whose default for a *new* tracker (`NEW_TRACKER_REMIND_AFTER = 24` hours)
-dabo53ck confirmed on 2026-09-21 — one line in `const.py`, and a tracker from
-before M3a keeps `0`. An automatic switch-off after an unanswered reminder is
+the entry. **M3a was live-tested on 2026-09-21** (HA 2026.9.3) **except its
+expiry notice**: `open_reminder`, "yes" (the tracker stays on), "no" (the
+tracker goes off, `answered_by` = the person behind the phone) and two
+unanswered expiries (`reminder_expired` after the answer time, nothing else
+changed) work; the missing expiry notice was fixed the same day and is the one
+part still waiting for a live test. The reminder's default for a *new* tracker
+(`NEW_TRACKER_REMIND_AFTER = 24` hours) dabo53ck confirmed on 2026-09-21 — one
+line in `const.py`, and a tracker from before M3a keeps `0`. An automatic switch-off after an unanswered reminder is
 **decided against** (dabo53ck, 2026-09-21), not a later step. In the same round the
 ask switch became an `EntityCategory.CONFIG` entity, so all six settings of a
 tracker now sit under "Configuration" on its device page (still writable by

@@ -256,7 +256,7 @@ one and it takes effect immediately — nothing reloads, nothing goes
 | **Reset on return** (switch) | Switches the tracker off again when the first real person enters the empty house. | on |
 | **Answer time** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
 | **Ask delay** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
-| **Notice if unanswered** (switch) | Sends a short note when a prompt expires. | off |
+| **Notice if unanswered** (switch) | Sends a short note when a prompt or a reminder expires. | off |
 | **Remind after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
@@ -358,9 +358,11 @@ What it needs:
 If Home Assistant has no phone for somebody you picked, a repair issue says so
 (see below) — the prompt itself still runs.
 
-**Notice if unanswered** adds a short note when the prompt expires ("No answer:
-Kid counts as not at home."). It is off by default, and it is only ever sent on
-an expiry — never when somebody answers or when the question is withdrawn.
+**Notice if unanswered** adds a short note when a question expires — "No answer:
+Kid counts as not at home." for the prompt, "No answer: Kid stays marked as
+home." for the reminder further down. One switch covers both. It is off by
+default, and it is only ever sent on an expiry — never when somebody answers or
+when the question is withdrawn.
 
 **Leaving "Who is asked?" empty means the integration sends nothing at all.** The
 prompt still opens, the event entity still announces it and the action still
@@ -581,6 +583,8 @@ asked, and when a tracker has been on for that long your phone gets:
   switch.
 - **No answer** changes nothing either — the tracker stays on, and you are
   asked again after another interval. Nothing is ever switched off by itself.
+  With **Notice if unanswered** on you get a short note about it ("No answer:
+  Kid stays marked as home."), the same switch the prompt uses.
 
 **0 means never**, and that is what every tracker created before this feature
 keeps: it stays silent until you set a number. A tracker you add now starts at
