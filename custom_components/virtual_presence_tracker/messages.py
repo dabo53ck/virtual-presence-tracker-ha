@@ -28,6 +28,7 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "Answer within {minutes}.",
         "reminder_yes": "Yes, still home",
         "reminder_no": "No, switch off",
+        "reminder_expired_message": "No answer: {tracker} stays marked as home.",
         "hours": "{hours} hours",
         "hours_one": "1 hour",
         "minutes": "{minutes} minutes",
@@ -48,6 +49,8 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "Antworte innerhalb von {minutes}.",
         "reminder_yes": "Ja, noch da",
         "reminder_no": "Nein, ausschalten",
+        "reminder_expired_message": "Keine Antwort: {tracker} bleibt als zu Hause "
+        "markiert.",
         "hours": "{hours} Stunden",
         "hours_one": "1 Stunde",
         "minutes": "{minutes} Minuten",
@@ -129,6 +132,17 @@ def async_reminder_message(
             else texts["minutes"].format(minutes=minutes)
         ),
     )
+
+
+@callback
+def async_reminder_expired_message(hass: HomeAssistant, tracker: str) -> str:
+    """Return the message of the notice about an unanswered reminder.
+
+    The title is the prompt's (`async_expired_title`): both notices say that
+    nobody answered, and only the consequence differs - an unanswered prompt
+    leaves the tracker away, an unanswered reminder leaves it at home.
+    """
+    return async_texts(hass)["reminder_expired_message"].format(tracker=tracker)
 
 
 @callback

@@ -939,13 +939,23 @@ async def test_switching_off_clears_the_reminder_from_the_phone(
     }
 
 
-async def test_an_expired_reminder_sends_no_notice(
+async def expire_the_reminder(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, minutes: int = 6
+) -> None:
+    """Let the answer time of an open reminder run out."""
+    freezer.tick(timedelta(minutes=minutes))
+    async_fire_time_changed(hass)
+    await settle(hass)
+
+
+async def test_an_expired_reminder_sends_the_notice(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory
 ) -> None:
-    """The expiry notice belongs to the prompt only.
+    """The "notice if unanswered" option covers the reminder too.
 
-    An unanswered prompt leaves the house counting as empty, which is worth a
-    word; an unanswered reminder leaves everything exactly as it was.
+    The option says nothing about which of the two questions went unanswered,
+    so the reminder reports it as well - with the opposite consequence: the
+    tracker stays marked as being at home.
     """
     calls = add_dabo53ck(hass)
     entry = await setup_entry(
@@ -956,15 +966,68 @@ async def test_an_expired_reminder_sends_no_notice(
     await open_reminder(hass)
     reminder_id = reminder_id_of(calls[0])
 
-    freezer.tick(timedelta(minutes=6))
-    async_fire_time_changed(hass)
-    await settle(hass)
+    await expire_the_reminder(hass, freezer)
 
     assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
     assert entry.runtime_data.manager.is_home(TRACKER_A) is True
     assert hass.states.get("event.kid_prompt").attributes["event_type"] == (
         "reminder_expired"
     )
+    # The question goes away first, the notice follows it.
+    assert len(calls) == 3
+    assert calls[1].data == {
+        "message": "clear_notification",
+        "data": {"tag": f"vpt_reminder_{reminder_id}"},
+    }
+    assert calls[2].data == {
+        "title": "No answer",
+        "message": "No answer: Kid stays marked as home.",
+        # A message of its own, with the integration's icon and without
+        # buttons: there is nothing left to answer.
+        "data": {
+            "tag": f"vpt_info_{reminder_id}",
+            "icon_url": NOTIFICATION_ICON,
+        },
+    }
+
+    await unload(hass, entry)
+
+
+async def test_the_reminder_notice_is_sent_in_german(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """A German instance reports the unanswered reminder in German."""
+    hass.config.language = "de-DE"
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass, make_entry(asking=False, notify_on_expiry=True, timeout=5)
+    )
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    await expire_the_reminder(hass, freezer)
+
+    assert calls[2].data["title"] == "Keine Antwort"
+    assert calls[2].data["message"] == (
+        "Keine Antwort: Kid bleibt als zu Hause markiert."
+    )
+
+    await unload(hass, entry)
+
+
+async def test_an_expired_reminder_without_the_option_sends_no_notice(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The notice is off by default, for the reminder as for the prompt."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, timeout=5))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await expire_the_reminder(hass, freezer)
+
     # Exactly one message after the question: the clearing, and nothing else.
     assert len(calls) == 2
     assert calls[1].data == {
@@ -973,6 +1036,107 @@ async def test_an_expired_reminder_sends_no_notice(
     }
 
     await unload(hass, entry)
+
+
+async def test_the_reminder_notice_follows_the_option_live(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The option is read when the reminder ends, not when it started.
+
+    Switching it writes the subentry without reloading the entry, so the
+    delivery has to look the value up every time it sends something.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, timeout=5))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    await hass.services.async_call(
+        SWITCH_DOMAIN,
+        SERVICE_TURN_ON,
+        {"entity_id": "switch.kid_notice_if_unanswered"},
+        blocking=True,
+    )
+    await settle(hass)
+
+    await expire_the_reminder(hass, freezer)
+
+    assert len(calls) == 3
+    assert calls[2].data["message"] == "No answer: Kid stays marked as home."
+
+    # And the other way round: switched off while the next one is open.
+    await open_reminder(hass)
+    await hass.services.async_call(
+        SWITCH_DOMAIN,
+        SERVICE_TURN_OFF,
+        {"entity_id": "switch.kid_notice_if_unanswered"},
+        blocking=True,
+    )
+    await settle(hass)
+
+    await expire_the_reminder(hass, freezer)
+
+    assert len(calls) == 5
+    assert calls[4].data["message"] == "clear_notification"
+
+    await unload(hass, entry)
+
+
+async def test_without_recipients_no_reminder_notice_is_sent(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """Nobody to send the question to means nobody to report it to either."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass,
+        make_entry(asking=False, recipients=[], notify_on_expiry=True, timeout=5),
+    )
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    await expire_the_reminder(hass, freezer)
+
+    assert calls == []
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize("answer", ["YES", "NO"])
+async def test_the_reminder_notice_is_not_sent_on_an_answer(
+    hass: HomeAssistant, answer: str
+) -> None:
+    """Only an unanswered reminder produces the notice."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, notify_on_expiry=True))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    await answer_from_phone(hass, f"VPT_REMIND_{answer}_{reminder_id_of(calls[0])}")
+
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+    assert len(calls) == 2
+    assert calls[1].data["message"] == "clear_notification"
+
+
+async def test_the_reminder_notice_is_not_sent_on_a_cancellation(
+    hass: HomeAssistant,
+) -> None:
+    """A reminder that is taken back was not left unanswered."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, notify_on_expiry=True))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_OFF, {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+
+    assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
+    assert len(calls) == 2
+    assert calls[1].data["message"] == "clear_notification"
 
 
 async def test_without_recipients_no_reminder_is_sent(hass: HomeAssistant) -> None:

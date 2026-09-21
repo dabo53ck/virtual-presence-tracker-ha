@@ -44,6 +44,7 @@ from .const import (
     EVENT_EXPIRED,
     EVENT_NOTIFICATION_ACTION,
     EVENT_PROMPT_STARTED,
+    EVENT_REMINDER_EXPIRED,
     EVENT_REMINDER_STARTED,
     MOBILE_APP_DOMAIN,
     NOTIFICATION_ICON,
@@ -61,6 +62,7 @@ from .messages import (
     async_prompt_message,
     async_prompt_title,
     async_reminder_answer_titles,
+    async_reminder_expired_message,
     async_reminder_message,
     async_reminder_title,
 )
@@ -223,11 +225,11 @@ class PromptDelivery:
     ) -> None:
         """Send or take back the message of one reminder.
 
-        The same mechanics as the prompt, with one thing left out: a reminder
-        that nobody answers sends no notice afterwards. The prompt's notice
-        exists because an unanswered prompt leaves the house counting as empty;
-        an unanswered reminder leaves everything exactly as it was, so there is
-        nothing to report.
+        The same mechanics as the prompt, the expiry notice included: the
+        option is called "notice if unanswered" and says nothing about which
+        of the two questions went unanswered, so a reminder that nobody
+        answers reports that as well - with a text of its own, because the
+        consequence is the opposite one (the tracker stays at home).
         """
         subentry = self.entry.subentries.get(subentry_id)
         if subentry is None:
@@ -244,6 +246,12 @@ class PromptDelivery:
         else:
             # Every other event ends the reminder, so the question goes away.
             payloads = [_clear_payload(NOTIFICATION_REMINDER_TAG_PREFIX, reminder_id)]
+            if event_type == EVENT_REMINDER_EXPIRED and subentry.data.get(
+                CONF_NOTIFY_ON_EXPIRY, DEFAULT_NOTIFY_ON_EXPIRY
+            ):
+                payloads.append(
+                    self._async_reminder_expired_payload(subentry, reminder_id)
+                )
 
         self.entry.async_create_background_task(
             self.hass,
@@ -347,6 +355,20 @@ class PromptDelivery:
             "message": async_expired_message(self.hass, subentry.title),
             "data": {
                 "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{prompt_id}",
+                "icon_url": NOTIFICATION_ICON,
+            },
+        }
+
+    @callback
+    def _async_reminder_expired_payload(
+        self, subentry: ConfigSubentry, reminder_id: str
+    ) -> dict[str, Any]:
+        """Return the notice that nobody answered the reminder."""
+        return {
+            "title": async_expired_title(self.hass),
+            "message": async_reminder_expired_message(self.hass, subentry.title),
+            "data": {
+                "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{reminder_id}",
                 "icon_url": NOTIFICATION_ICON,
             },
         }
