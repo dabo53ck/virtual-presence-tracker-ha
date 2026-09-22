@@ -44,6 +44,7 @@ from .const import (
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
     EVENT_ANSWERED_NO,
     EVENT_ANSWERED_YES,
@@ -1038,8 +1039,9 @@ class HouseholdManager:
         reminder = Reminder(
             reminder_id=uuid4().hex,
             started_at=now,
-            # The tracker's own answer time, the one the prompt uses as well.
-            expires_at=now + timedelta(minutes=self._answer_timeout(subentry_id)),
+            # The reminder's own answer time, not the prompt's: a question
+            # about a whole day may well be answered an hour later.
+            expires_at=now + timedelta(minutes=self._reminder_timeout(subentry_id)),
         )
         self._reminders[subentry_id] = reminder
         self._async_schedule_save()
@@ -1164,6 +1166,15 @@ class HouseholdManager:
     def _remind_after(self, subentry_id: str) -> int:
         """Return after how many hours at home a tracker reminds; 0 is never."""
         return int(self.option(subentry_id, CONF_REMIND_AFTER))
+
+    def _reminder_timeout(self, subentry_id: str) -> int:
+        """Return how many minutes a reminder of a tracker stays open.
+
+        The reminder's own answer time. The prompt keeps `_answer_timeout()`:
+        the two questions are asked in different situations and are given very
+        different amounts of time.
+        """
+        return int(self.option(subentry_id, CONF_REMINDER_TIMEOUT))
 
     @callback
     def _async_reset_trackers(self) -> None:

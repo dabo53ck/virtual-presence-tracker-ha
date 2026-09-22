@@ -1,8 +1,9 @@
 """Number platform of the Virtual Presence Tracker integration.
 
 The timings of a tracker: how long its prompt stays open, how long it waits
-before it opens, and after how many hours at home the tracker reminds about
-itself (M3a). All of them live in the data of the tracker's config subentry,
+before it opens, after how many hours at home the tracker reminds about itself
+(M3a) and how long that reminder waits for its answer. All of them live in the
+data of the tracker's config subentry,
 where they have always lived - these entities show the stored value and write
 it, without reloading the entry (see docs/DESIGN.md).
 """
@@ -19,12 +20,15 @@ from .const import (
     CONF_ANSWER_TIMEOUT,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT,
     MAX_ANSWER_TIMEOUT,
     MAX_PROMPT_DELAY,
     MAX_REMIND_AFTER,
+    MAX_REMINDER_TIMEOUT,
     MIN_ANSWER_TIMEOUT,
     MIN_PROMPT_DELAY,
     MIN_REMIND_AFTER,
+    MIN_REMINDER_TIMEOUT,
     SUBENTRY_TYPE_TRACKER,
 )
 from .entity import VirtualTrackerOptionEntity
@@ -45,6 +49,7 @@ async def async_setup_entry(
                 AnswerTimeoutNumber(manager, subentry),
                 PromptDelayNumber(manager, subentry),
                 RemindAfterNumber(manager, subentry),
+                ReminderTimeoutNumber(manager, subentry),
             ],
             config_subentry_id=subentry.subentry_id,
         )
@@ -108,3 +113,18 @@ class RemindAfterNumber(VirtualTrackerOptionNumber):
     _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_native_min_value = MIN_REMIND_AFTER
     _attr_native_max_value = MAX_REMIND_AFTER
+
+
+class ReminderTimeoutNumber(VirtualTrackerOptionNumber):
+    """How many minutes a reminder of this tracker stays open.
+
+    Deliberately not the prompt's answer time: the prompt is answered on the
+    way out of the door, the reminder asks about a whole day and may well be
+    answered an hour later. A reminder that is already open keeps the deadline
+    it was given, as the prompt does.
+    """
+
+    _option_key = CONF_REMINDER_TIMEOUT
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_native_min_value = MIN_REMINDER_TIMEOUT
+    _attr_native_max_value = MAX_REMINDER_TIMEOUT

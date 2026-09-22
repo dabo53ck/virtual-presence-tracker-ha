@@ -30,7 +30,9 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_ASK_ON_DEPARTURE,
     CONF_PERSONS,
     CONF_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
+    DEFAULT_REMINDER_TIMEOUT,
     DOMAIN,
     EVENT_PROMPT_STARTED,
     EVENT_REMINDER_ANSWERED_NO,
@@ -289,7 +291,7 @@ async def test_a_reminder_expires_and_changes_nothing(
     manager = await start_manager(
         hass,
         make_entry(
-            make_subentry(TRACKER_A, "Kid", **REMINDING, **{CONF_ANSWER_TIMEOUT: 5})
+            make_subentry(TRACKER_A, "Kid", **REMINDING, **{CONF_REMINDER_TIMEOUT: 5})
         ),
     )
     events = Recorder(manager, TRACKER_A)
@@ -482,7 +484,7 @@ async def test_opening_a_reminder_by_hand(hass: HomeAssistant) -> None:
     """Asked for it, the reminder opens on the spot - interval or not."""
     manager = await start_manager(
         hass,
-        make_entry(make_subentry(TRACKER_A, "Kid", **{CONF_ANSWER_TIMEOUT: 5})),
+        make_entry(make_subentry(TRACKER_A, "Kid", **{CONF_REMINDER_TIMEOUT: 5})),
     )
     manager.async_set_home(TRACKER_A, True)
     events = Recorder(manager, TRACKER_A)
@@ -493,9 +495,100 @@ async def test_opening_a_reminder_by_hand(hass: HomeAssistant) -> None:
     assert data[ATTR_TRACKER] == "Kid"
     expires_at = manager.reminder_expires_at(TRACKER_A)
     assert data[ATTR_EXPIRES_AT] == expires_at.isoformat()
-    # It is the tracker's own answer time, the one the prompt uses as well.
+    # The reminder's own answer time, whichever way it was opened.
     assert expires_at - dt_util.utcnow() <= timedelta(minutes=5)
     assert manager.is_home(TRACKER_A) is True
+
+    await manager.async_stop()
+
+
+async def test_the_reminder_has_an_answer_time_of_its_own(
+    hass: HomeAssistant,
+) -> None:
+    """The deadline comes from `reminder_timeout`, never from the prompt's option.
+
+    A prompt is answered on the way out of the door; a reminder asks about a
+    whole day and is given an hour by default.
+    """
+    manager = await start_manager(
+        hass,
+        make_entry(
+            make_subentry(
+                TRACKER_A,
+                "Kid",
+                **{CONF_ANSWER_TIMEOUT: 5, CONF_REMINDER_TIMEOUT: 90},
+            )
+        ),
+    )
+    manager.async_set_home(TRACKER_A, True)
+
+    assert manager.async_open_reminder(TRACKER_A) is OpenReminderResult.OPENED
+
+    left = manager.reminder_expires_at(TRACKER_A) - dt_util.utcnow()
+    assert timedelta(minutes=89) < left <= timedelta(minutes=90)
+
+    await manager.async_stop()
+
+
+async def test_a_tracker_without_the_key_gets_the_default(
+    hass: HomeAssistant,
+) -> None:
+    """A missing key is an hour, like every other option that is not there."""
+    assert DEFAULT_REMINDER_TIMEOUT == 60
+    manager = await start_manager(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+    manager.async_set_home(TRACKER_A, True)
+
+    assert manager.async_open_reminder(TRACKER_A) is OpenReminderResult.OPENED
+
+    left = manager.reminder_expires_at(TRACKER_A) - dt_util.utcnow()
+    assert (
+        timedelta(minutes=DEFAULT_REMINDER_TIMEOUT - 1)
+        < left
+        <= timedelta(minutes=DEFAULT_REMINDER_TIMEOUT)
+    )
+
+    await manager.async_stop()
+
+
+async def test_the_two_answer_times_leave_each_other_alone(
+    hass: HomeAssistant,
+) -> None:
+    """Neither option moves a question that is already waiting for an answer."""
+    manager = await start_manager(
+        hass,
+        make_entry(
+            make_subentry(
+                TRACKER_A,
+                "Kid",
+                **{CONF_ANSWER_TIMEOUT: 10, CONF_REMINDER_TIMEOUT: 30},
+            )
+        ),
+    )
+    manager.async_set_home(TRACKER_A, True)
+    assert manager.async_open_reminder(TRACKER_A) is OpenReminderResult.OPENED
+    expires_at = manager.reminder_expires_at(TRACKER_A)
+
+    manager.async_set_option(TRACKER_A, CONF_ANSWER_TIMEOUT, 120)
+
+    assert manager.reminder_expires_at(TRACKER_A) == expires_at
+
+    # Its own option does not move it either: an open question keeps the
+    # deadline it was opened with, and the new value is for the next one.
+    manager.async_set_option(TRACKER_A, CONF_REMINDER_TIMEOUT, 5)
+
+    assert manager.reminder_expires_at(TRACKER_A) == expires_at
+    assert manager.reminder_open(TRACKER_A) is True
+
+    # And the other way round: the reminder's option is nothing to a prompt.
+    manager.async_answer_reminder(TRACKER_A, False)
+    assert manager.is_home(TRACKER_A) is False
+    manager.async_open_prompt(TRACKER_A)
+    prompt_expires_at = manager.prompt_expires_at(TRACKER_A)
+    assert prompt_expires_at is not None
+
+    manager.async_set_option(TRACKER_A, CONF_REMINDER_TIMEOUT, 360)
+
+    assert manager.prompt_expires_at(TRACKER_A) == prompt_expires_at
 
     await manager.async_stop()
 
@@ -683,6 +776,38 @@ async def test_resume_keeps_the_remaining_time(
 
     assert events.types == [EVENT_REMINDER_EXPIRED]
     assert events.events[0][1][ATTR_REMINDER_ID] == "abc"
+
+    await manager.async_stop()
+
+
+async def test_resume_uses_the_stored_deadline_and_not_the_option(
+    hass: HomeAssistant, hass_storage: dict[str, Any], freezer: FrozenDateTimeFactory
+) -> None:
+    """A resumed reminder keeps the time it had left, whatever the option says.
+
+    The deadline is persisted, so raising the answer time while Home Assistant
+    is down does not give an old question two more hours.
+    """
+    hass_storage[STORE_KEY] = stored(
+        {TRACKER_A: tracker_at_home(3)}, {TRACKER_A: open_reminder(2)}
+    )
+    manager = await start_manager(
+        hass,
+        make_entry(
+            make_subentry(TRACKER_A, "Kid", **REMINDING, **{CONF_REMINDER_TIMEOUT: 120})
+        ),
+    )
+    events = Recorder(manager, TRACKER_A)
+
+    manager.async_resume_reminders()
+
+    assert manager.reminder_expires_at(TRACKER_A) - dt_util.utcnow() <= timedelta(
+        minutes=2
+    )
+
+    await tick(hass, freezer, 121)
+
+    assert events.types == [EVENT_REMINDER_EXPIRED]
 
     await manager.async_stop()
 

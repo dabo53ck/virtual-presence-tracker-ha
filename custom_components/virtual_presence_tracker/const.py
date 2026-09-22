@@ -59,6 +59,18 @@ MIN_REMIND_AFTER: Final = 0
 MAX_REMIND_AFTER: Final = 168
 NEW_TRACKER_REMIND_AFTER: Final = 24
 
+# How long a reminder waits for its answer, in minutes. Its own option rather
+# than the prompt's: a prompt is answered on the way out of the door and is
+# worthless once the away routines have run, while a reminder is a question
+# about a whole day that may well be answered an hour later. Hence a default
+# of an hour and an upper bound of six, against the prompt's ten minutes and
+# two hours. A tracker without the key uses the default, exactly like every
+# other missing option.
+CONF_REMINDER_TIMEOUT: Final = "reminder_timeout"
+DEFAULT_REMINDER_TIMEOUT: Final = 60
+MIN_REMINDER_TIMEOUT: Final = 1
+MAX_REMINDER_TIMEOUT: Final = 360
+
 # Per-tracker delivery options. Without a recipient the integration sends
 # nothing at all and the prompt stays what it was before: events and an action.
 CONF_NOTIFY_PERSONS: Final = "notify_persons"
@@ -78,6 +90,7 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
     CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
     CONF_REMIND_AFTER: DEFAULT_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 

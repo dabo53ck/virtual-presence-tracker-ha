@@ -23,6 +23,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
     CONF_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT,
     CONF_USER_ID,
     DOMAIN,
     EVENT_NOTIFICATION_ACTION,
@@ -71,6 +72,7 @@ def make_entry(
     asking: bool = True,
     notify_on_expiry: bool = False,
     timeout: int = 10,
+    reminder_timeout: int = 60,
     remind_after: int = 0,
 ) -> MockConfigEntry:
     """Return an entry with one tracker that asks and notifies."""
@@ -85,6 +87,7 @@ def make_entry(
                     CONF_ASK_ON_DEPARTURE: asking,
                     CONF_ANSWER_TIMEOUT: timeout,
                     CONF_REMIND_AFTER: remind_after,
+                    CONF_REMINDER_TIMEOUT: reminder_timeout,
                     CONF_NOTIFY_PERSONS: (
                         recipients if recipients is not None else [PERSON_A]
                     ),
@@ -754,7 +757,11 @@ def reminder_id_of(call: ServiceCall) -> str:
 async def test_the_reminder_is_sent_to_the_phone(hass: HomeAssistant) -> None:
     """The reminder arrives with its own buttons and its delivery hints."""
     calls = add_dabo53ck(hass)
-    entry = await setup_entry(hass, make_entry(asking=False, timeout=15))
+    # The prompt's answer time is a different number on purpose: the reminder
+    # has one of its own and must not pick the prompt's up.
+    entry = await setup_entry(
+        hass, make_entry(asking=False, timeout=10, reminder_timeout=15)
+    )
 
     await switch_on(hass)
     await open_reminder(hass)
@@ -773,6 +780,7 @@ async def test_the_reminder_is_sent_to_the_phone(hass: HomeAssistant) -> None:
     ]
     assert data["data"]["ttl"] == 0
     assert data["data"]["priority"] == "high"
+    # The reminder's own answer time, in seconds - not the prompt's ten.
     assert data["data"]["timeout"] == 15 * 60
     assert data["data"]["push"] == {"interruption-level": "time-sensitive"}
     # The same icon as the prompt, in place of the Companion App's own.
@@ -787,7 +795,7 @@ async def test_the_reminder_counts_the_hours(
 ) -> None:
     """The message says how long the tracker has been marked as being at home."""
     calls = add_dabo53ck(hass)
-    entry = await setup_entry(hass, make_entry(asking=False, timeout=1))
+    entry = await setup_entry(hass, make_entry(asking=False, reminder_timeout=1))
 
     await switch_on(hass)
     freezer.tick(timedelta(hours=7, minutes=20))
@@ -811,8 +819,9 @@ async def test_the_reminder_is_sent_in_german(hass: HomeAssistant) -> None:
 
     assert calls[0].data["title"] == "Ist Kid noch zu Hause?"
     assert calls[0].data["message"] == (
+        # The reminder's own answer time, whose default is an hour.
         "Kid ist seit 1 Stunde als zu Hause markiert. "
-        "Antworte innerhalb von 10 Minuten."
+        "Antworte innerhalb von 60 Minuten."
     )
     assert [action["title"] for action in calls[0].data["data"]["actions"]] == [
         "Ja, noch da",
@@ -959,7 +968,7 @@ async def test_an_expired_reminder_sends_the_notice(
     """
     calls = add_dabo53ck(hass)
     entry = await setup_entry(
-        hass, make_entry(asking=False, notify_on_expiry=True, timeout=5)
+        hass, make_entry(asking=False, notify_on_expiry=True, reminder_timeout=5)
     )
 
     await switch_on(hass)
@@ -1000,7 +1009,7 @@ async def test_the_reminder_notice_is_sent_in_german(
     hass.config.language = "de-DE"
     calls = add_dabo53ck(hass)
     entry = await setup_entry(
-        hass, make_entry(asking=False, notify_on_expiry=True, timeout=5)
+        hass, make_entry(asking=False, notify_on_expiry=True, reminder_timeout=5)
     )
 
     await switch_on(hass)
@@ -1020,7 +1029,7 @@ async def test_an_expired_reminder_without_the_option_sends_no_notice(
 ) -> None:
     """The notice is off by default, for the reminder as for the prompt."""
     calls = add_dabo53ck(hass)
-    entry = await setup_entry(hass, make_entry(asking=False, timeout=5))
+    entry = await setup_entry(hass, make_entry(asking=False, reminder_timeout=5))
 
     await switch_on(hass)
     await open_reminder(hass)
@@ -1047,7 +1056,7 @@ async def test_the_reminder_notice_follows_the_option_live(
     delivery has to look the value up every time it sends something.
     """
     calls = add_dabo53ck(hass)
-    entry = await setup_entry(hass, make_entry(asking=False, timeout=5))
+    entry = await setup_entry(hass, make_entry(asking=False, reminder_timeout=5))
 
     await switch_on(hass)
     await open_reminder(hass)
@@ -1089,7 +1098,9 @@ async def test_without_recipients_no_reminder_notice_is_sent(
     calls = add_dabo53ck(hass)
     entry = await setup_entry(
         hass,
-        make_entry(asking=False, recipients=[], notify_on_expiry=True, timeout=5),
+        make_entry(
+            asking=False, recipients=[], notify_on_expiry=True, reminder_timeout=5
+        ),
     )
 
     await switch_on(hass)

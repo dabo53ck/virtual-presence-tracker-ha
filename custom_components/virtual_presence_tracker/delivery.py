@@ -37,9 +37,11 @@ from .const import (
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_PERSONS,
+    CONF_REMINDER_TIMEOUT,
     CONF_USER_ID,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_NOTIFY_ON_EXPIRY,
+    DEFAULT_REMINDER_TIMEOUT,
     DOMAIN,
     EVENT_EXPIRED,
     EVENT_NOTIFICATION_ACTION,
@@ -316,9 +318,12 @@ class PromptDelivery:
 
         The delivery hints are the prompt's, for the same reasons: a question
         with a deadline is worth waking a phone for and is worthless once the
-        deadline has passed.
+        deadline has passed. The deadline itself is the reminder's own, so the
+        message and the state machine say the same thing.
         """
-        minutes = int(subentry.data.get(CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT))
+        minutes = int(
+            subentry.data.get(CONF_REMINDER_TIMEOUT, DEFAULT_REMINDER_TIMEOUT)
+        )
         yes, no = async_reminder_answer_titles(self.hass)
         return {
             "title": async_reminder_title(self.hass, subentry.title),

@@ -22,6 +22,9 @@
       },
       "remind_after": {
         "default": "mdi:alarm-snooze"
+      },
+      "reminder_timeout": {
+        "default": "mdi:timer-alert-outline"
       }
     },
     "switch": {
