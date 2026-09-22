@@ -1,0 +1,19 @@
+#!/bin/sh
+# Strip AI / assistant attribution from commit messages. See CLAUDE.md.
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+# Removes whole lines that are:
+#   - Co-Authored-By: ... <naming an AI: "Claude" or an *@anthropic.com address>
+#   - Claude-Session: ...
+#   - [optional emoji/space] Generated with [Claude Code] ...   (footer)
+# Human Co-Authored-By lines and ordinary prose are left untouched.
+
+f="$1"
+[ -f "$f" ] || exit 0
+
+out=$(grep -viE \
+  '^[[:space:]]*co-authored-by:.*(claude|anthropic\.com)|^[[:space:]]*claude-session:|^[^[:alnum:]]*generated with \[claude code\]' \
+  "$f")
+printf '%s\n' "$out" | git stripspace > "$f"
+
+exit 0
