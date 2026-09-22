@@ -741,7 +741,10 @@ async def test_a_failing_phone_does_not_stop_the_others(
 
 # What the prompt's message looks like when it is allowed to be loud (M3c):
 # a critical alert on iOS, the alarm channel on Android.
-LOUD_PUSH = {"interruption-level": "critical", "sound": {"critical": 1}}
+LOUD_PUSH = {
+    "interruption-level": "critical",
+    "sound": {"name": "default", "critical": 1},
+}
 QUIET_PUSH = {"interruption-level": "time-sensitive"}
 ALARM_CHANNEL = "alarm_stream"
 
@@ -791,9 +794,10 @@ async def test_the_loud_prompt_overrides_do_not_disturb(hass: HomeAssistant) -> 
     """With the option on the prompt gets through a silenced phone.
 
     iOS reads `push` as the APNs payload: a critical interruption level and a
-    `sound` dictionary with `critical` set play it as a critical alert.
-    Android goes by the channel name, and `alarm_stream` is the one that
-    carries the alarm category and the alarm audio stream.
+    `sound` dictionary that names the sound and asks for it to be critical
+    play it as a critical alert. Android goes by the channel name, and
+    `alarm_stream` is the one that carries the alarm category and the alarm
+    audio stream.
     """
     calls = add_dabo53ck(hass)
     entry = await setup_entry(hass, make_entry(timeout=15, override_dnd=True))
@@ -801,8 +805,7 @@ async def test_the_loud_prompt_overrides_do_not_disturb(hass: HomeAssistant) -> 
     await empty_the_house(hass)
 
     data = calls[0].data["data"]
-    assert data["push"]["interruption-level"] == "critical"
-    assert data["push"]["sound"]["critical"]
+    assert data["push"] == LOUD_PUSH
     assert data["channel"] == ALARM_CHANNEL
     # Nothing else about the question changed.
     prompt_id = prompt_id_of(calls[0])
@@ -814,6 +817,25 @@ async def test_the_loud_prompt_overrides_do_not_disturb(hass: HomeAssistant) -> 
     assert len(data["actions"]) == 2
     assert calls[0].data["title"] == "Is Kid home alone?"
     assert calls[0].data["message"] == "Nobody else is home. Answer within 15 minutes."
+
+    await unload(hass, entry)
+
+
+async def test_the_loud_prompt_names_the_sound_it_plays(hass: HomeAssistant) -> None:
+    """The `sound` dictionary carries a non-empty `name` - or nothing arrives.
+
+    Regression test for the live test of 2026-09-22: a `sound` dictionary of
+    nothing but `critical` is understood by the phone, but the push relay
+    never lets it that far ("apns.payload.aps.sound.name must be a non-empty
+    string") and drops the whole message.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(override_dnd=True))
+
+    await empty_the_house(hass)
+
+    sound = calls[0].data["data"]["push"]["sound"]
+    assert sound == {"name": "default", "critical": 1}
 
     await unload(hass, entry)
 

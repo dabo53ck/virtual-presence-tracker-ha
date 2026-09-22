@@ -211,6 +211,12 @@ NOTIFICATION_ICON: Final = f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_ICON
 # of the same option lives in `data.push` (see docs/DESIGN.md).
 NOTIFICATION_ALARM_CHANNEL: Final = "alarm_stream"
 
+# The iOS half of the same option: the name of the sound a critical alert
+# plays. "default" is the system sound, and the name has to be sent - the push
+# relay rejects a payload whose `aps.sound` dictionary has no non-empty `name`
+# before it ever reaches the phone (see docs/DESIGN.md).
+NOTIFICATION_CRITICAL_SOUND: Final = "default"
+
 # Entity services on the switches of this integration.
 SERVICE_ANSWER_PROMPT: Final = "answer_prompt"
 SERVICE_OPEN_PROMPT: Final = "open_prompt"

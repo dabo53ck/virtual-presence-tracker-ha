@@ -52,6 +52,7 @@ from .const import (
     EVENT_REMINDER_STARTED,
     MOBILE_APP_DOMAIN,
     NOTIFICATION_ALARM_CHANNEL,
+    NOTIFICATION_CRITICAL_SOUND,
     NOTIFICATION_ICON,
     NOTIFICATION_INFO_TAG_PREFIX,
     NOTIFICATION_REMINDER_TAG_PREFIX,
@@ -317,11 +318,13 @@ class PromptDelivery:
         }
         if subentry.data.get(CONF_OVERRIDE_DND, DEFAULT_OVERRIDE_DND):
             # iOS: a critical alert, which ignores the mute switch and Do Not
-            # Disturb. A `sound` dictionary with nothing but `critical` is the
-            # default sound played that way - no name is needed.
+            # Disturb. The `sound` dictionary needs both keys: `critical` makes
+            # it a critical alert, and a non-empty `name` - "default" is the
+            # system sound - is what the push relay insists on before it
+            # forwards the payload at all.
             data["push"] = {
                 "interruption-level": "critical",
-                "sound": {"critical": 1},
+                "sound": {"name": NOTIFICATION_CRITICAL_SOUND, "critical": 1},
             }
             # Android: the alarm channel, which carries the alarm category and
             # the alarm audio stream - the exception Do Not Disturb keeps.
