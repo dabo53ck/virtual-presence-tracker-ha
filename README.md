@@ -23,6 +23,23 @@ you leaves.
 fake activity while the house is empty, this one is about people who really are at
 home but carry no tracked device.
 
+## Quick start
+
+1. **Install it.** Copy the folder `custom_components/virtual_presence_tracker`
+   into your Home Assistant configuration and restart. The repository is still
+   private, so HACS is not an option yet — see [Installation](#installation).
+2. **Add the integration.** **Settings → Devices & services → Add integration →
+   Virtual Presence Tracker**, or use this button:
+
+   [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=virtual_presence_tracker)
+
+3. **Answer the two forms** that follow — your real persons, then your first
+   virtual tracker — and let the integration create the tracker's person for
+   you. Step by step under [Setup](#setup).
+
+Everything a tracker can be set to afterwards is an entity on the tracker's own
+page; see [The tracker's settings](#the-trackers-settings).
+
 ## Who it is for
 
 Home Assistant works out who is at home from trackers, usually phones. That
@@ -125,6 +142,8 @@ Until it is public, use the manual installation.
 
 ### HACS (once the repository is public)
 
+<!-- TODO: add the HACS My-button once the repo is public -->
+
 1. In HACS, open the three-dot menu → **Custom repositories**.
 2. Add `https://github.com/dabo53ck/virtual-presence-tracker-ha` with the
    category **Integration**.
@@ -221,6 +240,33 @@ automations.
 
 Put the switch on a dashboard, on an NFC tag at the front door, on a wall button,
 or let an automation flip it. That is the whole daily routine.
+
+## On your dashboard
+
+A tracker needs no card of its own. The switch is the one thing you use every
+day; the device tracker and the household sensor are worth having next to it
+while you get used to the integration:
+
+```yaml
+type: entities
+title: At home
+entities:
+  - entity: switch.kid_at_home
+    name: Kid
+  - entity: device_tracker.kid
+  - entity: binary_sensor.only_virtual_trackers_home
+```
+
+The same switch as a tile card, which is what a wall tablet usually gets:
+
+```yaml
+type: tile
+entity: switch.kid_at_home
+name: Kid
+```
+
+Use your own entity IDs — they follow the language of your Home Assistant, as
+described above.
 
 ## Typical setups
 
