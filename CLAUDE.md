@@ -91,13 +91,20 @@ entity on the tracker's device page) — the M3a live test showed the prompt's
 ten minutes to be far too short for "is Kid still home?". `answer_timeout`
 stays the prompt's and is untouched, and the `data.timeout` of the reminder's
 phone message follows the new option.
-**M3c (2026-09-22, not live-tested yet)**: the per-tracker switch
+**M3c (2026-09-22, one bug found live and fixed, fix not re-tested yet)**: the
+per-tracker switch
 `override_dnd` ("Override Do Not Disturb for the prompt", off by default,
 eighth settings entity) sends the **prompt's** message as an iOS critical alert
-(`push.interruption-level: critical` + `sound.critical`) and on the Android
+(`push.interruption-level: critical` + `push.sound`) and on the Android
 `alarm_stream` channel, so a silenced phone still rings. Prompt only — the
 reminder and both expiry notices are never made loud, and with the switch off
-the payload is exactly what it was.
+the payload is exactly what it was. The live test on 2026-09-22 showed the iOS
+half failing silently: the sound was sent as `{"critical": 1}` without a name,
+which Home Assistant's push relay rejects before the phone ever sees it
+(`apns.payload.aps.sound.name must be a non-empty string`) — the whole push was
+dropped, not made quiet. Fixed the same day by sending
+`{"name": "default", "critical": 1}`; Android is unaffected (it reads
+`data.channel` only). **The fix itself is still waiting for a live test.**
 A second display-text pass on 2026-09-22 (translations only, no behaviour):
 the three German settings that had lost their qualifier got it back
 ("Nachfragen bei leerem Haus", "Zurücksetzen bei Rückkehr",

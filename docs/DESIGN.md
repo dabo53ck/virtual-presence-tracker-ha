@@ -338,7 +338,7 @@ are used. A person can have several phones; all of them are asked.
 | `data.actions` | `[{action: VPT_YES_<prompt_id>, title: <Yes>}, {action: VPT_NO_<prompt_id>, title: <No>}]` |
 | `data.ttl`, `data.priority` | `0` / `high` - Android: deliver now, even on an idle phone |
 | `data.timeout` | the answer timeout in seconds - Android: drop the message when it is over |
-| `data.push` | `{"interruption-level": "time-sensitive"}` - iOS; with `override_dnd` on (M3c) `{"interruption-level": "critical", "sound": {"critical": 1}}` instead |
+| `data.push` | `{"interruption-level": "time-sensitive"}` - iOS; with `override_dnd` on (M3c) `{"interruption-level": "critical", "sound": {"name": "default", "critical": 1}}` instead |
 | `data.channel` (M3c) | `alarm_stream` - Android, **only** with `override_dnd` on; the key is absent otherwise |
 | `data.icon_url` (M2c, M2e) | `/api/brands/integration/virtual_presence_tracker/icon@2x.png` - the integration's own icon *beside* the message, in place of the Companion App's own: on iOS the message becomes a communication notification whose sender avatar it is (and whose sender name is the title), on Android it is the large icon. No `data.image` is sent: an attachment would show the same picture a second time. |
 
@@ -367,18 +367,39 @@ built, like `notify_on_expiry`, because its switch writes it without a reload.
 Two platform-specific keys, checked against the Companion App sources on
 2026-09-22:
 
-- **iOS**: `data.push` becomes the APNs `aps` dictionary. The app reads
-  `interruption-level` and, when `sound` is a dictionary, parses it with
-  `Sound(dictionary:)` (`Sources/Shared/Notifications/LocalPush/
-  LocalPushEvent.swift`): without a `name` key the sound type stays `.default`,
-  and `critical` as an `Int` or a `Bool` makes `asSound()` return
-  `.defaultCritical`. `{"interruption-level": "critical", "sound":
-  {"critical": 1}}` is therefore enough - no sound file has to be named.
-  **Caveat**: a critical alert needs Apple's critical-alert entitlement, which
-  the Companion App has, *and* the per-app "Critical Alerts" toggle in the iOS
-  notification settings, which the user can switch off again at any time. An
-  app without the permission falls back to a normal alert; nothing about the
-  prompt depends on it.
+- **iOS**: `data.push` becomes the APNs `aps` dictionary, and the `sound`
+  dictionary carries **both** keys: `{"interruption-level": "critical",
+  "sound": {"name": "default", "critical": 1}}`.
+  - `critical` is what makes it a critical alert. The app parses the
+    dictionary with `Sound(dictionary:)`
+    (`Sources/Shared/Notifications/LocalPush/LocalPushEvent.swift`), where
+    `critical` as an `Int` or a `Bool` makes `asSound()` return a critical
+    sound, and `init(name:)` treats a `name` of `"default"`
+    (case-insensitively) as the system sound - the same `.defaultCritical`
+    the dictionary would fall back to without a name. Naming the sound
+    therefore costs nothing on the phone.
+  - `name` is what makes the message **arrive at all**. The payload goes to
+    the push relay first (`homeassistant/components/mobile_app/notify.py`
+    posts it to the cloud push service), and the relay validates the APNs
+    payload before it forwards anything: a `sound` dictionary without a
+    non-empty `name` is rejected outright, with the whole message dropped -
+    not degraded to a quiet one.
+  - **Live finding, 2026-09-22**: this is exactly what happened in the field.
+    An automatic prompt opened at 14:30:41 with `override_dnd` on and nothing
+    reached the phone; the debug log named the reason:
+    `Error sending notification to iPhone von dabo53ck:
+    apns.payload.aps.sound.name must be a non-empty string.` The expiry
+    notice ten minutes later, which sends no `push` at all, arrived normally -
+    which is what isolated it. Reproduced on demand with `open_prompt` and
+    fixed by sending `name: "default"` alongside `critical: 1`. The earlier
+    note here - "a `sound` dictionary with nothing but `critical` is enough,
+    no name is needed" - was read off the app's *client-side* parser and was
+    true of it, but the relay never let such a payload reach the client.
+  - **Caveat**: a critical alert needs Apple's critical-alert entitlement,
+    which the Companion App has, *and* the per-app "Critical Alerts" toggle in
+    the iOS notification settings, which the user can switch off again at any
+    time. An app without the permission falls back to a normal alert; nothing
+    about the prompt depends on it.
 - **Android**: `data.channel` is the notification channel, and `alarm_stream`
   is the exact string the app tests for - `MessagingManager.kt` gives such a
   notification `Notification.CATEGORY_ALARM`, and `NotificationFunctions.kt`
@@ -386,7 +407,10 @@ Two platform-specific keys, checked against the Companion App sources on
   (`AudioManager.STREAM_ALARM`, `USAGE_ALARM`, `FLAG_AUDIBILITY_ENFORCED`).
   That is what Do Not Disturb lets through under "Alarms". The sibling
   `alarm_stream_max`, which also turns the volume up, is deliberately not
-  used. **Unverified**: how a phone with a heavily customised launcher, or
+  used. The Android app never looks at `data.push` or at a `sound`
+  dictionary - `handleSound()` goes by `data.channel` alone (re-checked
+  2026-09-22) - so the `sound.name` of the iOS half above does not touch it.
+  **Unverified**: how a phone with a heavily customised launcher, or
   Android Auto, displays such a notification beyond the Do Not Disturb
   exception itself.
 
@@ -959,7 +983,7 @@ reminder_cancelled -> counting again (or off).
 | **M2g** (done, live-tested) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. Live-tested on 2026-09-21 (HA 2026.9.3): a new entry created the person 40 ms after the tracker's entities, with the tracker assigned, no duplicate, no repair issue and `zone.home` untouched. |
 | **M3a** (done, live-tested except the expiry notice) | The reminder for a tracker that has been on for too long (2026-09-21), the max-duration item of M3 pulled forward: a per-tracker `remind_after` in hours (`0` = never, `number` entity, new trackers get 24), a reminder that is announced by the same `event` entity and sent to the same phones, "yes" / "no" / no answer with the usual rule that only an answer changes anything, the actions `open_reminder` and `answer_reminder`, two more switch attributes. Timers and the open reminder survive a restart through the persisted anchor. An automatic switch-off is deliberately **not** part of it. Live-tested on 2026-09-21 (HA 2026.9.3): `open_reminder`, "yes", "no" and two unanswered expiries behave as designed. The live test also found the one thing that did not: an expired reminder sent no notice although "Notice if unanswered" was on — fixed the same day (see the delivery of the reminder above), and that fix is the only part of M3a that has not been live-tested yet. |
 | **M3b** (done, **not live-tested yet**) | A separate answer time for the reminder (2026-09-22), after the M3a live test found ten minutes far too short for a question about a whole day: `reminder_timeout` in minutes, 1 to 360, an hour by default, with a number entity of its own next to the other timings and the same no-reload mechanism. The reminder's deadline and the `timeout` of its phone message come from it; the prompt's `answer_timeout` is untouched and stays prompt-only. A tracker without the key gets the default like every other missing option, so nobody's behaviour changes on purpose - only the reminder's ten minutes become an hour. |
-| **M3c** (done, **not live-tested yet**) | "Override Do Not Disturb" for the prompt (2026-09-22): a per-tracker switch, off by default, that sends the prompt's message as a critical alert on iOS and on the `alarm_stream` channel on Android, so a silenced phone still rings for the one question with a deadline. The prompt only - the reminder and the two expiry notices are untouched whatever the switch says - and with the switch off the payload is exactly what it was. Opt-in on purpose: it is loud, and on iOS it also depends on a permission the user can take away. |
+| **M3c** (done, one bug found live and fixed, **not re-tested yet**) | "Override Do Not Disturb" for the prompt (2026-09-22): a per-tracker switch, off by default, that sends the prompt's message as a critical alert on iOS and on the `alarm_stream` channel on Android, so a silenced phone still rings for the one question with a deadline. The prompt only - the reminder and the two expiry notices are untouched whatever the switch says - and with the switch off the payload is exactly what it was. Opt-in on purpose: it is loud, and on iOS it also depends on a permission the user can take away. The first live test the same day found the iOS half broken: the `sound` dictionary was sent without a `name`, which the push relay rejects (`apns.payload.aps.sound.name must be a non-empty string`), so the loud prompt reached nobody at all. Fixed by naming the sound, `{"name": "default", "critical": 1}`; the live test of the fix is still open. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
