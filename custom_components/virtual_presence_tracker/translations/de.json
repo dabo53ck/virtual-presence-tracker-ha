@@ -49,7 +49,7 @@
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Antwortzeit“, „Verzögerung“, „Zurücksetzen“, „Info bei Ablauf“, „Erinnerung nach“, „Antwortzeit der Erinnerung“ und „Nicht stören umgehen“.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen“, „Info bei Ablauf“, „Erinnerung nach“, „Antwortzeit der Erinnerung“ und „Nicht stören umgehen für Nachfragen“.",
             "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
           }
         },
@@ -62,7 +62,7 @@
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Antwortzeit“, „Verzögerung“, „Zurücksetzen“, „Info bei Ablauf“, „Erinnerung nach“, „Antwortzeit der Erinnerung“ und „Nicht stören umgehen“."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen“, „Info bei Ablauf“, „Erinnerung nach“, „Antwortzeit der Erinnerung“ und „Nicht stören umgehen für Nachfragen“."
           }
         }
       },
@@ -84,7 +84,7 @@
     },
     "event": {
       "prompt": {
-        "name": "Rückfrage",
+        "name": "Nachfrage",
         "state_attributes": {
           "event_type": {
             "state": {
@@ -105,10 +105,10 @@
     },
     "number": {
       "answer_timeout": {
-        "name": "Antwortzeit"
+        "name": "Nachfrage-Antwortzeit"
       },
       "prompt_delay": {
-        "name": "Verzögerung"
+        "name": "Nachfrage-Verzögerung"
       },
       "remind_after": {
         "name": "Erinnerung nach"
@@ -128,7 +128,7 @@
         "name": "Info bei Ablauf"
       },
       "override_dnd": {
-        "name": "Nicht stören umgehen"
+        "name": "Nicht stören umgehen für Nachfragen"
       },
       "reset_on_return": {
         "name": "Zurücksetzen"
@@ -137,7 +137,7 @@
   },
   "exceptions": {
     "no_open_prompt": {
-      "message": "Für {entity_id} ist keine Rückfrage offen, es gibt also nichts zu beantworten."
+      "message": "Für {entity_id} ist keine Nachfrage offen, es gibt also nichts zu beantworten."
     },
     "no_open_reminder": {
       "message": "Für {entity_id} ist keine Erinnerung offen, es gibt also nichts zu beantworten."
@@ -146,7 +146,7 @@
       "message": "{entity_id} ist eine Einstellung des Trackers, nicht sein Zuhause-Schalter. Nimm stattdessen den Schalter „Zuhause“ des Trackers oder sein Gerät als Ziel."
     },
     "prompt_already_open": {
-      "message": "Für {entity_id} ist bereits eine Rückfrage offen, es gibt also nichts erneut zu fragen."
+      "message": "Für {entity_id} ist bereits eine Nachfrage offen, es gibt also nichts erneut zu fragen."
     },
     "reminder_already_open": {
       "message": "Für {entity_id} ist bereits eine Erinnerung offen, es gibt also nichts erneut zu fragen."
@@ -173,7 +173,7 @@
     },
     "recipient_without_phone": {
       "title": "{person} hat kein Handy, auf dem gefragt werden könnte",
-      "description": "{person} soll zu {tracker} gefragt werden, aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Fragen selbst funktionieren weiterhin: Sie werden über die Event-Entität des Trackers angekündigt und können mit den Aktionen „Rückfrage beantworten“ und „Erinnerung beantworten“ beantwortet werden."
+      "description": "{person} soll zu {tracker} gefragt werden, aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Fragen selbst funktionieren weiterhin: Sie werden über die Event-Entität des Trackers angekündigt und können mit den Aktionen „Nachfrage beantworten“ und „Erinnerung beantworten“ beantwortet werden."
     },
     "real_person_missing": {
       "title": "Die echte Person {person} gibt es nicht mehr",
@@ -196,8 +196,8 @@
   },
   "services": {
     "answer_prompt": {
-      "name": "Rückfrage beantworten",
-      "description": "Beantwortet die offene Rückfrage eines virtuellen Trackers. „Ja“ schaltet den Tracker ein, „Nein“ lässt alles, wie es ist.",
+      "name": "Nachfrage beantworten",
+      "description": "Beantwortet die offene Nachfrage eines virtuellen Trackers. „Ja“ schaltet den Tracker ein, „Nein“ lässt alles, wie es ist.",
       "fields": {
         "answer": {
           "name": "Antwort",
@@ -224,8 +224,8 @@
       }
     },
     "open_prompt": {
-      "name": "Rückfrage öffnen",
-      "description": "Öffnet die Rückfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen“ und die „Verzögerung“ werden dabei ignoriert; alles Weitere läuft wie bei jeder Rückfrage, inklusive Benachrichtigung und Antwortzeit."
+      "name": "Nachfrage öffnen",
+      "description": "Öffnet die Nachfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen“ und die „Nachfrage-Verzögerung“ werden dabei ignoriert; alles Weitere läuft wie bei jeder Nachfrage, inklusive Benachrichtigung und Antwortzeit."
     },
     "open_reminder": {
       "name": "Erinnerung öffnen",

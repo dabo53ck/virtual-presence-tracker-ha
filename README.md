@@ -187,7 +187,7 @@ tracker's settings".
 The entity IDs are built from the tracker's name and the entity names in the
 **language of your Home Assistant**. The examples in this README use English; on
 a German instance the same entities are `switch.kid_zuhause` and
-`event.kid_ruckfrage`. Look yours up under **Settings → Devices & services →
+`event.kid_nachfrage`. Look yours up under **Settings → Devices & services →
 Entities**.
 
 ### 3. The person behind the tracker
@@ -254,12 +254,12 @@ one and it takes effect immediately — nothing reloads, nothing goes
 |---|---|---|
 | **Ask when empty** (switch) | Whether this tracker asks at all when the last real person leaves. | on |
 | **Reset on return** (switch) | Switches the tracker off again when the first real person enters the empty house. | on |
-| **Answer time** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
-| **Ask delay** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
+| **Prompt answer time** (number) | How long a prompt stays open, in minutes (1–120). | 10 |
+| **Prompt delay** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
 | **Notice if unanswered** (switch) | Sends a short note when a prompt or a reminder expires. | off |
 | **Remind after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
-| **Reminder answer time** (number) | How long a reminder stays open, in minutes (1–360). Separate from **Answer time**, because a reminder is often answered much later than a prompt. | 60 |
-| **Override Do Not Disturb** (switch) | Lets the prompt through a phone that is silenced. Loud — see below. | off |
+| **Reminder answer time** (number) | How long a reminder stays open, in minutes (1–360). Separate from **Prompt answer time**, because a reminder is often answered much later than a prompt. | 60 |
+| **Override Do Not Disturb for the prompt** (switch) | Lets the prompt through a phone that is silenced. Loud — see below. | off |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
 use — the only thing under **Controls** is the tracker's own switch. That is
@@ -320,9 +320,9 @@ counting as empty. There is never a default answer.
 A tracker you add asks by default. Its **Ask when empty** switch turns that off
 and on again at any time — during the day, from an automation, or from a
 dashboard — and switching it off while a question is already open takes that
-question back, off your phones as well. **Answer time** and **Ask delay** set
-the timing, and **Who is asked?** in the tracker's form decides whose phones the
-question goes to (see "The tracker's settings").
+question back, off your phones as well. **Prompt answer time** and **Prompt
+delay** set the timing, and **Who is asked?** in the tracker's form decides
+whose phones the question goes to (see "The tracker's settings").
 
 You can also switch the tracker on by hand before you leave. A tracker that is
 already on does not ask anything.
@@ -371,8 +371,8 @@ when the question is withdrawn.
 A phone on Do Not Disturb, or simply on silent, shows the prompt without a
 sound — and a prompt nobody notices is a prompt nobody answers, which leaves
 the house counting as empty for the rest of the evening. **Override Do Not
-Disturb** is the switch for that case. With it on, the question is sent in the
-way each phone reserves for things that must not be missed:
+Disturb for the prompt** is the switch for that case. With it on, the question
+is sent in the way each phone reserves for things that must not be missed:
 
 - on **iOS** as a *critical alert*, which ignores both the mute switch and Do
   Not Disturb;
@@ -458,13 +458,13 @@ target:
 ```
 
 Opens the prompt of that tracker **right now**, without waiting for anybody to
-leave. It has no options: the tracker's own **Answer time** applies, the
+leave. It has no options: the tracker's own **Prompt answer time** applies, the
 question goes to the phones under **Who is asked?**, the event entity announces
 it, and every way of ending it works as usual.
 
 It ignores everything that decides whether to ask *by itself*: who is at home,
 the **Ask when empty** switch — a tracker with that switch off can still be
-asked about this way — and **Ask delay**, because "now" means now. If a prompt
+asked about this way — and **Prompt delay**, because "now" means now. If a prompt
 of that tracker was still waiting for its delay, it opens immediately instead,
 as that same prompt.
 
@@ -491,8 +491,8 @@ The question appears on the phones of everybody under **Who is asked?**,
 `event.kid_prompt` fires `prompt_started`, and the switch gets `prompt_open:
 true`. Answer on the phone, answer with **Answer prompt**, switch the tracker on
 or let the time run out — all of it behaves exactly as it does after a real
-departure. Set **Answer time** to a minute while you are testing if you do not
-want to wait ten.
+departure. Set **Prompt answer time** to a minute while you are testing if you
+do not want to wait ten.
 
 ### Example: ask somewhere else
 
@@ -567,8 +567,8 @@ has a short `for:` (a minute, say), it fires **before** the answer arrives.
 Answering yes afterwards switches the tracker on and makes the person `home`
 again, but whatever already happened has happened.
 
-Two ways around it, and they combine: keep **Ask delay** shorter than the delay
-of your own automations, and make those automations check
+Two ways around it, and they combine: keep **Prompt delay** shorter than the
+delay of your own automations, and make those automations check
 `binary_sensor.only_virtual_trackers_home` or the `prompt_open` attribute of the
 switch before they act. Or skip the waiting altogether and switch the tracker on
 before you leave.
@@ -587,8 +587,8 @@ A prompt you opened yourself with **Open prompt** is an exception to the first
 case: it was never about an empty house, so neither a person being at home nor
 the switch being off withdraws it after a restart. It still expires on time.
 
-A prompt that was still waiting for its **Ask delay** is forgotten instead: it
-had not been announced yet, so there is nothing to take back. Switching **Ask
+A prompt that was still waiting for its **Prompt delay** is forgotten instead:
+it had not been announced yet, so there is nothing to take back. Switching **Ask
 when empty** off withdraws an open or waiting prompt with the reason
 `option_disabled` — at once, not at the next restart, and again with the
 exception of a prompt you opened yourself. A message that is still on a phone is

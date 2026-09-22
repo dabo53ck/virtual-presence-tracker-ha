@@ -82,9 +82,9 @@ from .conftest import PERSON_A, TRACKER_A, TRACKER_B, make_entry, make_subentry
 ASK_A = "switch.kid_ask_when_empty"
 RESET_A = "switch.kid_reset_on_return"
 EXPIRY_A = "switch.kid_notice_if_unanswered"
-DND_A = "switch.kid_override_do_not_disturb"
-TIMEOUT_A = "number.kid_answer_time"
-DELAY_A = "number.kid_ask_delay"
+DND_A = "switch.kid_override_do_not_disturb_for_the_prompt"
+TIMEOUT_A = "number.kid_prompt_answer_time"
+DELAY_A = "number.kid_prompt_delay"
 REMIND_A = "number.kid_remind_after"
 REMINDER_TIMEOUT_A = "number.kid_reminder_answer_time"
 
@@ -284,7 +284,7 @@ async def test_the_entities_show_what_the_tracker_has_stored(
     assert float(hass.states.get(REMINDER_TIMEOUT_A).state) == 240
     # The other tracker is untouched by it.
     assert hass.states.get("switch.granny_ask_when_empty").state == STATE_OFF
-    assert float(hass.states.get("number.granny_answer_time").state) == (
+    assert float(hass.states.get("number.granny_prompt_answer_time").state) == (
         DEFAULT_ANSWER_TIMEOUT
     )
 

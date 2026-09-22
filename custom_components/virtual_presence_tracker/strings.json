@@ -49,7 +49,7 @@
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb\".",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\".",
             "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
           }
         },
@@ -62,7 +62,7 @@
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb\"."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\"."
           }
         }
       },
@@ -105,10 +105,10 @@
     },
     "number": {
       "answer_timeout": {
-        "name": "Answer time"
+        "name": "Prompt answer time"
       },
       "prompt_delay": {
-        "name": "Ask delay"
+        "name": "Prompt delay"
       },
       "remind_after": {
         "name": "Remind after"
@@ -128,7 +128,7 @@
         "name": "Notice if unanswered"
       },
       "override_dnd": {
-        "name": "Override Do Not Disturb"
+        "name": "Override Do Not Disturb for the prompt"
       },
       "reset_on_return": {
         "name": "Reset on return"
@@ -225,7 +225,7 @@
     },
     "open_prompt": {
       "name": "Open prompt",
-      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when empty\" switch and the \"Ask delay\"; everything after that is the usual prompt, including the notification and the answer time."
+      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when empty\" switch and the \"Prompt delay\"; everything after that is the usual prompt, including the notification and the answer time."
     },
     "open_reminder": {
       "name": "Open reminder",

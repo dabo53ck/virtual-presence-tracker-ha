@@ -108,13 +108,13 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 |---|---|---|---|---|
 | `reset_on_return` | bool | - | `True` | Reset on return |
 | `ask_on_departure` | bool | - | `False` | Ask when empty |
-| `answer_timeout` | int, minutes | 1-120 | `10` | Answer time |
-| `prompt_delay` | int, seconds | 0-600 | `0` | Ask delay |
+| `answer_timeout` | int, minutes | 1-120 | `10` | Prompt answer time |
+| `prompt_delay` | int, seconds | 0-600 | `0` | Prompt delay |
 | `notify_persons` (M2b) | list of `person` entity IDs | the entry's real persons | `[]` | Who is asked? |
 | `notify_on_expiry` (M2b) | bool | - | `False` | Notice if unanswered (prompt **and** reminder) |
 | `remind_after` (M3a) | int, hours | 0-168 | `0` (never) | Remind after |
 | `reminder_timeout` (M3b) | int, minutes | 1-360 | `60` | Reminder answer time |
-| `override_dnd` (M3c) | bool | - | `False` | Override Do Not Disturb (**prompt only**) |
+| `override_dnd` (M3c) | bool | - | `False` | Override Do Not Disturb for the prompt (**prompt only**) |
 
 The **keys only ever grow**: M2b settled the first five, M3a added
 `remind_after`, M3b `reminder_timeout` and M3c `override_dnd`. What changed
@@ -156,11 +156,11 @@ option key as the translation key and as the suffix of the unique ID.
 | Ask when empty | `switch` | `ask_on_departure` | `<subentry_id>_ask_on_departure` | `CONFIG` |
 | Reset on return | `switch` | `reset_on_return` | `<subentry_id>_reset_on_return` | `CONFIG` |
 | Notice if unanswered | `switch` | `notify_on_expiry` | `<subentry_id>_notify_on_expiry` | `CONFIG` |
-| Answer time | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
-| Ask delay | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
+| Prompt answer time | `number` | `answer_timeout` | `<subentry_id>_answer_timeout` | `CONFIG` |
+| Prompt delay | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
 | Remind after (M3a) | `number` | `remind_after` | `<subentry_id>_remind_after` | `CONFIG` |
 | Reminder answer time (M3b) | `number` | `reminder_timeout` | `<subentry_id>_reminder_timeout` | `CONFIG` |
-| Override Do Not Disturb (M3c) | `switch` | `override_dnd` | `<subentry_id>_override_dnd` | `CONFIG` |
+| Override Do Not Disturb for the prompt (M3c) | `switch` | `override_dnd` | `<subentry_id>_override_dnd` | `CONFIG` |
 
 **The names in the first column are translations, not contract.** They were
 shortened on 2026-09-21 (the sentences M2f gave them - "Ask when the house
@@ -171,8 +171,20 @@ and unique IDs are untouched, so nothing that identifies an entity moved: an
 **existing install keeps every entity ID it has** - Home Assistant only builds
 one when an entity is registered for the first time - and sees nothing but new
 friendly names. Only a tracker added afterwards gets IDs from the new names
-(`switch.kid_ask_when_empty`, `number.kid_answer_time`, …). Renaming a name is
-therefore allowed where renaming a key never is.
+(`switch.kid_ask_when_empty`, `number.kid_prompt_answer_time`, …). Renaming a
+name is therefore allowed where renaming a key never is.
+
+Three of them were renamed again on 2026-09-22, for the opposite reason: short
+is good, ambiguous is not. "Answer time", "Ask delay" and "Override Do Not
+Disturb" said nothing about *which* question they belong to, and since M3b the
+tracker has two of them with an answer time each. They now name the prompt -
+"Prompt answer time", "Prompt delay", "Override Do Not Disturb for the
+prompt" - next to "Remind after" and "Reminder answer time", which already
+did. The German side took the same step and settled on a single word for the
+prompt, "Nachfrage", where the event entity, the two actions and a few
+messages had been using two. Keys and unique IDs are untouched again, and so
+are the entity IDs of an existing install; a tracker added from now on gets
+`number.kid_prompt_answer_time` rather than `number.kid_answer_time`.
 
 **All** of them are configuration entities (the ask switch became one after
 M2f, on dabo53ck's call): they are settings of the tracker and belong together

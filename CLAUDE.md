@@ -81,7 +81,10 @@ tracker now sit under "Configuration" on its device page (still writable by
 automations). On 2026-09-21 those six also got **shorter names** ("Ask when
 empty", "Reset on return", "Notice if unanswered", "Answer time", "Ask delay",
 "Remind after"); keys and unique IDs are untouched, so an existing install keeps
-its entity IDs.
+its entity IDs. On 2026-09-22 three of those names were made unambiguous again
+— "Prompt answer time", "Prompt delay" and "Override Do Not Disturb for the
+prompt" — and the German UI settled on one word for the prompt, "Nachfrage";
+translated text only, no keys and no entity IDs touched.
 **M3b (2026-09-22, not live-tested yet)**: the reminder got an answer time of
 its own, `reminder_timeout` (minutes, 1–360, default 60, a seventh settings
 entity on the tracker's device page) — the M3a live test showed the prompt's
@@ -89,8 +92,8 @@ ten minutes to be far too short for "is Kid still home?". `answer_timeout`
 stays the prompt's and is untouched, and the `data.timeout` of the reminder's
 phone message follows the new option.
 **M3c (2026-09-22, not live-tested yet)**: the per-tracker switch
-`override_dnd` ("Override Do Not Disturb", off by default, eighth settings
-entity) sends the **prompt's** message as an iOS critical alert
+`override_dnd` ("Override Do Not Disturb for the prompt", off by default,
+eighth settings entity) sends the **prompt's** message as an iOS critical alert
 (`push.interruption-level: critical` + `sound.critical`) and on the Android
 `alarm_stream` channel, so a silenced phone still rings. Prompt only — the
 reminder and both expiry notices are never made loud, and with the switch off

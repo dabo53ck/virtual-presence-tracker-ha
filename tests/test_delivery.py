@@ -750,7 +750,7 @@ async def set_dnd_override(hass: HomeAssistant, on: bool) -> None:
     await hass.services.async_call(
         SWITCH_DOMAIN,
         SERVICE_TURN_ON if on else SERVICE_TURN_OFF,
-        {"entity_id": "switch.kid_override_do_not_disturb"},
+        {"entity_id": "switch.kid_override_do_not_disturb_for_the_prompt"},
         blocking=True,
     )
     await settle(hass)
@@ -953,7 +953,7 @@ async def test_the_reminder_is_sent_to_the_phone(hass: HomeAssistant) -> None:
 async def test_the_reminder_is_never_loud(
     hass: HomeAssistant, override_dnd: bool
 ) -> None:
-    """ "Override Do Not Disturb" is the prompt's option alone (M3c).
+    """ "Override Do Not Disturb for the prompt" is the prompt's option alone (M3c).
 
     A reminder asks about a whole day and is answered whenever the phone is
     picked up, so it is never worth waking anybody for - whatever the switch
