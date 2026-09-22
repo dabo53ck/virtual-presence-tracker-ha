@@ -105,6 +105,10 @@ Pushed to the **private** repo
 - **Plan first, don't assume.** Show a visible plan before acting; ask instead
   of filling gaps. Announce irreversible git actions (push, tag, force, delete)
   before doing them.
+- If the `integration-coder` subagent's report contains an open question for
+  dabo53ck, relay it through `AskUserQuestion` (clickable options) — never just
+  paste the subagent's wording into chat. Subagents can never call that tool
+  themselves.
 - **Never restart Home Assistant** (`ha_restart` or any full Core restart) —
   dabo53ck restarts his live instance himself. If a restart would help, say so.
 - Communicate with dabo53ck in German; code, docs, commits and README in English.
