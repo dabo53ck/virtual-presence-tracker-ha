@@ -181,7 +181,7 @@ Each tracker gives you three entities to work with, for a tracker named *Kid*:
 | `device_tracker.kid` | Follows the switch. Assign this one to a person. |
 | `event.kid_prompt` | Announces the prompt and the reminder (see below). Idle until one of them happens. |
 
-Next to them sit the six entities that hold the tracker's settings — see "The
+Next to them sit the eight entities that hold the tracker's settings — see "The
 tracker's settings".
 
 The entity IDs are built from the tracker's name and the entity names in the
