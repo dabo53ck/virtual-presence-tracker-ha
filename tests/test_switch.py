@@ -54,7 +54,7 @@ from .conftest import PERSON_A, TRACKER_A, TRACKER_B, make_entry, make_subentry
 SWITCH_A = "switch.kid_at_home"
 SWITCH_B = "switch.granny_at_home"
 TRACKER_A_ENTITY = "device_tracker.kid"
-EVENT_A = "event.kid_prompt"
+EVENT_A = "event.kid_questions"
 
 
 @pytest.fixture

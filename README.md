@@ -179,7 +179,7 @@ Each tracker gives you three entities to work with, for a tracker named *Kid*:
 |---|---|
 | `switch.kid_at_home` | The control. Turn it on when the kid is at home. |
 | `device_tracker.kid` | Follows the switch. Assign this one to a person. |
-| `event.kid_prompt` | Announces the prompt and the reminder (see below). Idle until one of them happens. |
+| `event.kid_questions` | Announces the prompt and the reminder (see below). Idle until one of them happens. |
 
 Next to them sit the eight entities that hold the tracker's settings — see "The
 tracker's settings".
@@ -187,7 +187,7 @@ tracker's settings".
 The entity IDs are built from the tracker's name and the entity names in the
 **language of your Home Assistant**. The examples in this README use English; on
 a German instance the same entities are `switch.kid_zuhause` and
-`event.kid_nachfrage`. Look yours up under **Settings → Devices & services →
+`event.kid_fragen`. Look yours up under **Settings → Devices & services →
 Entities**.
 
 ### 3. The person behind the tracker
@@ -405,8 +405,8 @@ Assistant instance.
 
 ### The event entity
 
-`event.kid_prompt` publishes everything that happens to the prompt — and to the
-reminder — of that tracker. Its `event_type` is one of:
+`event.kid_questions` publishes everything that happens to the prompt — and to
+the reminder — of that tracker. Its `event_type` is one of:
 
 | `event_type` | Meaning |
 |---|---|
@@ -488,11 +488,11 @@ not any more:
    **Perform action**.
 
 The question appears on the phones of everybody under **Who is asked?**,
-`event.kid_prompt` fires `prompt_started`, and the switch gets `prompt_open:
-true`. Answer on the phone, answer with **Answer prompt**, switch the tracker on
-or let the time run out — all of it behaves exactly as it does after a real
-departure. Set **Prompt answer time** to a minute while you are testing if you
-do not want to wait ten.
+`event.kid_questions` fires `prompt_started`, and the switch gets
+`prompt_open: true`. Answer on the phone, answer with **Answer prompt**, switch
+the tracker on or let the time run out — all of it behaves exactly as it does
+after a real departure. Set **Prompt answer time** to a minute while you are
+testing if you do not want to wait ten.
 
 ### Example: ask somewhere else
 
@@ -509,7 +509,7 @@ automation:
   - alias: Ask whether Kid is at home
     triggers:
       - trigger: state
-        entity_id: event.kid_prompt
+        entity_id: event.kid_questions
         not_from: ["unavailable", "unknown"]
     conditions:
       - condition: template
@@ -627,7 +627,7 @@ to be answered before your away routines run, while a reminder asks about a
 whole day, and answering it an hour later is perfectly normal. Changing one of
 them never changes the other.
 
-The reminder is announced by the same event entity, `event.kid_prompt`, with
+The reminder is announced by the same event entity, `event.kid_questions`, with
 its own event types, and the switch carries `reminder_open` and
 `reminder_expires_at` while it is waiting.
 Leave **Who is asked?** empty and nothing is sent at all — the events and the
@@ -682,7 +682,7 @@ late answer cannot switch anything off by accident.
    **Perform action**.
 
 The question appears on the phones of everybody under **Who is asked?**,
-`event.kid_prompt` fires `reminder_started`, and the switch gets
+`event.kid_questions` fires `reminder_started`, and the switch gets
 `reminder_open: true`. Answer on the phone, answer with **Answer reminder**,
 switch the tracker off or let the time run out — all of it behaves exactly as
 it does after a real interval. Set **Reminder answer time** to a minute while

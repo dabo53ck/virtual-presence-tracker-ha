@@ -84,7 +84,7 @@
     },
     "event": {
       "prompt": {
-        "name": "Prompt",
+        "name": "Questions",
         "state_attributes": {
           "event_type": {
             "state": {

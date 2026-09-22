@@ -90,7 +90,7 @@ REMINDER_TIMEOUT_A = "number.kid_reminder_answer_time"
 
 SWITCH_A = "switch.kid_at_home"
 TRACKER_A_ENTITY = "device_tracker.kid"
-EVENT_A = "event.kid_prompt"
+EVENT_A = "event.kid_questions"
 SENSOR = "binary_sensor.only_virtual_trackers_home"
 
 # The entities of a tracker that a reload would take away for a moment.

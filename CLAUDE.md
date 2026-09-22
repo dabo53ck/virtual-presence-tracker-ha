@@ -98,6 +98,16 @@ eighth settings entity) sends the **prompt's** message as an iOS critical alert
 `alarm_stream` channel, so a silenced phone still rings. Prompt only — the
 reminder and both expiry notices are never made loud, and with the switch off
 the payload is exactly what it was.
+A second display-text pass on 2026-09-22 (translations only, no behaviour):
+the three German settings that had lost their qualifier got it back
+("Nachfragen bei leerem Haus", "Zurücksetzen bei Rückkehr",
+"Erinnerung-Antwortzeit"; English was already unambiguous), the five
+prompt-side event states now name their question like the five reminder ones
+already did ("Prompt asked" / "Nachfrage gestellt", …), and the event entity
+itself — it announces the prompt **and** the reminder — is called "Questions" /
+"Fragen" instead of "Prompt" / "Nachfrage". Keys, unique IDs and the entity IDs
+of an existing install are untouched; a tracker added from now on gets
+`event.kid_questions`.
 Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its

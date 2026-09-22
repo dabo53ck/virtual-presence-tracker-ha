@@ -424,7 +424,7 @@ async def test_an_answer_from_the_phone_answers_the_prompt(
     manager = entry.runtime_data.manager
     assert manager.prompt_open(TRACKER_A) is False
     assert manager.is_home(TRACKER_A) is home
-    state = hass.states.get("event.kid_prompt")
+    state = hass.states.get("event.kid_questions")
     assert state.attributes["event_type"] == f"answered_{answer}"
     # The user of the phone is the person who answered.
     assert state.attributes["answered_by"] == PERSON_A
@@ -448,7 +448,7 @@ async def test_an_answer_of_an_unknown_user_names_nobody(
     )
 
     assert entry.runtime_data.manager.is_home(TRACKER_A) is True
-    assert hass.states.get("event.kid_prompt").attributes["answered_by"] is None
+    assert hass.states.get("event.kid_questions").attributes["answered_by"] is None
 
 
 async def test_an_answer_without_a_user_names_nobody(hass: HomeAssistant) -> None:
@@ -460,7 +460,7 @@ async def test_an_answer_without_a_user_names_nobody(hass: HomeAssistant) -> Non
     await answer_from_phone(hass, f"VPT_NO_{prompt_id_of(calls[0])}", user_id=None)
 
     assert entry.runtime_data.manager.prompt_open(TRACKER_A) is False
-    assert hass.states.get("event.kid_prompt").attributes["answered_by"] is None
+    assert hass.states.get("event.kid_questions").attributes["answered_by"] is None
 
 
 async def test_an_action_without_a_name_is_ignored(hass: HomeAssistant) -> None:
@@ -522,7 +522,8 @@ async def test_an_answer_after_the_prompt_is_ignored(hass: HomeAssistant) -> Non
     manager = entry.runtime_data.manager
     assert manager.is_home(TRACKER_A) is True
     assert (
-        hass.states.get("event.kid_prompt").attributes["event_type"] == "answered_yes"
+        hass.states.get("event.kid_questions").attributes["event_type"]
+        == "answered_yes"
     )
     # Both phones were cleared once, by the first answer.
     assert len(calls) == 2
@@ -604,7 +605,7 @@ async def test_a_prompt_opened_by_hand_is_answered_from_the_phone(
     manager = entry.runtime_data.manager
     assert manager.prompt_open(TRACKER_A) is False
     assert manager.is_home(TRACKER_A) is home
-    state = hass.states.get("event.kid_prompt")
+    state = hass.states.get("event.kid_questions")
     assert state.attributes["event_type"] == f"answered_{answer}"
     assert state.attributes["answered_by"] == PERSON_A
     assert calls[1].data == {
@@ -630,7 +631,7 @@ async def test_switching_on_takes_a_prompt_opened_by_hand_back(
     manager = entry.runtime_data.manager
     assert manager.prompt_open(TRACKER_A) is False
     assert manager.is_home(TRACKER_A) is True
-    state = hass.states.get("event.kid_prompt")
+    state = hass.states.get("event.kid_questions")
     assert state.attributes["event_type"] == "cancelled"
     assert state.attributes["reason"] == "switched_on"
     assert len(calls) == 2
@@ -1063,7 +1064,7 @@ async def test_an_answer_from_the_phone_answers_the_reminder(
     manager = entry.runtime_data.manager
     assert manager.reminder_open(TRACKER_A) is False
     assert manager.is_home(TRACKER_A) is home
-    state = hass.states.get("event.kid_prompt")
+    state = hass.states.get("event.kid_questions")
     assert state.attributes["event_type"] == f"reminder_answered_{answer}"
     assert state.attributes["answered_by"] == PERSON_A
     # The question is taken off the phone, under its own tag.
@@ -1127,7 +1128,7 @@ async def test_a_late_reminder_answer_is_ignored(hass: HomeAssistant) -> None:
     manager = entry.runtime_data.manager
     assert manager.is_home(TRACKER_A) is True
     assert (
-        hass.states.get("event.kid_prompt").attributes["event_type"]
+        hass.states.get("event.kid_questions").attributes["event_type"]
         == "reminder_answered_yes"
     )
     # Cleared once, by the first answer.
@@ -1151,7 +1152,7 @@ async def test_switching_off_clears_the_reminder_from_the_phone(
     await settle(hass)
 
     assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
-    state = hass.states.get("event.kid_prompt")
+    state = hass.states.get("event.kid_questions")
     assert state.attributes["event_type"] == "reminder_cancelled"
     assert state.attributes["reason"] == "switched_off"
     assert calls[1].data == {
@@ -1191,7 +1192,7 @@ async def test_an_expired_reminder_sends_the_notice(
 
     assert entry.runtime_data.manager.reminder_open(TRACKER_A) is False
     assert entry.runtime_data.manager.is_home(TRACKER_A) is True
-    assert hass.states.get("event.kid_prompt").attributes["event_type"] == (
+    assert hass.states.get("event.kid_questions").attributes["event_type"] == (
         "reminder_expired"
     )
     # The question goes away first, the notice follows it.

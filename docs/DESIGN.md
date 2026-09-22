@@ -216,6 +216,13 @@ the same time, and an automation that wants both would otherwise have to listen
 twice. The ID and the key stay what M2a made them - renaming either would give
 every existing installation a new entity.
 
+Its **name** followed that second question on 2026-09-22: "Prompt" / "Nachfrage"
+named one of the two things the entity announces, so it became "Questions" /
+"Fragen". A name is a translation, not contract - the key `prompt`, the unique
+ID `<subentry_id>_prompt` and the entity ID of every install that already has
+one are untouched; a tracker added from now on gets `event.kid_questions`
+(`event.kid_fragen` in German) instead of `event.kid_prompt`.
+
 `event_types`: `prompt_started`, `answered_yes`, `answered_no`, `expired`,
 `cancelled`, and since M3a `reminder_started`, `reminder_answered_yes`,
 `reminder_answered_no`, `reminder_expired`, `reminder_cancelled`.

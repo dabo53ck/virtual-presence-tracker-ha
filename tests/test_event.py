@@ -53,8 +53,8 @@ PERSON_A = "person.dabo53ck"
 TRACKER_A = "01JVPT000000000000000TRACKA"
 TRACKER_B = "01JVPT000000000000000TRACKB"
 
-EVENT_A = "event.kid_prompt"
-EVENT_B = "event.granny_prompt"
+EVENT_A = "event.kid_questions"
+EVENT_B = "event.granny_questions"
 SWITCH_A = "switch.kid_at_home"
 
 
@@ -141,7 +141,7 @@ async def test_one_event_entity_per_tracker(hass: HomeAssistant) -> None:
     state = hass.states.get(EVENT_A)
     assert state is not None
     assert state.state == STATE_UNKNOWN
-    assert state.attributes[ATTR_FRIENDLY_NAME] == "Kid Prompt"
+    assert state.attributes[ATTR_FRIENDLY_NAME] == "Kid Questions"
     # One entity for both questions about the tracker: the prompt and the
     # reminder, each with its own event types.
     assert state.attributes[ATTR_EVENT_TYPES] == TRACKER_EVENT_TYPES
