@@ -258,6 +258,7 @@ one and it takes effect immediately — nothing reloads, nothing goes
 | **Ask delay** (number) | How long to wait after the last departure, in seconds (0–600). | 0 |
 | **Notice if unanswered** (switch) | Sends a short note when a prompt or a reminder expires. | off |
 | **Remind after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
+| **Reminder answer time** (number) | How long a reminder stays open, in minutes (1–360). Separate from **Answer time**, because a reminder is often answered much later than a prompt. | 60 |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
 use — the only thing under **Controls** is the tracker's own switch. That is
@@ -574,7 +575,7 @@ is the safety net. Set it to the number of hours after which you want to be
 asked, and when a tracker has been on for that long your phone gets:
 
 > **Is Kid still home?**
-> Kid has been marked as home for 24 hours. Answer within 10 minutes.
+> Kid has been marked as home for 24 hours. Answer within 60 minutes.
 > \[ Yes, still home ] \[ No, switch off ]
 
 - **Yes, still home** changes nothing and starts the waiting time again, so the
@@ -590,10 +591,16 @@ asked, and when a tracker has been on for that long your phone gets:
 keeps: it stays silent until you set a number. A tracker you add now starts at
 **24 hours**.
 
-The reminder goes to the same people as the prompt (**Who is asked?**) and
-gives them the same time to answer (**Answer time**). It is announced by the
-same event entity, `event.kid_prompt`, with its own event types, and the
-switch carries `reminder_open` and `reminder_expires_at` while it is waiting.
+The reminder goes to the same people as the prompt (**Who is asked?**), and
+**Reminder answer time** decides how long it waits — an hour by default,
+against the prompt's ten minutes. The two are separate on purpose: a prompt has
+to be answered before your away routines run, while a reminder asks about a
+whole day, and answering it an hour later is perfectly normal. Changing one of
+them never changes the other.
+
+The reminder is announced by the same event entity, `event.kid_prompt`, with
+its own event types, and the switch carries `reminder_open` and
+`reminder_expires_at` while it is waiting.
 Leave **Who is asked?** empty and nothing is sent at all — the events and the
 actions still work, so your own automation can deliver it.
 
@@ -649,8 +656,8 @@ The question appears on the phones of everybody under **Who is asked?**,
 `event.kid_prompt` fires `reminder_started`, and the switch gets
 `reminder_open: true`. Answer on the phone, answer with **Answer reminder**,
 switch the tracker off or let the time run out — all of it behaves exactly as
-it does after a real interval. Set **Answer time** to a minute while you are
-testing.
+it does after a real interval. Set **Reminder answer time** to a minute while
+you are testing.
 
 ## Troubleshooting: repair issues
 

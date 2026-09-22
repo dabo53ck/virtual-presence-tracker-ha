@@ -4,8 +4,8 @@ Home Assistant **custom integration** — `virtual_presence_tracker`.
 Presence for household members without a phone, with prompts, auto-reset and a
 "only virtual trackers home" sensor.
 
-Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e, M2f, M2g and
-M3a complete** — skeleton
+Status: **M1 complete (incl. M1f and M1g), M2a, M2b, M2c, M2d, M2e, M2f, M2g,
+M3a and M3b complete** — skeleton
 (manifest with `single_config_entry`, CI), the household manager (`manager.py`:
 persisted tracker states, real-person presence, reset on return, prompt state
 machine, reminder state machine), the config flow (real persons, reconfigure)
@@ -82,6 +82,12 @@ automations). On 2026-09-21 those six also got **shorter names** ("Ask when
 empty", "Reset on return", "Notice if unanswered", "Answer time", "Ask delay",
 "Remind after"); keys and unique IDs are untouched, so an existing install keeps
 its entity IDs.
+**M3b (2026-09-22, not live-tested yet)**: the reminder got an answer time of
+its own, `reminder_timeout` (minutes, 1–360, default 60, a seventh settings
+entity on the tracker's device page) — the M3a live test showed the prompt's
+ten minutes to be far too short for "is Kid still home?". `answer_timeout`
+stays the prompt's and is untouched, and the `data.timeout` of the reminder's
+phone message follows the new option.
 Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its
