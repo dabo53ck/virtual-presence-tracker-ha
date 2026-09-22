@@ -820,6 +820,19 @@ trackers in it.
 No. Entity IDs and unique IDs are derived from internal IDs, not from the name, so
 renaming only changes what is displayed.
 
+## Contributing a translation
+
+The integration speaks English and German. Another language is one file: copy
+`custom_components/virtual_presence_tracker/translations/en.json` to
+`translations/<language-code>.json` — the code Home Assistant uses for that
+language, `fr.json`, `nl.json`, `lb.json` — and translate the values, leaving
+every key exactly as it is.
+
+English is the source of truth, and it lives twice: `strings.json` and
+`translations/en.json` must stay **byte-identical** to each other, so an English
+string is only ever changed in both files at once. A translation never touches
+either of them.
+
 ## License
 
 [MIT](LICENSE)
