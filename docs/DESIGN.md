@@ -114,10 +114,11 @@ silently, so it only ever grows - names and keys are never renamed or removed.
 | `notify_on_expiry` (M2b) | bool | - | `False` | Notice if unanswered (prompt **and** reminder) |
 | `remind_after` (M3a) | int, hours | 0-168 | `0` (never) | Remind after |
 | `reminder_timeout` (M3b) | int, minutes | 1-360 | `60` | Reminder answer time |
+| `override_dnd` (M3c) | bool | - | `False` | Override Do Not Disturb (**prompt only**) |
 
 The **keys only ever grow**: M2b settled the first five, M3a added
-`remind_after` and M3b `reminder_timeout`. What changed with M2f is who writes
-them. All of them but `notify_persons` have an entity
+`remind_after`, M3b `reminder_timeout` and M3c `override_dnd`. What changed
+with M2f is who writes them. All of them but `notify_persons` have an entity
 each (below) and are written from the tracker's device page **without reloading
 the config entry**; `notify_persons` stays in the form, because it is a list of
 persons rather than a value.
@@ -145,7 +146,7 @@ a **new** tracker every real person of the entry is pre-selected; the
 **reconfigure** step merges (`{**subentry.data, notify_persons: ...}`), so the
 settings pass through the form untouched.
 
-### Option entities (M2f, grown in M3a and M3b, one set per tracker)
+### Option entities (M2f, grown in M3a, M3b and M3c, one set per tracker)
 
 On the tracker's device `(DOMAIN, subentry_id)`, `has_entity_name`, with the
 option key as the translation key and as the suffix of the unique ID.
@@ -159,6 +160,7 @@ option key as the translation key and as the suffix of the unique ID.
 | Ask delay | `number` | `prompt_delay` | `<subentry_id>_prompt_delay` | `CONFIG` |
 | Remind after (M3a) | `number` | `remind_after` | `<subentry_id>_remind_after` | `CONFIG` |
 | Reminder answer time (M3b) | `number` | `reminder_timeout` | `<subentry_id>_reminder_timeout` | `CONFIG` |
+| Override Do Not Disturb (M3c) | `switch` | `override_dnd` | `<subentry_id>_override_dnd` | `CONFIG` |
 
 **The names in the first column are translations, not contract.** They were
 shortened on 2026-09-21 (the sentences M2f gave them - "Ask when the house
@@ -300,7 +302,8 @@ are used. A person can have several phones; all of them are asked.
 | `data.actions` | `[{action: VPT_YES_<prompt_id>, title: <Yes>}, {action: VPT_NO_<prompt_id>, title: <No>}]` |
 | `data.ttl`, `data.priority` | `0` / `high` - Android: deliver now, even on an idle phone |
 | `data.timeout` | the answer timeout in seconds - Android: drop the message when it is over |
-| `data.push` | `{"interruption-level": "time-sensitive"}` - iOS |
+| `data.push` | `{"interruption-level": "time-sensitive"}` - iOS; with `override_dnd` on (M3c) `{"interruption-level": "critical", "sound": {"critical": 1}}` instead |
+| `data.channel` (M3c) | `alarm_stream` - Android, **only** with `override_dnd` on; the key is absent otherwise |
 | `data.icon_url` (M2c, M2e) | `/api/brands/integration/virtual_presence_tracker/icon@2x.png` - the integration's own icon *beside* the message, in place of the Companion App's own: on iOS the message becomes a communication notification whose sender avatar it is (and whose sender name is the title), on Android it is the large icon. No `data.image` is sent: an attachment would show the same picture a second time. |
 
 The action IDs and the tag are internal, but they have to stay stable: the
@@ -316,6 +319,44 @@ to every recipient phone on *every* ending of the prompt (`answered_yes`,
 the clearing, with the tag `vpt_info_<prompt_id>` and the same `data.icon_url`.
 The clearing carries neither: it is not a message, it takes one away. The
 reminder has the same notice, on the same option (see below).
+
+**Loud enough to get through a silenced phone** (M3c, `override_dnd`, off by
+default, the **prompt only**). The prompt is the one question with a deadline
+nobody can repeat - miss it and the house counts as empty for the evening -
+which is why it may be made loud at all; the reminder asks about a whole day
+and the two expiry notices are news rather than questions, so neither is ever
+touched by this option. It is read out of the subentry when the message is
+built, like `notify_on_expiry`, because its switch writes it without a reload.
+
+Two platform-specific keys, checked against the Companion App sources on
+2026-09-22:
+
+- **iOS**: `data.push` becomes the APNs `aps` dictionary. The app reads
+  `interruption-level` and, when `sound` is a dictionary, parses it with
+  `Sound(dictionary:)` (`Sources/Shared/Notifications/LocalPush/
+  LocalPushEvent.swift`): without a `name` key the sound type stays `.default`,
+  and `critical` as an `Int` or a `Bool` makes `asSound()` return
+  `.defaultCritical`. `{"interruption-level": "critical", "sound":
+  {"critical": 1}}` is therefore enough - no sound file has to be named.
+  **Caveat**: a critical alert needs Apple's critical-alert entitlement, which
+  the Companion App has, *and* the per-app "Critical Alerts" toggle in the iOS
+  notification settings, which the user can switch off again at any time. An
+  app without the permission falls back to a normal alert; nothing about the
+  prompt depends on it.
+- **Android**: `data.channel` is the notification channel, and `alarm_stream`
+  is the exact string the app tests for - `MessagingManager.kt` gives such a
+  notification `Notification.CATEGORY_ALARM`, and `NotificationFunctions.kt`
+  builds its channel with the alarm audio stream
+  (`AudioManager.STREAM_ALARM`, `USAGE_ALARM`, `FLAG_AUDIBILITY_ENFORCED`).
+  That is what Do Not Disturb lets through under "Alarms". The sibling
+  `alarm_stream_max`, which also turns the volume up, is deliberately not
+  used. **Unverified**: how a phone with a heavily customised launcher, or
+  Android Auto, displays such a notification beyond the Do Not Disturb
+  exception itself.
+
+With the option off, `data.push` is exactly the dictionary it has always been
+and `data.channel` is not sent at all, so a tracker that does not ask for this
+sees no change whatsoever.
 
 **Answers** arrive as the bus event `mobile_app_notification_action`. Only
 `data.action` is trusted: `VPT_YES_<prompt_id>` / `VPT_NO_<prompt_id>` for a
@@ -510,7 +551,7 @@ reminder_cancelled -> counting again (or off).
   | `device_tracker.<title>` | `<subentry_id>_tracker` | none |
   | `switch.<title>_at_home` | `<subentry_id>_at_home` | one per tracker, `(DOMAIN, subentry_id)`, named after the tracker |
   | `binary_sensor.only_virtual_trackers_home` | `<entry_id>_only_virtual_home` | none |
-  | the option entities (M2f, M3a, M3b) | `<subentry_id>_<option key>` | the tracker's device |
+  | the option entities (M2f, M3a, M3b, M3c) | `<subentry_id>_<option key>` | the tracker's device |
 
   The tracker sets `_attr_name` and leaves `has_entity_name` off: it has no
   device, so its own name is the full name and the entity ID follows the title
@@ -851,8 +892,8 @@ reminder_cancelled -> counting again (or off).
   (`_ask_on_departure()`, `_answer_timeout()`, `_prompt_delay()`,
   `_remind_after()`, `_reminder_timeout()`, the reset in
   `_async_reset_trackers()`), and `delivery.py` reads `answer_timeout`,
-  `reminder_timeout` and `notify_on_expiry` out of the subentry at send time -
-  each payload builder the one that belongs to its question. The exceptions are deliberate: the manager remembers the *previous* ask
+  `reminder_timeout`, `notify_on_expiry` and `override_dnd` out of the subentry
+  at send time - each payload builder the ones that belong to its question. The exceptions are deliberate: the manager remembers the *previous* ask
   value and the *previous* reminder interval per tracker, in order to notice
   the transition to off / to zero. An open prompt or reminder keeps the
   deadline it was opened with when the timeout changes; the new value applies
@@ -882,6 +923,7 @@ reminder_cancelled -> counting again (or off).
 | **M2g** (done, live-tested) | The `person` of a new virtual tracker is created by the integration (decided after the same usability review, 2026-09-21): the form of a new tracker has a "Create a person for this tracker" box, ticked by default, and leaves a `create_person` marker in the subentry data; once Home Assistant has started, `person.async_create_person()` creates a person without a login named after the tracker with the tracker assigned. Nothing is created when a person already follows the tracker or already goes by that name, and the marker is taken off in every case — without reloading the entry, so the work happens exactly once and a person the user deletes later never comes back. `tracker_not_assigned` is held back while a marker is pending and stays the fallback for a tracker whose box was unticked. Removing a tracker still leaves its person alone. Live-tested on 2026-09-21 (HA 2026.9.3): a new entry created the person 40 ms after the tracker's entities, with the tracker assigned, no duplicate, no repair issue and `zone.home` untouched. |
 | **M3a** (done, live-tested except the expiry notice) | The reminder for a tracker that has been on for too long (2026-09-21), the max-duration item of M3 pulled forward: a per-tracker `remind_after` in hours (`0` = never, `number` entity, new trackers get 24), a reminder that is announced by the same `event` entity and sent to the same phones, "yes" / "no" / no answer with the usual rule that only an answer changes anything, the actions `open_reminder` and `answer_reminder`, two more switch attributes. Timers and the open reminder survive a restart through the persisted anchor. An automatic switch-off is deliberately **not** part of it. Live-tested on 2026-09-21 (HA 2026.9.3): `open_reminder`, "yes", "no" and two unanswered expiries behave as designed. The live test also found the one thing that did not: an expired reminder sent no notice although "Notice if unanswered" was on — fixed the same day (see the delivery of the reminder above), and that fix is the only part of M3a that has not been live-tested yet. |
 | **M3b** (done, **not live-tested yet**) | A separate answer time for the reminder (2026-09-22), after the M3a live test found ten minutes far too short for a question about a whole day: `reminder_timeout` in minutes, 1 to 360, an hour by default, with a number entity of its own next to the other timings and the same no-reload mechanism. The reminder's deadline and the `timeout` of its phone message come from it; the prompt's `answer_timeout` is untouched and stays prompt-only. A tracker without the key gets the default like every other missing option, so nobody's behaviour changes on purpose - only the reminder's ten minutes become an hour. |
+| **M3c** (done, **not live-tested yet**) | "Override Do Not Disturb" for the prompt (2026-09-22): a per-tracker switch, off by default, that sends the prompt's message as a critical alert on iOS and on the `alarm_stream` channel on Android, so a silenced phone still rings for the one question with a deadline. The prompt only - the reminder and the two expiry notices are untouched whatever the switch says - and with the switch off the payload is exactly what it was. Opt-in on purpose: it is loud, and on iOS it also depends on a permission the user can take away. |
 | **M3** | Evidence sources (BLE tag, tablet Wi-Fi, door contact) that auto-set "home"; services, repairs, diagnostics, translations en/de. |
 | **M4** | README, brand, beta releases via `dev`, HACS default submission. |
 
@@ -1014,6 +1056,17 @@ Confirmed by dabo53ck (2026-09-19):
     generic "notice if unanswered" on the tracker, it was on, a reminder
     expired - and nothing arrived. One option, both questions; the text says
     which one it is.
+
+- **M3c decision (dabo53ck, 2026-09-22)**: a phone on Do Not Disturb misses the
+  prompt, and a prompt nobody answers leaves the house counting as empty for
+  the evening - so a tracker may be allowed to be **loud** for it.
+  `override_dnd` is therefore a switch of its own, **off by default**: it
+  bypasses silent mode, which is only ever right where somebody has asked for
+  it. Its scope is the **prompt alone** (confirmed the same day): the reminder
+  is a question about a whole day and the expiry notices report something that
+  has already happened, so neither is worth waking anybody for. Not extended
+  to the reminder later either - that would be a new decision, not a step that
+  was left out.
 
 - **M2g decision (dabo53ck, 2026-09-21)**: the integration **creates the person**
   of a new virtual tracker, because having to create one by hand and assign the

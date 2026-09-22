@@ -88,6 +88,13 @@ entity on the tracker's device page) — the M3a live test showed the prompt's
 ten minutes to be far too short for "is Kid still home?". `answer_timeout`
 stays the prompt's and is untouched, and the `data.timeout` of the reminder's
 phone message follows the new option.
+**M3c (2026-09-22, not live-tested yet)**: the per-tracker switch
+`override_dnd` ("Override Do Not Disturb", off by default, eighth settings
+entity) sends the **prompt's** message as an iOS critical alert
+(`push.interruption-level: critical` + `sound.critical`) and on the Android
+`alarm_stream` channel, so a silenced phone still rings. Prompt only — the
+reminder and both expiry notices are never made loud, and with the switch off
+the payload is exactly what it was.
 Pushed to the **private** repo
 `dabo53ck/virtual-presence-tracker-ha` (branch `dev`), CI green. Design lives in
 [`docs/DESIGN.md`](docs/DESIGN.md) — read it before changing anything; its

@@ -259,6 +259,7 @@ one and it takes effect immediately — nothing reloads, nothing goes
 | **Notice if unanswered** (switch) | Sends a short note when a prompt or a reminder expires. | off |
 | **Remind after** (number) | After how many hours at home the tracker asks whether the person is still there, in hours (0–168). **0 means never.** | 24 |
 | **Reminder answer time** (number) | How long a reminder stays open, in minutes (1–360). Separate from **Answer time**, because a reminder is often answered much later than a prompt. | 60 |
+| **Override Do Not Disturb** (switch) | Lets the prompt through a phone that is silenced. Loud — see below. | off |
 
 All of them sit under **Configuration** on that page, out of the way of everyday
 use — the only thing under **Controls** is the tracker's own switch. That is
@@ -364,6 +365,34 @@ Kid counts as not at home." for the prompt, "No answer: Kid stays marked as
 home." for the reminder further down. One switch covers both. It is off by
 default, and it is only ever sent on an expiry — never when somebody answers or
 when the question is withdrawn.
+
+### When the phone is on silent
+
+A phone on Do Not Disturb, or simply on silent, shows the prompt without a
+sound — and a prompt nobody notices is a prompt nobody answers, which leaves
+the house counting as empty for the rest of the evening. **Override Do Not
+Disturb** is the switch for that case. With it on, the question is sent in the
+way each phone reserves for things that must not be missed:
+
+- on **iOS** as a *critical alert*, which ignores both the mute switch and Do
+  Not Disturb;
+- on **Android** on the *alarm* channel, which is the exception Do Not Disturb
+  keeps for alarms.
+
+**It is loud.** It will ring at night, in a meeting and in the cinema, and it
+is the one thing in this integration that deliberately ignores a phone that was
+put on silent. That is why it is **off by default** — switch it on only for a
+tracker where being woken up is better than missing the question, and only for
+people who agree to it.
+
+Two more things to know:
+
+- It applies to the **prompt only**. The reminder ("is Kid still home?") and
+  the short notes about an unanswered question stay quiet, whatever this switch
+  says — they are not questions with a deadline.
+- On **iOS** critical alerts additionally need the **Critical Alerts** switch
+  in the notification settings of the Home Assistant app. If that is off, the
+  prompt simply arrives as a normal notification; nothing else changes.
 
 **Leaving "Who is asked?" empty means the integration sends nothing at all.** The
 prompt still opens, the event entity still announces it and the action still
