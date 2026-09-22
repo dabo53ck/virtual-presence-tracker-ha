@@ -186,6 +186,15 @@ messages had been using two. Keys and unique IDs are untouched again, and so
 are the entity IDs of an existing install; a tracker added from now on gets
 `number.kid_prompt_answer_time` rather than `number.kid_answer_time`.
 
+A last round the same day was **German only**: "Nachfragen", "Zurücksetzen" and
+"Antwortzeit der Erinnerung" became "Nachfragen bei leerem Haus",
+"Zurücksetzen bei Rückkehr" and "Erinnerung-Antwortzeit". The English column
+had kept the qualifier all along ("Ask when empty", "Reset on return",
+"Reminder answer time") and does not change; the German one had dropped it and
+left three settings saying only *that* something happens, not *when*. Keys,
+unique IDs and every existing entity ID stay as they are - only a tracker added
+on a German instance from now on builds its IDs from the longer names.
+
 **All** of them are configuration entities (the ask switch became one after
 M2f, on dabo53ck's call): they are settings of the tracker and belong together
 under "Configuration" on its device page, away from the everyday control, which
