@@ -88,11 +88,11 @@
         "state_attributes": {
           "event_type": {
             "state": {
-              "prompt_started": "Nachgefragt",
-              "answered_yes": "Mit Ja beantwortet",
-              "answered_no": "Mit Nein beantwortet",
-              "expired": "Nicht beantwortet",
-              "cancelled": "Zurückgezogen",
+              "prompt_started": "Nachfrage gestellt",
+              "answered_yes": "Nachfrage mit Ja beantwortet",
+              "answered_no": "Nachfrage mit Nein beantwortet",
+              "expired": "Nachfrage nicht beantwortet",
+              "cancelled": "Nachfrage zurückgezogen",
               "reminder_started": "Erinnert",
               "reminder_answered_yes": "Erinnerung mit Ja beantwortet",
               "reminder_answered_no": "Erinnerung mit Nein beantwortet",

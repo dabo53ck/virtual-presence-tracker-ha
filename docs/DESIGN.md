@@ -220,6 +220,14 @@ every existing installation a new entity.
 `cancelled`, and since M3a `reminder_started`, `reminder_answered_yes`,
 `reminder_answered_no`, `reminder_expired`, `reminder_cancelled`.
 
+What an automation reads is that `event_type`; what the frontend shows is a
+**translated label**, and labels are never contract. The five reminder ones
+have named their question since M3a ("Reminder not answered"), the five prompt
+ones did not ("Not answered") - on an entity that carries both, that said
+nothing. They were given the same qualifier on 2026-09-22: "Prompt asked",
+"Prompt answered yes", "Prompt answered no", "Prompt not answered", "Prompt
+withdrawn", and in German "Nachfrage gestellt" and its four siblings.
+
 Event data, all values strings (times ISO-8601 in UTC) or `null`:
 
 | Key | On | Value |

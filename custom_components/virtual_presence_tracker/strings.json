@@ -88,11 +88,11 @@
         "state_attributes": {
           "event_type": {
             "state": {
-              "prompt_started": "Asked",
-              "answered_yes": "Answered yes",
-              "answered_no": "Answered no",
-              "expired": "Not answered",
-              "cancelled": "Withdrawn",
+              "prompt_started": "Prompt asked",
+              "answered_yes": "Prompt answered yes",
+              "answered_no": "Prompt answered no",
+              "expired": "Prompt not answered",
+              "cancelled": "Prompt withdrawn",
               "reminder_started": "Reminded",
               "reminder_answered_yes": "Reminder answered yes",
               "reminder_answered_no": "Reminder answered no",
