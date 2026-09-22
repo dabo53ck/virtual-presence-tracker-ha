@@ -38,6 +38,7 @@ from .const import (
     CONF_CREATE_PERSON,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
+    CONF_OVERRIDE_DND,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_CREATE_PERSON,
     DEFAULT_NOTIFY_ON_EXPIRY,
+    DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_REMINDER_TIMEOUT,
     DEFAULT_RESET_ON_RETURN,
@@ -290,6 +292,7 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                     CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
                     CONF_NOTIFY_PERSONS: recipients,
                     CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+                    CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
                 }
                 if subentry is None
                 else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}

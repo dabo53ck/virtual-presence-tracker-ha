@@ -77,6 +77,15 @@ CONF_NOTIFY_PERSONS: Final = "notify_persons"
 CONF_NOTIFY_ON_EXPIRY: Final = "notify_on_expiry"
 DEFAULT_NOTIFY_ON_EXPIRY: Final = False
 
+# Whether the *prompt* is loud enough to get through a silenced phone (M3c).
+# Off by default and deliberately opt-in: it bypasses Do Not Disturb and the
+# mute switch, which is right for the one question that has a deadline nobody
+# can repeat and wrong for everything else. It covers the prompt only - not
+# the reminder, which asks about a whole day, and not the expiry notices,
+# which are news rather than questions.
+CONF_OVERRIDE_DND: Final = "override_dnd"
+DEFAULT_OVERRIDE_DND: Final = False
+
 # The options a tracker carries an entity for (M2f, grown in M3a), with the
 # value that applies while the key is missing. They are the only keys of a
 # subentry that
@@ -91,6 +100,7 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
     CONF_REMIND_AFTER: DEFAULT_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
+    CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 
@@ -193,6 +203,13 @@ CLEAR_NOTIFICATION: Final = "clear_notification"
 # with an icon URL that starts with a slash (see docs/DESIGN.md).
 NOTIFICATION_ICON_FILE: Final = "icon@2x.png"
 NOTIFICATION_ICON: Final = f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_ICON_FILE}"
+
+# The Android notification channel that makes a message loud enough to get
+# through Do Not Disturb (M3c): the Companion App tests for this exact name and
+# gives such a notification `Notification.CATEGORY_ALARM` and the alarm audio
+# stream, which is the exception Do Not Disturb keeps for alarms. The iOS half
+# of the same option lives in `data.push` (see docs/DESIGN.md).
+NOTIFICATION_ALARM_CHANNEL: Final = "alarm_stream"
 
 # Entity services on the switches of this integration.
 SERVICE_ANSWER_PROMPT: Final = "answer_prompt"

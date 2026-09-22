@@ -49,7 +49,7 @@
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\" and \"Reminder answer time\".",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb\".",
             "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
           }
         },
@@ -62,7 +62,7 @@
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\" and \"Reminder answer time\"."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Answer time\", \"Ask delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb\"."
           }
         }
       },
@@ -126,6 +126,9 @@
       },
       "notify_on_expiry": {
         "name": "Notice if unanswered"
+      },
+      "override_dnd": {
+        "name": "Override Do Not Disturb"
       },
       "reset_on_return": {
         "name": "Reset on return"

@@ -36,11 +36,13 @@ from .const import (
     CONF_DEVICE_NAME,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
+    CONF_OVERRIDE_DND,
     CONF_PERSONS,
     CONF_REMINDER_TIMEOUT,
     CONF_USER_ID,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_NOTIFY_ON_EXPIRY,
+    DEFAULT_OVERRIDE_DND,
     DEFAULT_REMINDER_TIMEOUT,
     DOMAIN,
     EVENT_EXPIRED,
@@ -49,6 +51,7 @@ from .const import (
     EVENT_REMINDER_EXPIRED,
     EVENT_REMINDER_STARTED,
     MOBILE_APP_DOMAIN,
+    NOTIFICATION_ALARM_CHANNEL,
     NOTIFICATION_ICON,
     NOTIFICATION_INFO_TAG_PREFIX,
     NOTIFICATION_REMINDER_TAG_PREFIX,
@@ -285,29 +288,48 @@ class PromptDelivery:
     def _async_prompt_payload(
         self, subentry: ConfigSubentry, prompt_id: str
     ) -> dict[str, Any]:
-        """Return the actionable notification that asks the question."""
+        """Return the actionable notification that asks the question.
+
+        The only message of the integration that may be loud: with
+        ``override_dnd`` on it is sent as a critical alert on iOS and on the
+        alarm channel on Android, so a silenced phone still rings (M3c). The
+        option is read here, at send time, because its switch writes it
+        without reloading the entry.
+        """
         minutes = int(subentry.data.get(CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT))
         yes, no = async_answer_titles(self.hass)
+        data: dict[str, Any] = {
+            "tag": f"{NOTIFICATION_TAG_PREFIX}{prompt_id}",
+            "actions": [
+                {"action": f"{ACTION_YES_PREFIX}{prompt_id}", "title": yes},
+                {"action": f"{ACTION_NO_PREFIX}{prompt_id}", "title": no},
+            ],
+            # Android: a question with a deadline is worth waking the phone
+            # for, and it is worthless once the deadline has passed.
+            "ttl": 0,
+            "priority": "high",
+            "timeout": minutes * 60,
+            # iOS: the same idea, in Apple's words.
+            "push": {"interruption-level": "time-sensitive"},
+            # Whose question this is: the icon beside the message is ours
+            # instead of the Companion App's own.
+            "icon_url": NOTIFICATION_ICON,
+        }
+        if subentry.data.get(CONF_OVERRIDE_DND, DEFAULT_OVERRIDE_DND):
+            # iOS: a critical alert, which ignores the mute switch and Do Not
+            # Disturb. A `sound` dictionary with nothing but `critical` is the
+            # default sound played that way - no name is needed.
+            data["push"] = {
+                "interruption-level": "critical",
+                "sound": {"critical": 1},
+            }
+            # Android: the alarm channel, which carries the alarm category and
+            # the alarm audio stream - the exception Do Not Disturb keeps.
+            data["channel"] = NOTIFICATION_ALARM_CHANNEL
         return {
             "title": async_prompt_title(self.hass, subentry.title),
             "message": async_prompt_message(self.hass, minutes),
-            "data": {
-                "tag": f"{NOTIFICATION_TAG_PREFIX}{prompt_id}",
-                "actions": [
-                    {"action": f"{ACTION_YES_PREFIX}{prompt_id}", "title": yes},
-                    {"action": f"{ACTION_NO_PREFIX}{prompt_id}", "title": no},
-                ],
-                # Android: a question with a deadline is worth waking the phone
-                # for, and it is worthless once the deadline has passed.
-                "ttl": 0,
-                "priority": "high",
-                "timeout": minutes * 60,
-                # iOS: the same idea, in Apple's words.
-                "push": {"interruption-level": "time-sensitive"},
-                # Whose question this is: the icon beside the message is ours
-                # instead of the Companion App's own.
-                "icon_url": NOTIFICATION_ICON,
-            },
+            "data": data,
         }
 
     @callback

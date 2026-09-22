@@ -43,6 +43,12 @@
       "notify_on_expiry": {
         "default": "mdi:bell-alert-outline"
       },
+      "override_dnd": {
+        "default": "mdi:bell-ring",
+        "state": {
+          "off": "mdi:bell-sleep"
+        }
+      },
       "reset_on_return": {
         "default": "mdi:restore"
       }

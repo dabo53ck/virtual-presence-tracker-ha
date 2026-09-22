@@ -21,7 +21,9 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_DEVICE_NAME,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
+    CONF_OVERRIDE_DND,
     CONF_PERSONS,
+    CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_USER_ID,
@@ -74,6 +76,8 @@ def make_entry(
     timeout: int = 10,
     reminder_timeout: int = 60,
     remind_after: int = 0,
+    override_dnd: bool = False,
+    delay: int = 0,
 ) -> MockConfigEntry:
     """Return an entry with one tracker that asks and notifies."""
     return MockConfigEntry(
@@ -86,12 +90,14 @@ def make_entry(
                 "data": {
                     CONF_ASK_ON_DEPARTURE: asking,
                     CONF_ANSWER_TIMEOUT: timeout,
+                    CONF_PROMPT_DELAY: delay,
                     CONF_REMIND_AFTER: remind_after,
                     CONF_REMINDER_TIMEOUT: reminder_timeout,
                     CONF_NOTIFY_PERSONS: (
                         recipients if recipients is not None else [PERSON_A]
                     ),
                     CONF_NOTIFY_ON_EXPIRY: notify_on_expiry,
+                    CONF_OVERRIDE_DND: override_dnd,
                 },
                 "subentry_id": TRACKER_A,
                 "subentry_type": SUBENTRY_TYPE_TRACKER,
@@ -732,6 +738,159 @@ async def test_a_failing_phone_does_not_stop_the_others(
     await unload(hass, entry)
 
 
+# What the prompt's message looks like when it is allowed to be loud (M3c):
+# a critical alert on iOS, the alarm channel on Android.
+LOUD_PUSH = {"interruption-level": "critical", "sound": {"critical": 1}}
+QUIET_PUSH = {"interruption-level": "time-sensitive"}
+ALARM_CHANNEL = "alarm_stream"
+
+
+async def set_dnd_override(hass: HomeAssistant, on: bool) -> None:
+    """Flip the tracker's "override Do Not Disturb" switch."""
+    await hass.services.async_call(
+        SWITCH_DOMAIN,
+        SERVICE_TURN_ON if on else SERVICE_TURN_OFF,
+        {"entity_id": "switch.kid_override_do_not_disturb"},
+        blocking=True,
+    )
+    await settle(hass)
+
+
+async def test_the_quiet_prompt_is_exactly_what_it_always_was(
+    hass: HomeAssistant,
+) -> None:
+    """With the option off nothing about the message moved (M3c).
+
+    The whole `data` dictionary is compared, so an accidental `channel` or a
+    changed `push` would show up here.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(timeout=15))
+
+    await empty_the_house(hass)
+
+    prompt_id = prompt_id_of(calls[0])
+    assert calls[0].data["data"] == {
+        "tag": f"vpt_{prompt_id}",
+        "actions": [
+            {"action": f"VPT_YES_{prompt_id}", "title": "Yes, home alone"},
+            {"action": f"VPT_NO_{prompt_id}", "title": "No"},
+        ],
+        "ttl": 0,
+        "priority": "high",
+        "timeout": 15 * 60,
+        "push": QUIET_PUSH,
+        "icon_url": NOTIFICATION_ICON,
+    }
+
+    await unload(hass, entry)
+
+
+async def test_the_loud_prompt_overrides_do_not_disturb(hass: HomeAssistant) -> None:
+    """With the option on the prompt gets through a silenced phone.
+
+    iOS reads `push` as the APNs payload: a critical interruption level and a
+    `sound` dictionary with `critical` set play it as a critical alert.
+    Android goes by the channel name, and `alarm_stream` is the one that
+    carries the alarm category and the alarm audio stream.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(timeout=15, override_dnd=True))
+
+    await empty_the_house(hass)
+
+    data = calls[0].data["data"]
+    assert data["push"]["interruption-level"] == "critical"
+    assert data["push"]["sound"]["critical"]
+    assert data["channel"] == ALARM_CHANNEL
+    # Nothing else about the question changed.
+    prompt_id = prompt_id_of(calls[0])
+    assert data["tag"] == f"vpt_{prompt_id}"
+    assert data["ttl"] == 0
+    assert data["priority"] == "high"
+    assert data["timeout"] == 15 * 60
+    assert data["icon_url"] == NOTIFICATION_ICON
+    assert len(data["actions"]) == 2
+    assert calls[0].data["title"] == "Is Kid home alone?"
+    assert calls[0].data["message"] == "Nobody else is home. Answer within 15 minutes."
+
+    await unload(hass, entry)
+
+
+async def test_the_option_is_read_when_the_prompt_is_sent(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """Its switch writes without a reload, so the value is looked up at send time."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(delay=60))
+
+    # Switched on while the prompt is still waiting for its delay.
+    await empty_the_house(hass)
+    assert calls == []
+    await set_dnd_override(hass, True)
+    freezer.tick(timedelta(seconds=61))
+    async_fire_time_changed(hass)
+    await settle(hass)
+
+    assert calls[0].data["data"]["channel"] == ALARM_CHANNEL
+
+    # And off again for the next question.
+    await answer_from_phone(hass, f"VPT_NO_{prompt_id_of(calls[0])}")
+    await set_dnd_override(hass, False)
+    await open_prompt(hass)
+
+    assert "channel" not in calls[-1].data["data"]
+    assert calls[-1].data["data"]["push"] == QUIET_PUSH
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize("override_dnd", [False, True])
+async def test_a_prompt_opened_by_hand_follows_the_option(
+    hass: HomeAssistant, override_dnd: bool
+) -> None:
+    """`open_prompt` is a prompt like any other, loudness included."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, override_dnd=override_dnd))
+
+    await open_prompt(hass)
+
+    data = calls[0].data["data"]
+    assert data["push"] == (LOUD_PUSH if override_dnd else QUIET_PUSH)
+    assert data.get("channel") == (ALARM_CHANNEL if override_dnd else None)
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize("override_dnd", [False, True])
+async def test_the_expiry_notice_is_never_loud(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, override_dnd: bool
+) -> None:
+    """The notice is news, not a question: it carries no push hints at all."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass,
+        make_entry(
+            asking=False, notify_on_expiry=True, timeout=1, override_dnd=override_dnd
+        ),
+    )
+
+    await open_prompt(hass)
+    prompt_id = prompt_id_of(calls[0])
+    freezer.tick(timedelta(minutes=2))
+    async_fire_time_changed(hass)
+    await settle(hass)
+
+    assert calls[2].data["data"] == {
+        "tag": f"vpt_info_{prompt_id}",
+        "icon_url": NOTIFICATION_ICON,
+    }
+    # The clearing is not a message either.
+    assert calls[1].data["data"] == {"tag": f"vpt_{prompt_id}"}
+
+    await unload(hass, entry)
+
+
 async def switch_on(hass: HomeAssistant) -> None:
     """Switch the tracker on and let what follows settle."""
     await hass.services.async_call(
@@ -786,6 +945,59 @@ async def test_the_reminder_is_sent_to_the_phone(hass: HomeAssistant) -> None:
     # The same icon as the prompt, in place of the Companion App's own.
     assert data["data"]["icon_url"] == NOTIFICATION_ICON
     assert "image" not in data["data"]
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize("override_dnd", [False, True])
+async def test_the_reminder_is_never_loud(
+    hass: HomeAssistant, override_dnd: bool
+) -> None:
+    """ "Override Do Not Disturb" is the prompt's option alone (M3c).
+
+    A reminder asks about a whole day and is answered whenever the phone is
+    picked up, so it is never worth waking anybody for - whatever the switch
+    of the prompt says.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, override_dnd=override_dnd))
+
+    await switch_on(hass)
+    await open_reminder(hass)
+
+    data = calls[0].data["data"]
+    assert data["push"] == QUIET_PUSH
+    assert "channel" not in data
+
+    await unload(hass, entry)
+
+
+@pytest.mark.parametrize("override_dnd", [False, True])
+async def test_the_reminder_notice_is_never_loud(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, override_dnd: bool
+) -> None:
+    """Nor is the notice about a reminder nobody answered."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass,
+        make_entry(
+            asking=False,
+            notify_on_expiry=True,
+            reminder_timeout=5,
+            override_dnd=override_dnd,
+        ),
+    )
+
+    await switch_on(hass)
+    await open_reminder(hass)
+    reminder_id = reminder_id_of(calls[0])
+
+    await expire_the_reminder(hass, freezer)
+
+    assert calls[2].data["data"] == {
+        "tag": f"vpt_info_{reminder_id}",
+        "icon_url": NOTIFICATION_ICON,
+    }
 
     await unload(hass, entry)
 

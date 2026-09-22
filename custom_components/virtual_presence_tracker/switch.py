@@ -6,7 +6,7 @@ follows. It also carries the four question actions, as entity services: the
 switch is the entity a prompt or a reminder is about, so targeting it is
 targeting the tracker.
 
-Next to it sit the three switches of the tracker's boolean options (M2f). They
+Next to it sit the switches of the tracker's boolean options (M2f, M3c). They
 write the subentry data the options have always lived in, so that changing one
 is a tap on the tracker's device page instead of a form - and, unlike the form,
 without reloading the entry.
@@ -39,6 +39,7 @@ from .const import (
     ATTR_SINCE,
     CONF_ASK_ON_DEPARTURE,
     CONF_NOTIFY_ON_EXPIRY,
+    CONF_OVERRIDE_DND,
     CONF_RESET_ON_RETURN,
     DOMAIN,
     PERSON_DOMAIN,
@@ -87,6 +88,7 @@ async def async_setup_entry(
                 AskOnDepartureSwitch(manager, subentry),
                 ResetOnReturnSwitch(manager, subentry),
                 NotifyOnExpirySwitch(manager, subentry),
+                OverrideDndSwitch(manager, subentry),
             ],
             config_subentry_id=subentry.subentry_id,
         )
@@ -279,3 +281,17 @@ class NotifyOnExpirySwitch(VirtualTrackerOptionSwitch):
 
     _attr_entity_category = EntityCategory.CONFIG
     _option_key = CONF_NOTIFY_ON_EXPIRY
+
+
+class OverrideDndSwitch(VirtualTrackerOptionSwitch):
+    """Whether the prompt is loud enough to get through a silenced phone (M3c).
+
+    Off by default, because it is genuinely loud: on iOS the prompt becomes a
+    critical alert, on Android it goes out on the alarm channel. It applies to
+    the prompt alone - the reminder asks about a whole day and the expiry
+    notices are news rather than questions, so neither is worth waking anybody
+    for.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _option_key = CONF_OVERRIDE_DND

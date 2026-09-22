@@ -28,6 +28,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_DEVICE_NAME,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
+    CONF_OVERRIDE_DND,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
@@ -81,6 +82,7 @@ from .conftest import PERSON_A, TRACKER_A, TRACKER_B, make_entry, make_subentry
 ASK_A = "switch.kid_ask_when_empty"
 RESET_A = "switch.kid_reset_on_return"
 EXPIRY_A = "switch.kid_notice_if_unanswered"
+DND_A = "switch.kid_override_do_not_disturb"
 TIMEOUT_A = "number.kid_answer_time"
 DELAY_A = "number.kid_ask_delay"
 REMIND_A = "number.kid_remind_after"
@@ -189,7 +191,7 @@ def add_phone(hass: HomeAssistant) -> list[Any]:
 async def test_every_tracker_gets_the_option_entities(
     hass: HomeAssistant, tracker_entry: MockConfigEntry
 ) -> None:
-    """Seven entities per tracker, on the tracker's own device, all settings."""
+    """Eight entities per tracker, on the tracker's own device, all settings."""
     await setup_entry(hass, tracker_entry)
 
     registry = er.async_get(hass)
@@ -197,6 +199,7 @@ async def test_every_tracker_gets_the_option_entities(
         ASK_A: (CONF_ASK_ON_DEPARTURE, EntityCategory.CONFIG),
         RESET_A: (CONF_RESET_ON_RETURN, EntityCategory.CONFIG),
         EXPIRY_A: (CONF_NOTIFY_ON_EXPIRY, EntityCategory.CONFIG),
+        DND_A: (CONF_OVERRIDE_DND, EntityCategory.CONFIG),
         TIMEOUT_A: (CONF_ANSWER_TIMEOUT, EntityCategory.CONFIG),
         DELAY_A: (CONF_PROMPT_DELAY, EntityCategory.CONFIG),
         REMIND_A: (CONF_REMIND_AFTER, EntityCategory.CONFIG),
@@ -234,6 +237,8 @@ async def test_an_old_tracker_shows_the_defaults_of_a_missing_key(
     assert hass.states.get(ASK_A).state == STATE_OFF
     assert hass.states.get(RESET_A).state == STATE_ON
     assert hass.states.get(EXPIRY_A).state == STATE_OFF
+    # Loud enough to get through a silenced phone is opt-in, never a default.
+    assert hass.states.get(DND_A).state == STATE_OFF
     assert float(hass.states.get(TIMEOUT_A).state) == DEFAULT_ANSWER_TIMEOUT
     assert float(hass.states.get(DELAY_A).state) == DEFAULT_PROMPT_DELAY
     assert float(hass.states.get(REMIND_A).state) == DEFAULT_REMIND_AFTER == 0
@@ -258,6 +263,7 @@ async def test_the_entities_show_what_the_tracker_has_stored(
                     CONF_ASK_ON_DEPARTURE: True,
                     CONF_RESET_ON_RETURN: False,
                     CONF_NOTIFY_ON_EXPIRY: True,
+                    CONF_OVERRIDE_DND: True,
                     CONF_ANSWER_TIMEOUT: 42,
                     CONF_PROMPT_DELAY: 90,
                     CONF_REMIND_AFTER: 36,
@@ -271,6 +277,7 @@ async def test_the_entities_show_what_the_tracker_has_stored(
     assert hass.states.get(ASK_A).state == STATE_ON
     assert hass.states.get(RESET_A).state == STATE_OFF
     assert hass.states.get(EXPIRY_A).state == STATE_ON
+    assert hass.states.get(DND_A).state == STATE_ON
     assert float(hass.states.get(TIMEOUT_A).state) == 42
     assert float(hass.states.get(DELAY_A).state) == 90
     assert float(hass.states.get(REMIND_A).state) == 36
@@ -327,6 +334,7 @@ async def test_the_numbers_are_durations(
         (ASK_A, CONF_ASK_ON_DEPARTURE),
         (RESET_A, CONF_RESET_ON_RETURN),
         (EXPIRY_A, CONF_NOTIFY_ON_EXPIRY),
+        (DND_A, CONF_OVERRIDE_DND),
     ],
 )
 async def test_a_switch_writes_its_option(
@@ -443,7 +451,7 @@ async def test_changing_an_option_does_not_reload_the_entry(
     await turn(hass, SWITCH_A, True)
 
     watcher = Watcher(hass, WATCHED)
-    for entity_id in (ASK_A, RESET_A, EXPIRY_A):
+    for entity_id in (ASK_A, RESET_A, EXPIRY_A, DND_A):
         await turn(hass, entity_id, True)
     await set_number(hass, TIMEOUT_A, 30)
     await set_number(hass, DELAY_A, 5)
@@ -460,6 +468,7 @@ async def test_changing_an_option_does_not_reload_the_entry(
     assert manager.option(TRACKER_A, CONF_PROMPT_DELAY) == 5
     assert manager.option(TRACKER_A, CONF_REMIND_AFTER) == 48
     assert manager.option(TRACKER_A, CONF_REMINDER_TIMEOUT) == 90
+    assert manager.option(TRACKER_A, CONF_OVERRIDE_DND) is True
 
     await unload(hass, tracker_entry)
 

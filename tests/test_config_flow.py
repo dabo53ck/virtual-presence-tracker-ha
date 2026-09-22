@@ -15,6 +15,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_CREATE_PERSON,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
+    CONF_OVERRIDE_DND,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
@@ -22,6 +23,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_NOTIFY_ON_EXPIRY,
+    DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_REMINDER_TIMEOUT,
     DEFAULT_RESET_ON_RETURN,
@@ -59,6 +61,7 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
         CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
         CONF_NOTIFY_PERSONS: [],
         CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+        CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
     } | overrides
 
 
