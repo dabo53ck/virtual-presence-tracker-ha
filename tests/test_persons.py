@@ -229,5 +229,7 @@ async def test_a_real_person_is_never_given_a_virtual_tracker(
     await start(hass)
 
     assert persons(hass) == ["person.dabo53ck"]
-    assert hass.states.get(PERSON_A).attributes[ATTR_DEVICE_TRACKERS] == [DABO53CK_PHONE]
+    assert hass.states.get(PERSON_A).attributes[ATTR_DEVICE_TRACKERS] == [
+        DABO53CK_PHONE
+    ]
     assert CONF_CREATE_PERSON not in entry.subentries[TRACKER_A].data

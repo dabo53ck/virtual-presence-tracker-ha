@@ -514,7 +514,8 @@ async def test_changing_the_real_persons_still_reloads_the_entry(
     manager = tracker_entry.runtime_data.manager
 
     hass.config_entries.async_update_entry(
-        tracker_entry, data={**tracker_entry.data, "persons": [PERSON_A, "person.king53ck"]}
+        tracker_entry,
+        data={**tracker_entry.data, "persons": [PERSON_A, "person.king53ck"]},
     )
     await hass.async_block_till_done()
 
