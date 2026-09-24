@@ -33,6 +33,7 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "hours_one": "1 hour",
         "minutes": "{minutes} minutes",
         "minutes_one": "1 minute",
+        "group": "Virtual presence: {tracker}",
     },
     "de": {
         "title": "Ist {tracker} alleine zu Hause?",
@@ -55,6 +56,7 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "hours_one": "1 Stunde",
         "minutes": "{minutes} Minuten",
         "minutes_one": "1 Minute",
+        "group": "Virtuelle Anwesenheit: {tracker}",
     },
 }
 
@@ -150,3 +152,16 @@ def async_reminder_answer_titles(hass: HomeAssistant) -> tuple[str, str]:
     """Return the titles of the yes and the no button of the reminder."""
     texts = async_texts(hass)
     return texts["reminder_yes"], texts["reminder_no"]
+
+
+@callback
+def async_group(hass: HomeAssistant, tracker: str) -> str:
+    """Return the group every message about one tracker is sent in.
+
+    Both Companion Apps stack the messages of one group together: iOS as a
+    thread, Android as a bundle. One group per tracker keeps a tracker's
+    questions and notices apart from those of the other trackers and from the
+    rest of Home Assistant's messages. Android shows the group's name as the
+    summary of the bundle, which is why it is a readable text and not an ID.
+    """
+    return async_texts(hass)["group"].format(tracker=tracker)

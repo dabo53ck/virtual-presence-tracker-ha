@@ -65,6 +65,7 @@ from .messages import (
     async_answer_titles,
     async_expired_message,
     async_expired_title,
+    async_group,
     async_prompt_message,
     async_prompt_title,
     async_reminder_answer_titles,
@@ -315,6 +316,9 @@ class PromptDelivery:
             # Whose question this is: the icon beside the message is ours
             # instead of the Companion App's own.
             "icon_url": NOTIFICATION_ICON,
+            # Which tracker it is about: every message of one tracker is
+            # stacked in one group of its own, on iOS and on Android alike.
+            "group": async_group(self.hass, subentry.title),
         }
         if subentry.data.get(CONF_OVERRIDE_DND, DEFAULT_OVERRIDE_DND):
             # iOS: a critical alert, which ignores the mute switch and Do Not
@@ -372,6 +376,7 @@ class PromptDelivery:
                 "timeout": minutes * 60,
                 "push": {"interruption-level": "time-sensitive"},
                 "icon_url": NOTIFICATION_ICON,
+                "group": async_group(self.hass, subentry.title),
             },
         }
 
@@ -386,6 +391,7 @@ class PromptDelivery:
             "data": {
                 "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{prompt_id}",
                 "icon_url": NOTIFICATION_ICON,
+                "group": async_group(self.hass, subentry.title),
             },
         }
 
@@ -400,6 +406,7 @@ class PromptDelivery:
             "data": {
                 "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{reminder_id}",
                 "icon_url": NOTIFICATION_ICON,
+                "group": async_group(self.hass, subentry.title),
             },
         }
 
@@ -481,7 +488,12 @@ class PromptDelivery:
 
 
 def _clear_payload(tag_prefix: str, question_id: str) -> dict[str, Any]:
-    """Return the message that takes a question off the phones."""
+    """Return the message that takes a question off the phones.
+
+    No `group`: both Companion Apps find the message to remove by its tag
+    alone and ignore a group here, and Android drops the summary of a group by
+    itself once the last message in it is gone.
+    """
     return {
         "message": CLEAR_NOTIFICATION,
         "data": {"tag": f"{tag_prefix}{question_id}"},

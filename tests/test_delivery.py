@@ -66,6 +66,9 @@ PHONE_B = "mobile_app_king53ck_phone"
 
 BRAND_DIR = Path(__file__).parents[1] / "custom_components" / DOMAIN / "brand"
 
+# The group every message about the tracker "Kid" is stacked in.
+GROUP_KID = "Virtual presence: Kid"
+
 
 def make_entry(
     *,
@@ -694,6 +697,7 @@ async def test_an_expired_prompt_clears_the_phone(
         assert calls[1].data["data"] == {
             "tag": "vpt_info_abc",
             "icon_url": NOTIFICATION_ICON,
+            "group": GROUP_KID,
         }
     else:
         assert len(calls) == 1
@@ -785,6 +789,7 @@ async def test_the_quiet_prompt_is_exactly_what_it_always_was(
         "timeout": 15 * 60,
         "push": QUIET_PUSH,
         "icon_url": NOTIFICATION_ICON,
+        "group": GROUP_KID,
     }
 
     await unload(hass, entry)
@@ -907,6 +912,7 @@ async def test_the_expiry_notice_is_never_loud(
     assert calls[2].data["data"] == {
         "tag": f"vpt_info_{prompt_id}",
         "icon_url": NOTIFICATION_ICON,
+        "group": GROUP_KID,
     }
     # The clearing is not a message either.
     assert calls[1].data["data"] == {"tag": f"vpt_{prompt_id}"}
@@ -1020,6 +1026,7 @@ async def test_the_reminder_notice_is_never_loud(
     assert calls[2].data["data"] == {
         "tag": f"vpt_info_{reminder_id}",
         "icon_url": NOTIFICATION_ICON,
+        "group": GROUP_KID,
     }
 
     await unload(hass, entry)
@@ -1231,6 +1238,7 @@ async def test_an_expired_reminder_sends_the_notice(
         "data": {
             "tag": f"vpt_info_{reminder_id}",
             "icon_url": NOTIFICATION_ICON,
+            "group": GROUP_KID,
         },
     }
 
@@ -1432,3 +1440,123 @@ async def test_unloading_stops_the_delivery(hass: HomeAssistant) -> None:
 
     # The open prompt was kept for the next run, and nothing was sent about it.
     assert len(calls) == 1
+
+
+async def test_every_message_of_a_tracker_is_grouped(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """The question, the reminder and both notices share the tracker's group.
+
+    The group is the tracker's, not the message's: a second prompt lands in
+    the same group as the first, although its tag is a new one. The clearings
+    carry no group - the phones find the message to remove by its tag alone.
+    """
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(
+        hass,
+        make_entry(asking=False, notify_on_expiry=True, timeout=1, reminder_timeout=5),
+    )
+
+    # A prompt nobody answers, then a reminder nobody answers.
+    await open_prompt(hass)
+    freezer.tick(timedelta(minutes=2))
+    async_fire_time_changed(hass)
+    await settle(hass)
+    await switch_on(hass)
+    await open_reminder(hass)
+    await expire_the_reminder(hass, freezer)
+
+    assert len(calls) == 6
+    prompt, prompt_clear, prompt_notice = calls[0:3]
+    reminder, reminder_clear, reminder_notice = calls[3:6]
+    assert prompt.data["data"]["tag"].startswith("vpt_")
+    assert prompt_notice.data["data"]["tag"].startswith("vpt_info_")
+    assert reminder.data["data"]["tag"].startswith("vpt_reminder_")
+    assert reminder_notice.data["data"]["tag"].startswith("vpt_info_")
+    for call in (prompt, prompt_notice, reminder, reminder_notice):
+        assert call.data["data"]["group"] == GROUP_KID
+    for call in (prompt_clear, reminder_clear):
+        assert call.data["message"] == "clear_notification"
+        assert "group" not in call.data["data"]
+
+    # A second prompt of the same tracker: a new tag, the same group.
+    await hass.services.async_call(
+        SWITCH_DOMAIN, SERVICE_TURN_OFF, {"entity_id": SWITCH_A}, blocking=True
+    )
+    await settle(hass)
+    await open_prompt(hass)
+
+    assert calls[-1].data["data"]["tag"] != prompt.data["data"]["tag"]
+    assert calls[-1].data["data"]["group"] == GROUP_KID
+
+    await unload(hass, entry)
+
+
+async def test_the_loud_prompt_is_grouped_too(hass: HomeAssistant) -> None:
+    """Overriding Do Not Disturb changes how the prompt rings, not its group."""
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False, override_dnd=True))
+
+    await open_prompt(hass)
+
+    assert calls[0].data["data"]["channel"] == ALARM_CHANNEL
+    assert calls[0].data["data"]["group"] == GROUP_KID
+
+    await unload(hass, entry)
+
+
+TRACKER_B = "01JVPT000000000000000TRACKB"
+
+
+async def test_two_trackers_are_grouped_apart(hass: HomeAssistant) -> None:
+    """Each tracker stacks its messages in a group of its own."""
+    calls = add_dabo53ck(hass)
+    # Two trackers with the very same settings: only the name tells them apart.
+    settings = dict(make_entry().subentries[TRACKER_A].data)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Virtual Presence Tracker",
+        entry_id=ENTRY_ID,
+        data={CONF_PERSONS: [PERSON_A]},
+        subentries_data=[
+            {
+                "data": settings,
+                "subentry_id": TRACKER_A,
+                "subentry_type": SUBENTRY_TYPE_TRACKER,
+                "title": "Kid",
+                "unique_id": None,
+            },
+            {
+                "data": settings,
+                "subentry_id": TRACKER_B,
+                "subentry_type": SUBENTRY_TYPE_TRACKER,
+                "title": "Grandma",
+                "unique_id": None,
+            },
+        ],
+    )
+    await setup_entry(hass, entry)
+
+    await empty_the_house(hass)
+
+    assert len(calls) == 2
+    groups = {call.data["title"]: call.data["data"]["group"] for call in calls}
+    assert groups == {
+        "Is Kid home alone?": GROUP_KID,
+        "Is Grandma home alone?": "Virtual presence: Grandma",
+    }
+
+    await unload(hass, entry)
+
+
+async def test_the_group_is_named_in_german(hass: HomeAssistant) -> None:
+    """Android shows the group's name, so a German instance names it in German."""
+    hass.config.language = "de-DE"
+    calls = add_dabo53ck(hass)
+    entry = await setup_entry(hass, make_entry(asking=False))
+
+    await open_prompt(hass)
+
+    assert calls[0].data["data"]["group"] == "Virtuelle Anwesenheit: Kid"
+
+    await unload(hass, entry)
