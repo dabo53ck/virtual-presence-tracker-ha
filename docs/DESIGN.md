@@ -1156,7 +1156,7 @@ Live instance facts: persons `person.dabo53ck`, `person.king53ck` (both currentl
   Other channels (Telegram, TTS, …) listen to the events and call the services;
   a companion blueprint can be a thin layer on that later. Pending state and
   timers must survive an HA restart. Event names and payload keys are fixed as
-  of M2a — see "Event & service contract" (public contract, see CLAUDE.md).
+  of M2a — see "Event & service contract" above; it is a frozen public API.
 
 - **M2b live test passed (2026-09-20, HA 2026.9.3, iPhone)**: the prompt opens
   the moment the house is empty, the push arrives, a tapped button answers the
