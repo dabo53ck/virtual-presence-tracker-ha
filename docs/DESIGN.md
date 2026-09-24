@@ -341,6 +341,7 @@ are used. A person can have several phones; all of them are asked.
 | `data.push` | `{"interruption-level": "time-sensitive"}` - iOS; with `override_dnd` on (M3c) `{"interruption-level": "critical", "sound": {"name": "default", "critical": 1}}` instead |
 | `data.channel` (M3c) | `alarm_stream` - Android, **only** with `override_dnd` on; the key is absent otherwise |
 | `data.icon_url` (M2c, M2e) | `/api/brands/integration/virtual_presence_tracker/icon@2x.png` - the integration's own icon *beside* the message, in place of the Companion App's own: on iOS the message becomes a communication notification whose sender avatar it is (and whose sender name is the title), on Android it is the large icon. No `data.image` is sent: an attachment would show the same picture a second time. |
+| `data.group` | `Virtual presence: <tracker name>` / `Virtuelle Anwesenheit: <tracker name>` (localized like the texts below) - one group per tracker, so a tracker's messages stack together on the phone, apart from the other trackers' and from the rest of Home Assistant's notifications. iOS thread, Android bundle; see technical notes. |
 
 The action IDs and the tag are internal, but they have to stay stable: the
 answer of a phone that was offline for a while still names the prompt it
@@ -352,8 +353,9 @@ to every recipient phone on *every* ending of the prompt (`answered_yes`,
 `answered_no`, `expired`, `cancelled`).
 
 **Expiry notice**: only on `expired` and only with `notify_on_expiry`, after
-the clearing, with the tag `vpt_info_<prompt_id>` and the same `data.icon_url`.
-The clearing carries neither: it is not a message, it takes one away. The
+the clearing, with the tag `vpt_info_<prompt_id>` and the same `data.icon_url`
+and `data.group`. The clearing carries none of them: it is not a message, it
+takes one away, and both apps find what to take away by its tag alone. The
 reminder has the same notice, on the same option (see below).
 
 **Loud enough to get through a silenced phone** (M3c, `override_dnd`, off by
@@ -440,6 +442,7 @@ otherwise (`messages.py`).
 | reminder message (M3a) | {tracker} has been marked as home for {hours}. Answer within {minutes}. | {tracker} ist seit {hours} als zu Hause markiert. Antworte innerhalb von {minutes}. |
 | reminder yes (M3a) | Yes, still home | Ja, noch da |
 | reminder no (M3a) | No, switch off | Nein, ausschalten |
+| group | Virtual presence: {tracker} | Virtuelle Anwesenheit: {tracker} |
 
 `{hours}` and `{minutes}` of the reminder are built first - `1 hour` /
 `N hours`, `1 Stunde` / `N Stunden` - so that a single hour never reads as "1
@@ -458,12 +461,12 @@ names of its own:
 | `data.tag` | `vpt_reminder_<reminder_id>` |
 | `data.actions` | `[{action: VPT_REMIND_YES_<reminder_id>, …}, {action: VPT_REMIND_NO_<reminder_id>, …}]` |
 | `data.timeout` | **`reminder_timeout`** in seconds (M3b), not the prompt's answer time - the same number the state machine gave the reminder |
-| everything else | as the prompt: `ttl`, `priority`, `push`, `icon_url` |
+| everything else | as the prompt: `ttl`, `priority`, `push`, `icon_url`, `group` (the same group as the tracker's prompts) |
 
 **Clearing** on every ending, as for the prompt. **Expiry notice** on
 `reminder_expired` and only with `notify_on_expiry`, exactly as for the prompt:
-after the clearing, tag `vpt_info_<reminder_id>`, the same `data.icon_url`, no
-buttons, nothing at all without recipients, and never on an answer or a
+after the clearing, tag `vpt_info_<reminder_id>`, the same `data.icon_url` and
+`data.group`, no buttons, nothing at all without recipients, and never on an answer or a
 cancellation. Its title is the prompt's ("No answer") and its message is its
 own - an unanswered prompt leaves the tracker away, an unanswered reminder
 leaves it marked as being at home. The option is read when the reminder *ends*,
@@ -852,6 +855,29 @@ reminder_cancelled -> counting again (or off).
   Companion 2026.8.0** (`release/2026.7.3` does not have it yet). Our messages
   always have a title, so the avatar is named after the prompt title. An older
   app simply ignores the key.
+- **One notification group per tracker** (2026-09-24, checked against the
+  Companion App sources the same day): every message about a tracker - prompt,
+  reminder and both expiry notices - carries the same `data.group`, so they
+  stack together instead of mixing with the other trackers' messages and with
+  everything else Home Assistant sends. One key works on both platforms, no
+  per-platform branching. iOS: `NotificationParserLegacy.swift` copies a string
+  `data.group` into `aps["thread-id"]`, which is what Notification Center
+  stacks by; the value itself is never shown. Android: `MessagingManager.kt`
+  (`sendNotification` / `handleGroup`) calls `setGroup("group_" + group)` and
+  posts a group summary next to the message, and `getGroupNotificationBuilder`
+  in `NotificationFunctions.kt` puts the group's name (without the `group_`
+  prefix) into that summary as its text - **the name is visible**, which is why
+  it is a readable, localized `Virtual presence: <tracker>` and not the
+  subentry ID. The price of a readable name: renaming a tracker or changing the
+  instance's language starts a new group, and messages already on the phone
+  stay in the old one. The clearing carries no group: both apps' handling of
+  `clear_notification` reads `tag` only, and Android's `clearNotification`
+  (`cancel(tag, id, cancelGroup = true)` -> `cancelGroupIfNeeded`) removes the
+  summary by itself once its last message is gone.
+  **Open for the live test**: the Android group summary is posted on the
+  *message's* channel, so with `override_dnd` on it is posted on `alarm_stream`
+  as well. Whether that makes a loud prompt ring twice (message and summary)
+  has not been seen on a device; the code decides nothing about it yet.
 - **No `mobile_app` dependency in the manifest**: nothing of it is imported -
   the domain, the entry keys and the event name are spelled out, as the
   `person` domain already was - and the integration is fully usable without a

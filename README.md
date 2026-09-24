@@ -389,6 +389,11 @@ name. This needs the **iOS Companion App 2026.8.0 or newer**; an older app simpl
 shows its own icon, and everything else about the message is unchanged. On
 **Android** the icon is the large icon of the notification.
 
+Everything a tracker sends — the question, the reminder and the short notes
+below — is stacked in a group of its own on the phone, so it stays apart from
+your other trackers and from the rest of Home Assistant's notifications. Android
+labels the group "Virtual presence: Kid".
+
 What it needs:
 
 - the **Home Assistant Companion App** on that person's phone, signed in with
