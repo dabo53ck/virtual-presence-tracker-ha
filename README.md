@@ -239,6 +239,8 @@ A tracker needs no card of its own. The switch is the one thing you use every
 day; the device tracker and the household sensor are worth having next to it
 while you get used to the integration:
 
+![An entities card "At home" with a tracker's switch, its device tracker and the "Only virtual trackers home" sensor, and below it the same switch as a tile card](images/dashboard.png)
+
 ```yaml
 type: entities
 title: At home
@@ -287,6 +289,8 @@ Everything a tracker can be set to is an entity of that tracker, on its page
 under **Settings → Devices & services → Virtual Presence Tracker → Kid**. Change
 one and it takes effect immediately — nothing reloads, nothing goes
 `unavailable`, and your automations do not notice.
+
+![The Configuration section of a tracker's device page, with all eight settings entities and their defaults](images/settings.png)
 
 | Entity | What it does | Default |
 |---|---|---|
@@ -373,6 +377,10 @@ question is sent to their phones — no automation needed:
 > **Is Kid home alone?**
 > Nobody else is home. Answer within 10 minutes.
 > \[ Yes, home alone ] \[ No ]
+
+On an iPhone:
+
+![A prompt on an iPhone lock screen: "Is Noah home alone? Nobody else is home. Answer within 10 minutes.", with the integration's icon and the buttons "Yes, home alone" and "No"](images/notification.png)
 
 **Yes** switches the tracker on, **No** leaves everything as it is, and either way
 the message disappears from *every* phone that was asked: the first answer
