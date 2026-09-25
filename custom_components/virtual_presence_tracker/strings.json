@@ -2,12 +2,234 @@
   "config": {
     "step": {
       "user": {
-        "title": "Virtual presence",
-        "description": "Creates the Virtual Presence Tracker entry. There is nothing to configure yet: the real persons to watch and the individual virtual trackers are added in a later version."
+        "title": "Real persons",
+        "description": "Real persons are the people whose presence decides whether somebody is at home who is not a virtual tracker. Home Assistant has to be able to locate them on its own, so each of them needs a device tracker.",
+        "data": {
+          "persons": "Real persons"
+        },
+        "data_description": {
+          "persons": "At least one person is required. Suggested are the persons that currently have a device tracker; a person without one is usually the person a virtual tracker is meant for."
+        }
+      },
+      "reconfigure": {
+        "title": "Real persons",
+        "description": "Change the people whose presence decides whether somebody is at home who is not a virtual tracker. Home Assistant has to be able to locate them on its own, so each of them needs a device tracker.",
+        "data": {
+          "persons": "Real persons"
+        },
+        "data_description": {
+          "persons": "At least one person is required. Do not add a person that a virtual tracker is assigned to: switching that tracker on would look like a real arrival."
+        }
       }
     },
+    "error": {
+      "no_persons": "Select at least one real person.",
+      "person_has_virtual_tracker": "A virtual tracker of this integration is attached to {persons}. Switching that tracker on would look like a real person coming home and reset every virtual tracker, so pick somebody else."
+    },
     "abort": {
-      "single_instance_allowed": "Already configured. Only a single configuration is possible."
+      "single_instance_allowed": "Already configured. Only a single configuration is possible.",
+      "reconfigure_successful": "The real persons were updated."
+    }
+  },
+  "config_subentries": {
+    "tracker": {
+      "initiate_flow": {
+        "user": "Add virtual tracker",
+        "reconfigure": "Edit virtual tracker"
+      },
+      "entry_type": "Virtual tracker",
+      "step": {
+        "user": {
+          "title": "Add a virtual tracker",
+          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. It needs a person of its own - the integration creates one for you below - and that person counts as being at home for as long as the tracker is switched on.",
+          "data": {
+            "name": "Name",
+            "notify_persons": "Who is asked?",
+            "create_person": "Create a person for this tracker"
+          },
+          "data_description": {
+            "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\".",
+            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit the virtual tracker",
+          "description": "Rename the tracker or change who is asked about it. Renaming is safe: the entities of the tracker keep their identity.",
+          "data": {
+            "name": "Name",
+            "notify_persons": "Who is asked?"
+          },
+          "data_description": {
+            "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\"."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Enter a name for the tracker.",
+        "name_exists": "A tracker with this name already exists.",
+        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page."
+      },
+      "abort": {
+        "reconfigure_successful": "The tracker was updated."
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "name": "Only virtual trackers home"
+      }
+    },
+    "event": {
+      "prompt": {
+        "name": "Questions",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prompt_started": "Prompt asked",
+              "answered_yes": "Prompt answered yes",
+              "answered_no": "Prompt answered no",
+              "expired": "Prompt not answered",
+              "cancelled": "Prompt withdrawn",
+              "reminder_started": "Reminded",
+              "reminder_answered_yes": "Reminder answered yes",
+              "reminder_answered_no": "Reminder answered no",
+              "reminder_expired": "Reminder not answered",
+              "reminder_cancelled": "Reminder withdrawn"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "answer_timeout": {
+        "name": "Prompt answer time"
+      },
+      "prompt_delay": {
+        "name": "Prompt delay"
+      },
+      "remind_after": {
+        "name": "Remind after"
+      },
+      "reminder_timeout": {
+        "name": "Reminder answer time"
+      }
+    },
+    "switch": {
+      "ask_on_departure": {
+        "name": "Ask when empty"
+      },
+      "at_home": {
+        "name": "At home"
+      },
+      "notify_on_expiry": {
+        "name": "Notice if unanswered"
+      },
+      "override_dnd": {
+        "name": "Override Do Not Disturb for the prompt"
+      },
+      "reset_on_return": {
+        "name": "Reset on return"
+      }
+    }
+  },
+  "exceptions": {
+    "no_open_prompt": {
+      "message": "There is no open prompt for {entity_id}, so there is nothing to answer."
+    },
+    "no_open_reminder": {
+      "message": "There is no open reminder for {entity_id}, so there is nothing to answer."
+    },
+    "not_a_tracker_switch": {
+      "message": "{entity_id} is a setting of the tracker, not its at-home switch. Target the tracker's \"At home\" switch or its device instead."
+    },
+    "prompt_already_open": {
+      "message": "There is already an open prompt for {entity_id}, so there is nothing to ask again."
+    },
+    "reminder_already_open": {
+      "message": "There is already an open reminder for {entity_id}, so there is nothing to ask again."
+    },
+    "tracker_already_home": {
+      "message": "{entity_id} is already switched on, so there is nobody to ask about."
+    },
+    "tracker_not_home": {
+      "message": "{entity_id} is switched off, so there is nobody to remind you about."
+    }
+  },
+  "issues": {
+    "no_tracker": {
+      "title": "No virtual tracker has been added yet",
+      "description": "Virtual Presence Tracker is set up, but there is no virtual tracker yet, so nothing happens. A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest.\n\nAdd one under Settings > Devices & services > Integrations > Virtual Presence Tracker > \"Add virtual tracker\". Afterwards assign it to a person of its own, so that person counts as being at home while the tracker is switched on."
+    },
+    "tracker_not_assigned": {
+      "title": "The virtual tracker {name} is not assigned to a person",
+      "description": "Nobody counts as being at home when {name} is switched on: the device tracker `{entity_id}` is not part of any person, so Home Assistant has nobody to place at home.\n\nGo to Settings > People, open the person {name} stands for (or add one, no login needed) and pick `{entity_id}` in the list of device trackers of that person. If you do not need the tracker any more, delete it in Settings > Devices & services > Virtual Presence Tracker."
+    },
+    "real_person_has_virtual_tracker": {
+      "title": "The real person {person} has a virtual tracker attached",
+      "description": "{person} is one of the real persons of Virtual Presence Tracker, and the virtual tracker `{tracker}` is attached to that person. Switching that tracker on therefore looks like a real person coming home, which switches every virtual tracker off again.\n\nFix it in one of two ways: remove `{tracker}` from {person} in Settings > People, or take {person} out of the real persons in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    },
+    "recipient_without_phone": {
+      "title": "{person} has no phone to be asked on",
+      "description": "{person} is set to be asked about {tracker}, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The questions themselves still work: they are announced by the tracker's event entity and can be answered with the actions \"Answer prompt\" and \"Answer reminder\"."
+    },
+    "real_person_missing": {
+      "title": "The real person {person} no longer exists",
+      "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone - deleted or renamed. Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    }
+  },
+  "selector": {
+    "answer": {
+      "options": {
+        "yes": "Yes, they are at home",
+        "no": "No, nobody is at home"
+      }
+    },
+    "reminder_answer": {
+      "options": {
+        "yes": "Yes, still at home",
+        "no": "No, switch the tracker off"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "name": "Answer prompt",
+      "description": "Answers the open prompt of a virtual tracker. \"Yes\" switches the tracker on, \"no\" leaves everything as it is.",
+      "fields": {
+        "answer": {
+          "name": "Answer",
+          "description": "Whether the person the tracker stands for is at home."
+        },
+        "answered_by": {
+          "name": "Answered by",
+          "description": "The person who gave the answer. Only passed on to the tracker's event entity, for automations that want to know who replied."
+        }
+      }
+    },
+    "answer_reminder": {
+      "name": "Answer reminder",
+      "description": "Answers the open reminder of a virtual tracker. \"Yes\" leaves the tracker on and starts the waiting time again, \"no\" switches the tracker off.",
+      "fields": {
+        "answer": {
+          "name": "Answer",
+          "description": "Whether the person the tracker stands for is still at home."
+        },
+        "answered_by": {
+          "name": "Answered by",
+          "description": "The person who gave the answer. Only passed on to the tracker's event entity, for automations that want to know who replied."
+        }
+      }
+    },
+    "open_prompt": {
+      "name": "Open prompt",
+      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when empty\" switch and the \"Prompt delay\"; everything after that is the usual prompt, including the notification and the answer time."
+    },
+    "open_reminder": {
+      "name": "Open reminder",
+      "description": "Asks right now whether the person a virtual tracker stands for is still at home, without waiting for \"Remind after\" to pass. The tracker has to be switched on; everything after that is the usual reminder, including the notification and the answer time."
     }
   }
 }

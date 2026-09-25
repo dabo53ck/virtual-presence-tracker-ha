@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1066 256" role="img" aria-label="Virtual Presence Tracker">
+  <svg x="0" y="0" width="256" height="256" viewBox="0 0 256 256">
+    <path d="M128 24 238 118H214V226H42V118H18Z" fill="#18BCF2" stroke="#191512" stroke-width="10" stroke-linejoin="round"/>
+    <g fill="#FFFFFF" stroke="#191512" stroke-width="6" stroke-linecap="round" stroke-dasharray="0.1 12">
+      <circle cx="128" cy="140" r="21"/>
+      <path d="M92 206A36 33 0 0 1 164 206Z" stroke-linejoin="round"/>
+    </g>
+  </svg>
+  <text x="296" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="700" fill="#191512">Virtual Presence Tracker</text>
+  <text x="293.50" y="177" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="600" letter-spacing="-0.265" fill="#5B6770">PRESENCE FOR PEOPLE WITHOUT A PHONE</text>
+</svg>

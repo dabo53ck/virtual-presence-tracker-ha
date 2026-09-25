@@ -1,0 +1,69 @@
+name: Bug report
+description: Something is not working as expected
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - Setup (add integration, add or edit a virtual tracker)
+        - Tracker, switch or the household sensor
+        - The prompt when the house empties
+        - The reminder for a tracker that has been on too long
+        - The notification on the phone (Companion App)
+        - Repair issues
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, in the order you did it.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      description: Settings → About, e.g. `2026.9.3`.
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+      description: The `version` in `custom_components/virtual_presence_tracker/manifest.json`.
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and Companion App version
+      description: Only for a bug in the notification, e.g. `iOS 2026.8.1` or `Android 2026.8.2`.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Settings → System → Logs, filtered to `virtual_presence_tracker`.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true

@@ -1,0 +1,71 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "default": "mdi:home-outline",
+        "state": {
+          "on": "mdi:home-account"
+        }
+      }
+    },
+    "event": {
+      "prompt": {
+        "default": "mdi:comment-question-outline"
+      }
+    },
+    "number": {
+      "answer_timeout": {
+        "default": "mdi:timer-outline"
+      },
+      "prompt_delay": {
+        "default": "mdi:timer-sand"
+      },
+      "remind_after": {
+        "default": "mdi:alarm-snooze"
+      },
+      "reminder_timeout": {
+        "default": "mdi:timer-alert-outline"
+      }
+    },
+    "switch": {
+      "ask_on_departure": {
+        "default": "mdi:comment-question",
+        "state": {
+          "off": "mdi:comment-off-outline"
+        }
+      },
+      "at_home": {
+        "default": "mdi:home-account",
+        "state": {
+          "off": "mdi:home-outline"
+        }
+      },
+      "notify_on_expiry": {
+        "default": "mdi:bell-alert-outline"
+      },
+      "override_dnd": {
+        "default": "mdi:bell-ring",
+        "state": {
+          "off": "mdi:bell-sleep"
+        }
+      },
+      "reset_on_return": {
+        "default": "mdi:restore"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "service": "mdi:comment-check-outline"
+    },
+    "answer_reminder": {
+      "service": "mdi:alarm-check"
+    },
+    "open_prompt": {
+      "service": "mdi:comment-question"
+    },
+    "open_reminder": {
+      "service": "mdi:alarm-snooze"
+    }
+  }
+}

@@ -2,12 +2,234 @@
   "config": {
     "step": {
       "user": {
-        "title": "Virtuelle Anwesenheit",
-        "description": "Legt den Eintrag für Virtual Presence Tracker an. Es gibt noch nichts einzustellen: Die zu beobachtenden echten Personen und die einzelnen virtuellen Tracker kommen in einer späteren Version dazu."
+        "title": "Echte Personen",
+        "description": "Echte Personen sind die Leute, an denen sich entscheidet, ob jemand zu Hause ist, der kein virtueller Tracker ist. Home Assistant muss ihre Anwesenheit selbst erkennen können, jede von ihnen braucht also einen Device-Tracker.",
+        "data": {
+          "persons": "Echte Personen"
+        },
+        "data_description": {
+          "persons": "Mindestens eine Person wird gebraucht. Vorgeschlagen werden die Personen, die aktuell einen Device-Tracker haben – wer keinen hat, ist meist genau die Person, für die ein virtueller Tracker gedacht ist."
+        }
+      },
+      "reconfigure": {
+        "title": "Echte Personen",
+        "description": "Ändere die Leute, an denen sich entscheidet, ob jemand zu Hause ist, der kein virtueller Tracker ist. Home Assistant muss ihre Anwesenheit selbst erkennen können, jede von ihnen braucht also einen Device-Tracker.",
+        "data": {
+          "persons": "Echte Personen"
+        },
+        "data_description": {
+          "persons": "Mindestens eine Person wird gebraucht. Nimm keine Person auf, der ein virtueller Tracker zugewiesen ist: Diesen Tracker einzuschalten sähe dann wie eine echte Heimkehr aus."
+        }
       }
     },
+    "error": {
+      "no_persons": "Wähle mindestens eine echte Person aus.",
+      "person_has_virtual_tracker": "An {persons} hängt ein virtueller Tracker dieser Integration. Diesen Tracker einzuschalten sähe wie eine echte Heimkehr aus und würde alle virtuellen Tracker zurücksetzen – wähle jemand anderen aus."
+    },
     "abort": {
-      "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich."
+      "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich.",
+      "reconfigure_successful": "Die echten Personen wurden aktualisiert."
+    }
+  },
+  "config_subentries": {
+    "tracker": {
+      "initiate_flow": {
+        "user": "Virtuellen Tracker hinzufügen",
+        "reconfigure": "Virtuellen Tracker bearbeiten"
+      },
+      "entry_type": "Virtueller Tracker",
+      "step": {
+        "user": {
+          "title": "Virtuellen Tracker hinzufügen",
+          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Er braucht eine eigene Person – die legt die Integration unten für dich an – und diese Person gilt als zu Hause, solange der Tracker eingeschaltet ist.",
+          "data": {
+            "name": "Name",
+            "notify_persons": "Wer wird gefragt?",
+            "create_person": "Person für diesen Tracker anlegen"
+          },
+          "data_description": {
+            "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“ und „Nicht stören umgehen für Nachfragen“.",
+            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
+          }
+        },
+        "reconfigure": {
+          "title": "Virtuellen Tracker bearbeiten",
+          "description": "Benenne den Tracker um oder ändere, wer zu ihm gefragt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "data": {
+            "name": "Name",
+            "notify_persons": "Wer wird gefragt?"
+          },
+          "data_description": {
+            "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“ und „Nicht stören umgehen für Nachfragen“."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Gib einen Namen für den Tracker ein.",
+        "name_exists": "Ein Tracker mit diesem Namen existiert bereits.",
+        "person_not_real": "{persons} gehört nicht zu den echten Personen dieses Haushalts und kann deshalb nicht gefragt werden. Nimm die Person hier heraus, oder füge sie über „Neu konfigurieren“ auf der Seite der Integration zu den echten Personen hinzu."
+      },
+      "abort": {
+        "reconfigure_successful": "Der Tracker wurde aktualisiert."
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "name": "Nur virtuelle Tracker zuhause"
+      }
+    },
+    "event": {
+      "prompt": {
+        "name": "Fragen",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prompt_started": "Nachfrage gestellt",
+              "answered_yes": "Nachfrage mit Ja beantwortet",
+              "answered_no": "Nachfrage mit Nein beantwortet",
+              "expired": "Nachfrage nicht beantwortet",
+              "cancelled": "Nachfrage zurückgezogen",
+              "reminder_started": "Erinnert",
+              "reminder_answered_yes": "Erinnerung mit Ja beantwortet",
+              "reminder_answered_no": "Erinnerung mit Nein beantwortet",
+              "reminder_expired": "Erinnerung nicht beantwortet",
+              "reminder_cancelled": "Erinnerung zurückgezogen"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "answer_timeout": {
+        "name": "Nachfrage-Antwortzeit"
+      },
+      "prompt_delay": {
+        "name": "Nachfrage-Verzögerung"
+      },
+      "remind_after": {
+        "name": "Erinnerung nach"
+      },
+      "reminder_timeout": {
+        "name": "Erinnerung-Antwortzeit"
+      }
+    },
+    "switch": {
+      "ask_on_departure": {
+        "name": "Nachfragen bei leerem Haus"
+      },
+      "at_home": {
+        "name": "Zuhause"
+      },
+      "notify_on_expiry": {
+        "name": "Info bei Ablauf"
+      },
+      "override_dnd": {
+        "name": "Nicht stören umgehen für Nachfragen"
+      },
+      "reset_on_return": {
+        "name": "Zurücksetzen bei Rückkehr"
+      }
+    }
+  },
+  "exceptions": {
+    "no_open_prompt": {
+      "message": "Für {entity_id} ist keine Nachfrage offen, es gibt also nichts zu beantworten."
+    },
+    "no_open_reminder": {
+      "message": "Für {entity_id} ist keine Erinnerung offen, es gibt also nichts zu beantworten."
+    },
+    "not_a_tracker_switch": {
+      "message": "{entity_id} ist eine Einstellung des Trackers, nicht sein Zuhause-Schalter. Nimm stattdessen den Schalter „Zuhause“ des Trackers oder sein Gerät als Ziel."
+    },
+    "prompt_already_open": {
+      "message": "Für {entity_id} ist bereits eine Nachfrage offen, es gibt also nichts erneut zu fragen."
+    },
+    "reminder_already_open": {
+      "message": "Für {entity_id} ist bereits eine Erinnerung offen, es gibt also nichts erneut zu fragen."
+    },
+    "tracker_already_home": {
+      "message": "{entity_id} ist bereits eingeschaltet, es gibt also niemanden, nach dem zu fragen wäre."
+    },
+    "tracker_not_home": {
+      "message": "{entity_id} ist ausgeschaltet, es gibt also niemanden, an den zu erinnern wäre."
+    }
+  },
+  "issues": {
+    "no_tracker": {
+      "title": "Es wurde noch kein virtueller Tracker angelegt",
+      "description": "Virtual Presence Tracker ist eingerichtet, es gibt aber noch keinen virtuellen Tracker – es passiert also nichts. Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast.\n\nLege einen an unter Einstellungen > Geräte & Dienste > Integrationen > Virtual Presence Tracker > „Virtuellen Tracker hinzufügen“. Weise ihn anschließend einer eigenen Person zu, damit diese Person als zu Hause gilt, solange der Tracker eingeschaltet ist."
+    },
+    "tracker_not_assigned": {
+      "title": "Der virtuelle Tracker {name} ist keiner Person zugewiesen",
+      "description": "Wenn du {name} einschaltest, gilt trotzdem niemand als zu Hause: Der Device-Tracker `{entity_id}` gehört zu keiner Person, Home Assistant hat also niemanden, den er nach Hause setzen könnte.\n\nGeh zu Einstellungen > Personen, öffne die Person, für die {name} steht (oder lege sie neu an, ganz ohne Login), und wähle `{entity_id}` in der Liste der Device-Tracker dieser Person aus. Brauchst du den Tracker nicht mehr, lösche ihn unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker."
+    },
+    "real_person_has_virtual_tracker": {
+      "title": "Die echte Person {person} hat einen virtuellen Tracker",
+      "description": "{person} ist eine der echten Personen von Virtual Presence Tracker, und der virtuelle Tracker `{tracker}` hängt an dieser Person. Diesen Tracker einzuschalten sieht damit wie eine echte Heimkehr aus – und schaltet alle virtuellen Tracker wieder aus.\n\nZwei Wege: Entferne `{tracker}` unter Einstellungen > Personen bei {person}, oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren aus den echten Personen heraus."
+    },
+    "recipient_without_phone": {
+      "title": "{person} hat kein Handy, auf dem gefragt werden könnte",
+      "description": "{person} soll zu {tracker} gefragt werden, aber Home Assistant hat kein Handy, an das die Frage gehen könnte: Für das Benutzerkonto von {person} ist keine Home Assistant Companion App registriert.\n\nInstalliere die Companion App auf dem Handy dieser Person und melde dich mit ihrem eigenen Benutzerkonto an (unter Einstellungen > Personen siehst du, zu welchem Benutzer eine Person gehört), oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Virtuellen Tracker bearbeiten aus „Wer wird gefragt?“ heraus. Die Fragen selbst funktionieren weiterhin: Sie werden über die Event-Entität des Trackers angekündigt und können mit den Aktionen „Nachfrage beantworten“ und „Erinnerung beantworten“ beantwortet werden."
+    },
+    "real_person_missing": {
+      "title": "Die echte Person {person} gibt es nicht mehr",
+      "description": "{person} ist als echte Person von Virtual Presence Tracker eingetragen, aber diese Entität existiert nicht mehr – gelöscht oder umbenannt. Ihre Anwesenheit zählt damit nicht mehr mit, und virtuelle Tracker werden womöglich nicht mehr zurückgesetzt, wenn jemand heimkommt.\n\nWähle deine echten Personen neu aus: Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren."
+    }
+  },
+  "selector": {
+    "answer": {
+      "options": {
+        "yes": "Ja, sie sind zu Hause",
+        "no": "Nein, es ist niemand zu Hause"
+      }
+    },
+    "reminder_answer": {
+      "options": {
+        "yes": "Ja, noch zu Hause",
+        "no": "Nein, Tracker ausschalten"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "name": "Nachfrage beantworten",
+      "description": "Beantwortet die offene Nachfrage eines virtuellen Trackers. „Ja“ schaltet den Tracker ein, „Nein“ lässt alles, wie es ist.",
+      "fields": {
+        "answer": {
+          "name": "Antwort",
+          "description": "Ob die Person, für die der Tracker steht, zu Hause ist."
+        },
+        "answered_by": {
+          "name": "Beantwortet von",
+          "description": "Die Person, die geantwortet hat. Wird nur an die Event-Entität des Trackers weitergereicht, für Automationen, die wissen wollen, wer geantwortet hat."
+        }
+      }
+    },
+    "answer_reminder": {
+      "name": "Erinnerung beantworten",
+      "description": "Beantwortet die offene Erinnerung eines virtuellen Trackers. „Ja“ lässt den Tracker eingeschaltet und startet die Wartezeit neu, „Nein“ schaltet den Tracker aus.",
+      "fields": {
+        "answer": {
+          "name": "Antwort",
+          "description": "Ob die Person, für die der Tracker steht, noch zu Hause ist."
+        },
+        "answered_by": {
+          "name": "Beantwortet von",
+          "description": "Die Person, die geantwortet hat. Wird nur an die Event-Entität des Trackers weitergereicht, für Automationen, die wissen wollen, wer geantwortet hat."
+        }
+      }
+    },
+    "open_prompt": {
+      "name": "Nachfrage öffnen",
+      "description": "Öffnet die Nachfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen bei leerem Haus“ und die „Nachfrage-Verzögerung“ werden dabei ignoriert; alles Weitere läuft wie bei jeder Nachfrage, inklusive Benachrichtigung und Antwortzeit."
+    },
+    "open_reminder": {
+      "name": "Erinnerung öffnen",
+      "description": "Fragt sofort nach, ob die Person, für die ein virtueller Tracker steht, noch zu Hause ist – ohne auf „Erinnerung nach“ zu warten. Der Tracker muss eingeschaltet sein; alles Weitere läuft wie bei jeder Erinnerung, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }
