@@ -2,8 +2,7 @@
 
 Presence for household members without a phone. This module wires up the config
 entry lifecycle, the household manager, the entity platforms and the built-in
-delivery of the prompt to the phones of the chosen persons (see
-docs/DESIGN.md).
+delivery of the prompt to the phones of the chosen persons.
 """
 
 from __future__ import annotations
@@ -34,9 +33,9 @@ PLATFORMS = [
 # tracker are deliberately left out of it: they have entities of their own now,
 # and reloading the entry because somebody flipped a switch would take the
 # device trackers and their persons to `unavailable` for a moment - long enough
-# for the user's own "somebody came home" automations to fire (see
-# docs/DESIGN.md). The marker of a tracker that asked for a person is left out
-# for the same reason: it is taken off as soon as the person exists.
+# for the user's own "somebody came home" automations to fire. The marker of a
+# tracker that asked for a person is left out for the same reason: it is taken
+# off as soon as the person exists.
 type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 

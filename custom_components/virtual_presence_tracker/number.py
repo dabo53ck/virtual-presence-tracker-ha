@@ -5,7 +5,7 @@ before it opens, after how many hours at home the tracker reminds about itself
 (M3a) and how long that reminder waits for its answer. All of them live in the
 data of the tracker's config subentry,
 where they have always lived - these entities show the stored value and write
-it, without reloading the entry (see docs/DESIGN.md).
+it, without reloading the entry.
 """
 
 from __future__ import annotations

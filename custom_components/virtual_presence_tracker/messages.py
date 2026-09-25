@@ -3,7 +3,7 @@
 The notifications are sent by the integration itself, so their texts cannot
 come from `strings.json` - that file only translates what the frontend renders.
 They live here instead, in English and German, and the language of the Home
-Assistant instance picks one (see docs/DESIGN.md).
+Assistant instance picks one.
 """
 
 from __future__ import annotations

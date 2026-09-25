@@ -45,4 +45,3 @@ body:
       options:
         - label: I searched existing issues.
           required: true
-        - label: I read the milestone plan in `docs/DESIGN.md` — this is not already planned there.

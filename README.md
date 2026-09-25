@@ -124,8 +124,7 @@ when it ends.
 the prompt on the last departure, the reminder for a tracker that has been on
 for too long and the delivery of both to the Companion App work. What is not
 built yet are the evidence sources (BLE tag, tablet Wi-Fi, door contact) that
-could set a tracker home by themselves. See [`docs/DESIGN.md`](docs/DESIGN.md)
-for the design and the milestone plan.
+could set a tracker home by themselves.
 
 ## Installation
 

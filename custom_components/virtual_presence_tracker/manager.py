@@ -5,7 +5,7 @@ configured real persons and the two state machines that ask about a tracker:
 the prompt, when the house empties, and the reminder, when a tracker has been
 at home for too long. It is the single source
 of truth: the entities are thin views on it, so the state survives a restart
-and is already correct before the platforms are set up (see docs/DESIGN.md).
+and is already correct before the platforms are set up.
 """
 
 from __future__ import annotations

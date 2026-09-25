@@ -1,8 +1,8 @@
 """Config flow for the Virtual Presence Tracker integration.
 
 The single config entry holds the real persons of the household; every virtual
-tracker is a config subentry of it (see docs/DESIGN.md). A tracker is
-identified by its subentry ID, so its name is free to change at any time.
+tracker is a config subentry of it. A tracker is identified by its subentry
+ID, so its name is free to change at any time.
 """
 
 from __future__ import annotations
