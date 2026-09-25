@@ -2,8 +2,8 @@
 
 The notifications are sent by the integration itself, so their texts cannot
 come from `strings.json` - that file only translates what the frontend renders.
-They live here instead, in English and German, and the language of the Home
-Assistant instance picks one.
+They live here instead, in English, German, French and Spanish, and the
+language of the Home Assistant instance picks one.
 """
 
 from __future__ import annotations
@@ -57,6 +57,50 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "minutes": "{minutes} Minuten",
         "minutes_one": "1 Minute",
         "group": "Virtuelle Anwesenheit: {tracker}",
+    },
+    "fr": {
+        "title": "Il n'y a que {tracker} à la maison ?",
+        "message": "Personne d'autre n'est à la maison. Répondez sous "
+        "{minutes} minutes.",
+        "message_one_minute": "Personne d'autre n'est à la maison. Répondez sous "
+        "une minute.",
+        "yes": "Oui, à la maison",
+        "no": "Non",
+        "expired_title": "Pas de réponse",
+        "expired_message": "Pas de réponse : pour Home Assistant, {tracker} "
+        "n'est pas à la maison.",
+        "reminder_title": "{tracker} est toujours à la maison ?",
+        "reminder_message": "Pour Home Assistant, {tracker} est à la maison "
+        "depuis {hours}. Répondez sous {minutes}.",
+        "reminder_yes": "Oui, toujours là",
+        "reminder_no": "Non, désactiver",
+        "reminder_expired_message": "Pas de réponse : pour Home Assistant, "
+        "{tracker} reste à la maison.",
+        "hours": "{hours} heures",
+        "hours_one": "1 heure",
+        "minutes": "{minutes} minutes",
+        "minutes_one": "1 minute",
+        "group": "Présence virtuelle : {tracker}",
+    },
+    "es": {
+        "title": "¿Solo está {tracker} en casa?",
+        "message": "No hay nadie más en casa. Responde en {minutes} minutos.",
+        "message_one_minute": "No hay nadie más en casa. Responde en un minuto.",
+        "yes": "Sí, está en casa",
+        "no": "No",
+        "expired_title": "Sin respuesta",
+        "expired_message": "Sin respuesta: {tracker} cuenta como fuera de casa.",
+        "reminder_title": "¿Sigue {tracker} en casa?",
+        "reminder_message": "{tracker} figura en casa desde hace {hours}. "
+        "Responde en {minutes}.",
+        "reminder_yes": "Sí, sigue en casa",
+        "reminder_no": "No, apagar",
+        "reminder_expired_message": "Sin respuesta: {tracker} sigue figurando en casa.",
+        "hours": "{hours} horas",
+        "hours_one": "1 hora",
+        "minutes": "{minutes} minutos",
+        "minutes_one": "1 minuto",
+        "group": "Presencia virtual: {tracker}",
     },
 }
 

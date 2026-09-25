@@ -827,11 +827,13 @@ renaming only changes what is displayed.
 
 ## Contributing a translation
 
-The integration speaks English and German. Another language is one file: copy
-`custom_components/virtual_presence_tracker/translations/en.json` to
-`translations/<language-code>.json` — the code Home Assistant uses for that
-language, `fr.json`, `nl.json`, `lb.json` — and translate the values, leaving
-every key exactly as it is.
+The integration speaks English, German, French and Spanish. Another language is
+one file: copy `custom_components/virtual_presence_tracker/translations/en.json`
+to `translations/<language-code>.json` — the code Home Assistant uses for that
+language, `nl.json`, `it.json`, `lb.json` — and translate the values, leaving
+every key exactly as it is. That covers everything Home Assistant shows; the
+texts of the phone notifications live in `messages.py` and fall back to English
+until a language is added there too.
 
 English is the source of truth, and it lives twice: `strings.json` and
 `translations/en.json` must stay **byte-identical** to each other, so an English
