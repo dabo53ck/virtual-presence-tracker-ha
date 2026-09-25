@@ -1,3 +1,6 @@
+# AI-assistant working notes; not part of the published integration
+/CLAUDE.md
+
 __pycache__/
 *.py[cod]
 .venv/

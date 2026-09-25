@@ -453,7 +453,9 @@ async def test_subentry_stores_the_recipients(
     await hass.async_block_till_done()
 
     subentry = config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0]
-    assert dict(subentry.data) == tracker_data(**{CONF_NOTIFY_PERSONS: [PERSON_DABO53CK]})
+    assert dict(subentry.data) == tracker_data(
+        **{CONF_NOTIFY_PERSONS: [PERSON_DABO53CK]}
+    )
 
 
 async def test_subentry_offers_only_the_real_persons(

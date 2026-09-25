@@ -195,7 +195,9 @@ async def test_the_reset_chain(hass: HomeAssistant) -> None:
 
 async def test_no_reset_while_somebody_real_stays_home(hass: HomeAssistant) -> None:
     """Coming home to a house that is not empty leaves the tracker alone."""
-    await setup_household(hass, [KID, DABO53CK, KING53CK], real_persons=[PERSON_A, PERSON_B])
+    await setup_household(
+        hass, [KID, DABO53CK, KING53CK], real_persons=[PERSON_A, PERSON_B]
+    )
 
     await set_gps_tracker(hass, DABO53CK_PHONE, STATE_NOT_HOME)
     await set_gps_tracker(hass, KING53CK_PHONE, STATE_HOME)

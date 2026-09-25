@@ -25,20 +25,12 @@ home but carry no tracked device.
 
 ## Quick start
 
-1. **Install it.** Copy the folder `custom_components/virtual_presence_tracker`
-   into your Home Assistant configuration and restart. The repository is still
-   private, so HACS is not an option yet — see [Installation](#installation).
-2. **Add the integration.** **Settings → Devices & services → Add integration →
-   Virtual Presence Tracker**, or use this button:
+1. [Install it via HACS](#installation) — one click.
+2. [Add the integration](#setup) and answer the two forms — your real persons,
+   then your first virtual tracker.
 
-   [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=virtual_presence_tracker)
-
-3. **Answer the two forms** that follow — your real persons, then your first
-   virtual tracker — and let the integration create the tracker's person for
-   you. Step by step under [Setup](#setup).
-
-Everything a tracker can be set to afterwards is an entity on the tracker's own
-page; see [The tracker's settings](#the-trackers-settings).
+Everything afterward is an entity on the tracker's own page; see
+[The tracker's settings](#the-trackers-settings).
 
 ## Who it is for
 
@@ -137,17 +129,15 @@ for the design and the milestone plan.
 
 ## Installation
 
-The repository is still **private**, so it cannot be installed through HACS yet.
-Until it is public, use the manual installation.
+### HACS (recommended)
 
-### HACS (once the repository is public)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dabo53ck&repository=virtual-presence-tracker-ha&category=integration)
 
-<!-- TODO: add the HACS My-button once the repo is public -->
-
-1. In HACS, open the three-dot menu → **Custom repositories**.
-2. Add `https://github.com/dabo53ck/virtual-presence-tracker-ha` with the
-   category **Integration**.
-3. Install **Virtual Presence Tracker** and restart Home Assistant.
+1. Click the button above (or HACS → **Integrations** → menu → **Custom
+   repositories**, and add
+   `https://github.com/dabo53ck/virtual-presence-tracker-ha` as an
+   **Integration**).
+2. Install **Virtual Presence Tracker** and restart Home Assistant.
 
 ### Manual
 
@@ -159,7 +149,10 @@ Until it is public, use the manual installation.
 
 ### 1. Add the integration
 
-**Settings → Devices & services → Add integration → Virtual Presence Tracker.**
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=virtual_presence_tracker)
+
+If the button doesn't work: **Settings → Devices & services → Add integration
+→ Virtual Presence Tracker.**
 
 You are asked for your **real persons**: the people whose presence decides
 whether somebody is at home who is not a virtual tracker. Home Assistant has to
@@ -395,6 +388,11 @@ in the rounded-avatar style of a messaging app, with the question's title as the
 name. This needs the **iOS Companion App 2026.8.0 or newer**; an older app simply
 shows its own icon, and everything else about the message is unchanged. On
 **Android** the icon is the large icon of the notification.
+
+Everything a tracker sends — the question, the reminder and the short notes
+below — is stacked in a group of its own on the phone, so it stays apart from
+your other trackers and from the rest of Home Assistant's notifications. Android
+labels the group "Virtual presence: Kid".
 
 What it needs:
 
