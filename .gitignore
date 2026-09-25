@@ -1,5 +1,6 @@
 # AI-assistant working notes; not part of the published integration
 /CLAUDE.md
+docs/DESIGN.md
 
 __pycache__/
 *.py[cod]

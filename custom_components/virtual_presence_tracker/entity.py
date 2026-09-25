@@ -1,8 +1,8 @@
 """Shared entity base of the Virtual Presence Tracker integration.
 
 Every entity is a thin view on the household manager: it never polls, it is
-written whenever the manager reports a change, and it holds no state of its own
-(see docs/DESIGN.md).
+written whenever the manager reports a change, and it holds no state of its
+own.
 """
 
 from __future__ import annotations

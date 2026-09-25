@@ -91,7 +91,7 @@ DEFAULT_OVERRIDE_DND: Final = False
 # subentry that
 # may change without reloading the config entry: a reload would take the
 # trackers and their persons away for a moment, which is not something a
-# switch is allowed to do (see docs/DESIGN.md).
+# switch is allowed to do.
 OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
     CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
@@ -128,7 +128,7 @@ ATTR_PROMPT_EXPIRES_AT: Final = "prompt_expires_at"
 ATTR_REMINDER_OPEN: Final = "reminder_open"
 ATTR_REMINDER_EXPIRES_AT: Final = "reminder_expires_at"
 
-# Public contract of the prompt (see docs/DESIGN.md). The event types of the
+# Public contract of the prompt. The event types of the
 # per-tracker event entity, the keys of their data and the reasons a prompt can
 # be cancelled with are an API that automations are written against: they may
 # grow, but they are never renamed.
@@ -178,7 +178,7 @@ REASON_SWITCHED_ON: Final = "switched_on"
 REASON_SWITCHED_OFF: Final = "switched_off"
 REASON_OPTION_DISABLED: Final = "option_disabled"
 
-# Built-in delivery through the Companion App (see docs/DESIGN.md). The action
+# Built-in delivery through the Companion App. The action
 # IDs and the tags are internal, but they have to stay stable: an answer or a
 # clearing may name a prompt that a previous Home Assistant run started.
 EVENT_NOTIFICATION_ACTION: Final = "mobile_app_notification_action"
@@ -200,7 +200,7 @@ CLEAR_NOTIFICATION: Final = "clear_notification"
 # `brand` folder next to this file. It takes the place of the Companion App's
 # own icon beside the message. The `brands` component serves that folder and
 # wants an authenticated request; both Companion Apps send the user's token
-# with an icon URL that starts with a slash (see docs/DESIGN.md).
+# with an icon URL that starts with a slash.
 NOTIFICATION_ICON_FILE: Final = "icon@2x.png"
 NOTIFICATION_ICON: Final = f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_ICON_FILE}"
 
@@ -208,13 +208,13 @@ NOTIFICATION_ICON: Final = f"/api/brands/integration/{DOMAIN}/{NOTIFICATION_ICON
 # through Do Not Disturb (M3c): the Companion App tests for this exact name and
 # gives such a notification `Notification.CATEGORY_ALARM` and the alarm audio
 # stream, which is the exception Do Not Disturb keeps for alarms. The iOS half
-# of the same option lives in `data.push` (see docs/DESIGN.md).
+# of the same option lives in `data.push`.
 NOTIFICATION_ALARM_CHANNEL: Final = "alarm_stream"
 
 # The iOS half of the same option: the name of the sound a critical alert
 # plays. "default" is the system sound, and the name has to be sent - the push
 # relay rejects a payload whose `aps.sound` dictionary has no non-empty `name`
-# before it ever reaches the phone (see docs/DESIGN.md).
+# before it ever reaches the phone.
 NOTIFICATION_CRITICAL_SOUND: Final = "default"
 
 # Entity services on the switches of this integration.

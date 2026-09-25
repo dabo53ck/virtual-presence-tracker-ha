@@ -1,0 +1,235 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Personas reales",
+        "description": "Las personas reales son aquellas cuya presencia determina si hay en casa alguien que no sea un rastreador virtual. Home Assistant tiene que poder localizarlas por sí mismo, así que cada una necesita un rastreador de dispositivos.",
+        "data": {
+          "persons": "Personas reales"
+        },
+        "data_description": {
+          "persons": "Se necesita al menos una persona. Se sugieren las personas que tienen actualmente un rastreador de dispositivos; una persona sin él suele ser justo aquella para la que está pensado un rastreador virtual."
+        }
+      },
+      "reconfigure": {
+        "title": "Personas reales",
+        "description": "Cambia las personas cuya presencia determina si hay en casa alguien que no sea un rastreador virtual. Home Assistant tiene que poder localizarlas por sí mismo, así que cada una necesita un rastreador de dispositivos.",
+        "data": {
+          "persons": "Personas reales"
+        },
+        "data_description": {
+          "persons": "Se necesita al menos una persona. No añadas una persona que tenga asignado un rastreador virtual: encender ese rastreador parecería una llegada real a casa."
+        }
+      }
+    },
+    "error": {
+      "no_persons": "Selecciona al menos una persona real.",
+      "person_has_virtual_tracker": "{persons} tiene conectado un rastreador virtual de esta integración. Encender ese rastreador parecería la llegada a casa de una persona real y restablecería todos los rastreadores virtuales, así que elige a otra persona."
+    },
+    "abort": {
+      "single_instance_allowed": "Ya está configurado. Solo es posible una única configuración.",
+      "reconfigure_successful": "Se actualizaron las personas reales."
+    }
+  },
+  "config_subentries": {
+    "tracker": {
+      "initiate_flow": {
+        "user": "Añadir rastreador virtual",
+        "reconfigure": "Editar rastreador virtual"
+      },
+      "entry_type": "Rastreador virtual",
+      "step": {
+        "user": {
+          "title": "Añadir un rastreador virtual",
+          "description": "Un rastreador virtual representa a un miembro del hogar sin teléfono, por ejemplo un niño, un abuelo o un invitado. Necesita una persona propia – la integración te la crea más abajo – y esa persona cuenta como en casa mientras el rastreador esté encendido.",
+          "data": {
+            "name": "Nombre",
+            "notify_persons": "¿A quién se pregunta?",
+            "create_person": "Crear una persona para este rastreador"
+          },
+          "data_description": {
+            "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta».",
+            "create_person": "Crea una persona sin inicio de sesión, con el nombre del rastreador, y le asigna el rastreador – el paso que hace que alguien cuente como en casa. Desmárcalo si ya tienes una persona para este rastreador y quieres asignarlo tú mismo en Configuración > Personas."
+          }
+        },
+        "reconfigure": {
+          "title": "Editar el rastreador virtual",
+          "description": "Cambia el nombre del rastreador o quién recibe las preguntas sobre él. Cambiar el nombre es seguro: las entidades del rastreador conservan su identidad.",
+          "data": {
+            "name": "Nombre",
+            "notify_persons": "¿A quién se pregunta?"
+          },
+          "data_description": {
+            "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta»."
+          }
+        }
+      },
+      "error": {
+        "name_required": "Introduce un nombre para el rastreador.",
+        "name_exists": "Ya existe un rastreador con este nombre.",
+        "person_not_real": "{persons} no está entre las personas reales de este hogar, así que no se le puede preguntar. Quita a la persona de aquí o añádela a las personas reales con «Reconfigurar» en la página de la integración."
+      },
+      "abort": {
+        "reconfigure_successful": "Se actualizó el rastreador."
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "only_virtual_home": {
+        "name": "Solo rastreadores virtuales en casa"
+      }
+    },
+    "event": {
+      "prompt": {
+        "name": "Preguntas",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "prompt_started": "Consulta enviada",
+              "answered_yes": "Consulta respondida con sí",
+              "answered_no": "Consulta respondida con no",
+              "expired": "Consulta sin respuesta",
+              "cancelled": "Consulta retirada",
+              "reminder_started": "Recordatorio enviado",
+              "reminder_answered_yes": "Recordatorio respondido con sí",
+              "reminder_answered_no": "Recordatorio respondido con no",
+              "reminder_expired": "Recordatorio sin respuesta",
+              "reminder_cancelled": "Recordatorio retirado"
+            }
+          }
+        }
+      }
+    },
+    "number": {
+      "answer_timeout": {
+        "name": "Tiempo de respuesta de la consulta"
+      },
+      "prompt_delay": {
+        "name": "Retraso de la consulta"
+      },
+      "remind_after": {
+        "name": "Recordar después de"
+      },
+      "reminder_timeout": {
+        "name": "Tiempo de respuesta del recordatorio"
+      }
+    },
+    "switch": {
+      "ask_on_departure": {
+        "name": "Preguntar con la casa vacía"
+      },
+      "at_home": {
+        "name": "En casa"
+      },
+      "notify_on_expiry": {
+        "name": "Aviso si no hay respuesta"
+      },
+      "override_dnd": {
+        "name": "Ignorar No molestar en la consulta"
+      },
+      "reset_on_return": {
+        "name": "Restablecer al volver"
+      }
+    }
+  },
+  "exceptions": {
+    "no_open_prompt": {
+      "message": "No hay ninguna consulta abierta para {entity_id}, así que no hay nada que responder."
+    },
+    "no_open_reminder": {
+      "message": "No hay ningún recordatorio abierto para {entity_id}, así que no hay nada que responder."
+    },
+    "not_a_tracker_switch": {
+      "message": "{entity_id} es un ajuste del rastreador, no su interruptor de presencia. Usa como destino el interruptor «En casa» del rastreador o su dispositivo."
+    },
+    "prompt_already_open": {
+      "message": "Ya hay una consulta abierta para {entity_id}, así que no hay nada que volver a preguntar."
+    },
+    "reminder_already_open": {
+      "message": "Ya hay un recordatorio abierto para {entity_id}, así que no hay nada que volver a preguntar."
+    },
+    "tracker_already_home": {
+      "message": "{entity_id} ya está encendido, así que no hay nadie por quien preguntar."
+    },
+    "tracker_not_home": {
+      "message": "{entity_id} está apagado, así que no hay nadie sobre quien recordarte nada."
+    }
+  },
+  "issues": {
+    "no_tracker": {
+      "title": "Todavía no se ha añadido ningún rastreador virtual",
+      "description": "Virtual Presence Tracker está configurado, pero todavía no hay ningún rastreador virtual, así que no pasa nada. Un rastreador virtual representa a un miembro del hogar sin teléfono, por ejemplo un niño, un abuelo o un invitado.\n\nAñade uno en Configuración > Dispositivos y servicios > Integraciones > Virtual Presence Tracker > «Añadir rastreador virtual». Después asígnalo a una persona propia, para que esa persona cuente como en casa mientras el rastreador esté encendido."
+    },
+    "tracker_not_assigned": {
+      "title": "El rastreador virtual {name} no está asignado a ninguna persona",
+      "description": "Nadie cuenta como en casa cuando {name} está encendido: el rastreador de dispositivos `{entity_id}` no forma parte de ninguna persona, así que Home Assistant no tiene a nadie a quien situar en casa.\n\nVe a Configuración > Personas, abre la persona a la que representa {name} (o añade una, sin inicio de sesión) y elige `{entity_id}` en la lista de rastreadores de dispositivos de esa persona. Si ya no necesitas el rastreador, elimínalo en Configuración > Dispositivos y servicios > Virtual Presence Tracker."
+    },
+    "real_person_has_virtual_tracker": {
+      "title": "La persona real {person} tiene un rastreador virtual conectado",
+      "description": "{person} es una de las personas reales de Virtual Presence Tracker, y el rastreador virtual `{tracker}` está conectado a esa persona. Por eso, encender ese rastreador parece la llegada a casa de una persona real, lo que vuelve a apagar todos los rastreadores virtuales.\n\nHay dos formas de arreglarlo: quita `{tracker}` de {person} en Configuración > Personas, o saca a {person} de las personas reales en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Reconfigurar."
+    },
+    "recipient_without_phone": {
+      "title": "{person} no tiene ningún teléfono en el que preguntarle",
+      "description": "A {person} se le debe preguntar por {tracker}, pero Home Assistant no tiene ningún teléfono al que enviar la pregunta: no hay ninguna app Home Assistant Companion registrada para la cuenta de usuario de {person}.\n\nInstala la app Companion en el teléfono de esa persona e inicia sesión con su propia cuenta de usuario (Configuración > Personas muestra a qué usuario pertenece una persona), o saca a {person} de «¿A quién se pregunta?» en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Editar rastreador virtual. Las preguntas en sí siguen funcionando: las anuncia la entidad de evento del rastreador y se pueden responder con las acciones «Responder a la consulta» y «Responder al recordatorio»."
+    },
+    "real_person_missing": {
+      "title": "La persona real {person} ya no existe",
+      "description": "{person} figura como persona real de Virtual Presence Tracker, pero esa entidad ya no existe: se eliminó o se le cambió el nombre. Su presencia ya no se tiene en cuenta, así que puede que los rastreadores virtuales ya no se restablezcan cuando alguien llegue a casa.\n\nVuelve a seleccionar tus personas reales en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Reconfigurar."
+    }
+  },
+  "selector": {
+    "answer": {
+      "options": {
+        "yes": "Sí, está en casa",
+        "no": "No, no hay nadie en casa"
+      }
+    },
+    "reminder_answer": {
+      "options": {
+        "yes": "Sí, sigue en casa",
+        "no": "No, apagar el rastreador"
+      }
+    }
+  },
+  "services": {
+    "answer_prompt": {
+      "name": "Responder a la consulta",
+      "description": "Responde a la consulta abierta de un rastreador virtual. «Sí» enciende el rastreador, «no» lo deja todo como está.",
+      "fields": {
+        "answer": {
+          "name": "Respuesta",
+          "description": "Si la persona a la que representa el rastreador está en casa."
+        },
+        "answered_by": {
+          "name": "Respondido por",
+          "description": "La persona que dio la respuesta. Solo se pasa a la entidad de evento del rastreador, para las automatizaciones que quieran saber quién respondió."
+        }
+      }
+    },
+    "answer_reminder": {
+      "name": "Responder al recordatorio",
+      "description": "Responde al recordatorio abierto de un rastreador virtual. «Sí» deja el rastreador encendido y vuelve a empezar el tiempo de espera, «no» apaga el rastreador.",
+      "fields": {
+        "answer": {
+          "name": "Respuesta",
+          "description": "Si la persona a la que representa el rastreador sigue en casa."
+        },
+        "answered_by": {
+          "name": "Respondido por",
+          "description": "La persona que dio la respuesta. Solo se pasa a la entidad de evento del rastreador, para las automatizaciones que quieran saber quién respondió."
+        }
+      }
+    },
+    "open_prompt": {
+      "name": "Abrir consulta",
+      "description": "Abre la consulta de un rastreador virtual ahora mismo, sin esperar a que se vaya la última persona real. Ignora quién está en casa, el interruptor «Preguntar con la casa vacía» del rastreador y el «Retraso de la consulta»; todo lo demás es la consulta habitual, incluidos la notificación y el tiempo de respuesta."
+    },
+    "open_reminder": {
+      "name": "Abrir recordatorio",
+      "description": "Pregunta ahora mismo si la persona a la que representa un rastreador virtual sigue en casa, sin esperar a que pase «Recordar después de». El rastreador tiene que estar encendido; todo lo demás es el recordatorio habitual, incluidos la notificación y el tiempo de respuesta."
+    }
+  }
+}

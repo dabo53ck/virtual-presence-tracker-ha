@@ -38,7 +38,7 @@ def test_english_is_a_copy_of_the_strings() -> None:
     ).read_bytes()
 
 
-@pytest.mark.parametrize("language", ["de"])
+@pytest.mark.parametrize("language", ["de", "fr", "es"])
 def test_a_translation_has_every_key(language: str) -> None:
     """A translation has the keys of the strings, and no others."""
     expected = keys(load(COMPONENT / "strings.json"))

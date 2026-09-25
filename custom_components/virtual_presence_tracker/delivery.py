@@ -5,7 +5,7 @@ house empties (M2b) and the reminder about a tracker that has been on for a
 long time (M3a) - to their phones as an actionable `mobile_app` notification,
 and takes the message back as soon as the question ends, whatever ended it.
 Without recipients nothing is sent at all and both stay what they were: an
-event entity and an action (see docs/DESIGN.md).
+event entity and an action.
 
 Nothing here imports the `mobile_app` or the `notify` component: the
 integration works without either of them, and the mapping only needs the config

@@ -5,7 +5,7 @@ tracker reach the outside world: an automation triggers on it, decides how to
 ask - a phone notification, a TTS announcement, a dashboard button - and sends
 the answer back through the `answer_prompt` / `answer_reminder` action. Both
 the prompt (M2a) and the reminder (M3a) are published here, with event types of
-their own; the types and their data are a public contract (see docs/DESIGN.md).
+their own; the types and their data are a public contract.
 """
 
 from __future__ import annotations

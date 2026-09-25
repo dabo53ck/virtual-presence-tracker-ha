@@ -124,8 +124,7 @@ when it ends.
 the prompt on the last departure, the reminder for a tracker that has been on
 for too long and the delivery of both to the Companion App work. What is not
 built yet are the evidence sources (BLE tag, tablet Wi-Fi, door contact) that
-could set a tracker home by themselves. See [`docs/DESIGN.md`](docs/DESIGN.md)
-for the design and the milestone plan.
+could set a tracker home by themselves.
 
 ## Installation
 
@@ -240,6 +239,8 @@ A tracker needs no card of its own. The switch is the one thing you use every
 day; the device tracker and the household sensor are worth having next to it
 while you get used to the integration:
 
+![An entities card "At home" with a tracker's switch, its device tracker and the "Only virtual trackers home" sensor, and below it the same switch as a tile card](images/dashboard.png)
+
 ```yaml
 type: entities
 title: At home
@@ -288,6 +289,8 @@ Everything a tracker can be set to is an entity of that tracker, on its page
 under **Settings → Devices & services → Virtual Presence Tracker → Kid**. Change
 one and it takes effect immediately — nothing reloads, nothing goes
 `unavailable`, and your automations do not notice.
+
+![The Configuration section of a tracker's device page, with all eight settings entities and their defaults](images/settings.png)
 
 | Entity | What it does | Default |
 |---|---|---|
@@ -374,6 +377,10 @@ question is sent to their phones — no automation needed:
 > **Is Kid home alone?**
 > Nobody else is home. Answer within 10 minutes.
 > \[ Yes, home alone ] \[ No ]
+
+On an iPhone:
+
+![A prompt on an iPhone lock screen: "Is Noah home alone? Nobody else is home. Answer within 10 minutes.", with the integration's icon and the buttons "Yes, home alone" and "No"](images/notification.png)
 
 **Yes** switches the tracker on, **No** leaves everything as it is, and either way
 the message disappears from *every* phone that was asked: the first answer
@@ -820,11 +827,13 @@ renaming only changes what is displayed.
 
 ## Contributing a translation
 
-The integration speaks English and German. Another language is one file: copy
-`custom_components/virtual_presence_tracker/translations/en.json` to
-`translations/<language-code>.json` — the code Home Assistant uses for that
-language, `fr.json`, `nl.json`, `lb.json` — and translate the values, leaving
-every key exactly as it is.
+The integration speaks English, German, French and Spanish. Another language is
+one file: copy `custom_components/virtual_presence_tracker/translations/en.json`
+to `translations/<language-code>.json` — the code Home Assistant uses for that
+language, `nl.json`, `it.json`, `lb.json` — and translate the values, leaving
+every key exactly as it is. That covers everything Home Assistant shows; the
+texts of the phone notifications live in `messages.py` and fall back to English
+until a language is added there too.
 
 English is the source of truth, and it lives twice: `strings.json` and
 `translations/en.json` must stay **byte-identical** to each other, so an English
