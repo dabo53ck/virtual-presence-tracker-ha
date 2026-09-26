@@ -13,11 +13,15 @@ child without a phone, grandparents, a babysitter, or any guest.**
 </div>
 
 A Home Assistant custom integration. For every person who cannot be tracked
-automatically you create a **virtual tracker**. While it is switched on, that
-person counts as being at home: `zone.home` counts them, and the "nobody home"
-automations you already have stay quiet. It switches itself off when you come
-back, and it can ask you on your phone whether somebody is home when the last of
-you leaves.
+automatically you create a **virtual tracker**. It detects nothing by itself —
+no sensor, no Wi-Fi, no Bluetooth or BLE. You set it: by hand, from an
+automation, or by answering a question on your phone. From then on it behaves
+exactly like a real device tracker: the person counts as being at home,
+`zone.home` counts them, and the "nobody home" automations you already have stay
+quiet.
+
+It switches itself off when you come back, and it can ask you on your phone
+whether somebody is home when the last of you leaves.
 
 **This is not a presence simulation.** Unlike "Home Alone"-style integrations that
 fake activity while the house is empty, this one is about people who really are at
@@ -34,11 +38,10 @@ Everything afterward is an entity on the tracker's own page; see
 
 ## Who it is for
 
-Home Assistant works out who is at home from trackers, usually phones. That
-breaks down whenever somebody is in the house without one: you leave, the house
-looks empty, and the routines for an empty house run — lights off, alarm armed,
-heating turned down, the robot vacuum sent off — around the person who is still
-there.
+Home Assistant works out who is at home from trackers, usually phones. Whenever
+somebody is in the house without one, it looks empty as soon as you leave, and
+the routines for an empty house — lights off, alarm armed, heating turned down,
+the robot vacuum sent off — run around the person who is still there.
 
 | Somebody who… | Without a virtual tracker | With one |
 |---|---|---|
@@ -47,63 +50,41 @@ there.
 | **Grandparents** or **guests** who stay a few days | Every time the family goes out, the empty-house routines run — for the whole visit. | Their tracker is on for the stay and off when they leave. |
 | **A carer, a cleaner, a house sitter** | The house looks empty while they work. | A tracker per person, or one shared tracker, switched on when they arrive. |
 
-Nothing has to be installed on the other person's side, and nothing is tracked:
-the integration only knows what you, an automation, or an answered prompt tell it.
+Nothing has to be installed on the other person's side, and nothing about them is
+tracked. Each virtual tracker, for a tracker named *Kid*, gives you:
 
-## How it works
+- a **switch**: on means "Kid is at home". Flip it from a dashboard, an NFC tag, a
+  button or an automation, or answer a prompt on your phone;
+- a **device tracker** that follows the switch (`home` / `not_home`), assigned to a
+  **person** without a login — which the integration creates for you when you add
+  the tracker, if you let it. While the switch is on, `person.kid` is `home` and
+  `zone.home` counts them;
+- a **prompt** when the last real person leaves: "is Kid at home?", as a
+  notification with Yes and No buttons on the phones you pick;
+- a **reminder** when the tracker has been on for too long: "is Kid still home?" —
+  the safety net against a forgotten switch that keeps the house "occupied" for
+  days;
+- an **automatic reset**: when the first real person comes back to an empty house,
+  the tracker switches itself off (per tracker, and you can turn it off);
+- **settings as entities**: whether it asks, whether it resets and all its timings
+  are switches and numbers on the tracker's own page — changed with a tap, usable
+  in automations, no reload.
 
-1. You create a virtual tracker, for example "Grandma", and assign its
-   `device_tracker` to a `person` without a login.
-2. You switch it on — from a dashboard, an NFC tag, a button, an automation, or
-   by answering a prompt on your phone. `person.grandma` is now `home`.
-3. `zone.home` counts them, so every automation and dashboard card that asks "is
-   anybody home?" sees somebody at home. When you come back to the house, the
-   tracker switches itself off again (you can turn that off per tracker).
-
-## What it does
-
-- A **switch** per virtual tracker: on means "this person is at home".
-- A **device tracker** per virtual tracker that follows the switch (`home` /
-  `not_home`). This is the entity a person needs to have.
-- **The person for a new tracker, created for you**: a person without a login,
-  named like the tracker and with the tracker already assigned — the step that
-  used to be manual, and the one people forgot. Optional, and only ever for a
-  tracker you are adding.
-- A **binary sensor** "Only virtual trackers home" for the household: on when at
-  least one virtual tracker is at home and none of your real persons is.
-- **Automatic reset**: when the first real person comes back to an empty house,
-  the trackers switch off again, so nobody stays "at home" for days by mistake.
-- **Settings as entities**: whether a tracker asks, when it resets and the
-  timings of its prompt are switches and numbers on the tracker's own page —
-  changed with a tap, usable in automations, and without a reload.
-- A **prompt** when the last real person leaves: "is Kid at home?",
-  sent to the phones of the people you pick as a **notification with Yes and No
-  buttons**. Every prompt is also announced by an **event entity** and can be
-  answered with the action **Answer prompt**, so any other channel — a speaker,
-  a dashboard, Telegram — can carry the question instead. The action **Open
-  prompt** asks the question on demand, which is also how you try the whole
-  chain out without leaving the house.
-- A **reminder** for a tracker that has been on for too long: "is Kid still
-  home?", after the number of hours you set. A forgotten switch is the one way
-  this integration can make things worse than before — the house counts as
-  occupied for days — and this is the safety net against it.
+For the household there is one **binary sensor**, "Only virtual trackers home": on
+when at least one virtual tracker is at home and none of your real persons is.
 
 ## What it does not do
 
-- It does not detect anything by itself. A virtual tracker only knows what you,
-  an automation or an answered prompt tell it.
-- It does not deliver the prompt or the reminder anywhere except to the Home
-  Assistant Companion App. Any other channel is an automation of your own on the
-  event entity (there is a ready-made example below).
-- It does not switch a tracker off by itself when nobody answers. It reminds
-  you; switching off stays your decision.
-- It does not change what your automations do — it only changes who counts as
-  being at home.
-- It does not manage your persons beyond the one step it offers: a **new**
-  tracker can have its person created for you, once, when you add it. It never
-  changes a person you already have, never creates a second person of the same
-  name, and never deletes a person — not even when you delete its tracker.
-  Untick the box in the form and the person stays yours to create (see below).
+- It delivers the prompt and the reminder only to the Home Assistant Companion
+  App. Any other channel is an automation of your own — see
+  [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md).
+- It never switches a tracker off because nobody answered. It reminds you;
+  switching off stays your decision.
+- It does not change what your automations do, only who counts as being at home.
+- It creates a person only for a **new** tracker, once, when you add it — untick
+  the box and that stays yours to do. It never changes a person you already have,
+  never creates a second one of the same name, and never deletes one, not even
+  together with its tracker.
 
 ## Requirements
 
@@ -369,6 +350,12 @@ whose phones the question goes to (see "The tracker's settings").
 You can also switch the tracker on by hand before you leave. A tracker that is
 already on does not ask anything.
 
+The prompt does not hold back your own "nobody home" automations: `zone.home` is
+already empty the moment the last real person leaves, so an automation with a
+short `for:` can run before the prompt is answered. See
+[How the timing works](docs/AUTOMATIONS.md#how-the-timing-works) if that matters
+to you.
+
 ## Ask a phone: the built-in notification
 
 Pick one or more of your **real persons** under **Who is asked?** and the
@@ -417,6 +404,9 @@ home." for the reminder further down. One switch covers both. It is off by
 default, and it is only ever sent on an expiry — never when somebody answers or
 when the question is withdrawn.
 
+The message is in English, German, French or Spanish, depending on the language
+of your Home Assistant instance.
+
 ### When the phone is on silent
 
 A phone on Do Not Disturb, or simply on silent, shows the prompt without a
@@ -445,206 +435,15 @@ Two more things to know:
   in the notification settings of the Home Assistant app. If that is off, the
   prompt simply arrives as a normal notification; nothing else changes.
 
-**Leaving "Who is asked?" empty means the integration sends nothing at all.** The
-prompt still opens, the event entity still announces it and the action still
-answers it, so your own automation stays in charge. Both ways can be combined:
-the event entity fires whether or not the built-in notification goes out, so an
-extra announcement on a speaker is just another automation.
+### Other channels
 
-The message is in English or in German, depending on the language of your Home
-Assistant instance.
-
-### The event entity
-
-`event.kid_questions` publishes everything that happens to the prompt — and to
-the reminder — of that tracker. Its `event_type` is one of:
-
-| `event_type` | Meaning |
-|---|---|
-| `prompt_started` | The prompt is open. `expires_at` says until when. |
-| `answered_yes` | Somebody answered yes; the tracker is now on. |
-| `answered_no` | Somebody answered no; nothing changed. |
-| `expired` | Nobody answered in time; nothing changed. |
-| `cancelled` | The prompt was taken back. `reason` says why: `person_home`, `switched_on` or `option_disabled`. |
-| `reminder_started` | The reminder is open. `expires_at` says until when. |
-| `reminder_answered_yes` | Somebody answered "still home"; nothing changed. |
-| `reminder_answered_no` | Somebody answered "switch off"; the tracker is now off. |
-| `reminder_expired` | Nobody answered in time; nothing changed. |
-| `reminder_cancelled` | The reminder was taken back. `reason` says why: `switched_off` or `option_disabled`. |
-
-Every prompt event also carries `prompt_id` (identifies this one prompt from
-start to finish) and `tracker` (the tracker's name); every reminder event
-carries `reminder_id` and `tracker`. The two IDs never mix: a reminder event
-has no `prompt_id`, and a prompt event has no `reminder_id`. The four
-`answered` events carry `answered_by` — the person who answered, or nothing if
-the caller did not say.
-
-The switch has four matching attributes, so a dashboard or a template can see
-the same thing without listening for events: `prompt_open`,
-`prompt_expires_at`, `reminder_open` and `reminder_expires_at`.
-
-### The answer action
-
-```yaml
-action: virtual_presence_tracker.answer_prompt
-target:
-  entity_id: switch.kid_at_home
-data:
-  answer: "yes"          # or "no"
-  answered_by: person.dabo53ck   # optional
-```
-
-Target the tracker's **At home** switch (or its device). The tracker's settings
-switches are not valid targets: pick one by hand and the action tells you so
-instead of doing anything. If that tracker has no open prompt, the action fails
-with "there is no open prompt" — an answer that arrives too late does not
-switch anything on by accident.
-
-### The open action
-
-```yaml
-action: virtual_presence_tracker.open_prompt
-target:
-  entity_id: switch.kid_at_home
-```
-
-Opens the prompt of that tracker **right now**, without waiting for anybody to
-leave. It has no options: the tracker's own **Prompt answer time** applies, the
-question goes to the phones under **Who is asked?**, the event entity announces
-it, and every way of ending it works as usual.
-
-It ignores everything that decides whether to ask *by itself*: who is at home,
-the **Ask when empty** switch — a tracker with that switch off can still be
-asked about this way — and **Prompt delay**, because "now" means now. If a prompt
-of that tracker was still waiting for its delay, it opens immediately instead,
-as that same prompt.
-
-Two cases it refuses, without changing anything: the tracker is **already
-switched on** (there is nobody to ask about), or a prompt for it is **already
-open**.
-
-One thing to keep in mind when you call it from an automation: the message
-always says *"Nobody else is home."* That is the sentence the prompt was written
-for, and opening the prompt yourself does not check it. Make your automation's
-own conditions the thing that makes it true.
-
-### Try the prompt without leaving the house
-
-Trying the prompt out used to mean actually walking out of the zone. It does
-not any more:
-
-1. **Developer tools → Actions**.
-2. Pick **Virtual Presence Tracker: Open prompt**.
-3. Choose the tracker's switch (`switch.kid_at_home`) as the target and press
-   **Perform action**.
-
-The question appears on the phones of everybody under **Who is asked?**,
-`event.kid_questions` fires `prompt_started`, and the switch gets
-`prompt_open: true`. Answer on the phone, answer with **Answer prompt**, switch
-the tracker on or let the time run out — all of it behaves exactly as it does
-after a real departure. Set **Prompt answer time** to a minute while you are
-testing if you do not want to wait ten.
-
-### Example: ask somewhere else
-
-You do not need this to ask a phone — that is what **Who is asked?** does. It is
-the pattern for every *other* channel, and it is what a Telegram message, a TTS
-announcement or a dashboard button looks like. Two automations: one turns the
-prompt into an actionable notification, the other turns the tapped button back
-into an answer. Replace `notify.mobile_app_<your_phone>` with your own notify
-action, and use a tag and action names of your own — the ones starting with
-`VPT_` belong to the built-in delivery.
-
-```yaml
-automation:
-  - alias: Ask whether Kid is at home
-    triggers:
-      - trigger: state
-        entity_id: event.kid_questions
-        not_from: ["unavailable", "unknown"]
-    conditions:
-      - condition: template
-        value_template: "{{ trigger.to_state.attributes.event_type == 'prompt_started' }}"
-    actions:
-      - action: notify.mobile_app_<your_phone>
-        data:
-          title: Nobody at home?
-          message: Is Kid at home?
-          data:
-            tag: vpt_kid_prompt
-            actions:
-              - action: VPT_KID_YES
-                title: "Yes"
-              - action: VPT_KID_NO
-                title: "No"
-
-  - alias: Answer the Kid prompt
-    triggers:
-      - trigger: event
-        event_type: mobile_app_notification_action
-    conditions:
-      - condition: template
-        value_template: "{{ trigger.event.data.action in ['VPT_KID_YES', 'VPT_KID_NO'] }}"
-    actions:
-      - action: virtual_presence_tracker.answer_prompt
-        target:
-          entity_id: switch.kid_at_home
-        data:
-          answer: "{{ 'yes' if trigger.event.data.action == 'VPT_KID_YES' else 'no' }}"
-          answered_by: person.dabo53ck
-```
-
-A plain state trigger on the event entity plus a condition on `event_type` works
-on every supported Home Assistant version. Recent versions also offer a dedicated
-**Event received** trigger for event entities in the automation editor, which does
-the same thing in one step.
-
-`not_from` is there because the event entity keeps its last event over a restart
-of Home Assistant and a reload of the integration: it comes back from
-`unavailable`, and with a prompt still open that looks exactly like a fresh
-`prompt_started` to a plain state trigger, so you would be asked a second time.
-The built-in notification is not affected — it follows the prompt itself, not the
-state of the entity.
-
-Buttons in a notification only work through the classic `notify.mobile_app_*`
-actions; the notify *entities* of the companion app carry only a title and a
-message. The built-in delivery uses the classic actions for the same reason.
-
-### How the timing works
-
-The prompt does not hold anything back. The moment the last real person leaves,
-`zone.home` is empty and your own "nobody home" automations run — if one of them
-has a short `for:` (a minute, say), it fires **before** the answer arrives.
-Answering yes afterwards switches the tracker on and makes the person `home`
-again, but whatever already happened has happened.
-
-Two ways around it, and they combine: keep **Prompt delay** shorter than the
-delay of your own automations, and make those automations check
-`binary_sensor.only_virtual_trackers_home` or the `prompt_open` attribute of the
-switch before they act. Or skip the waiting altogether and switch the tracker on
-before you leave.
-
-### After a restart
-
-An open prompt survives a restart of Home Assistant and a reload of the
-integration. When it comes back:
-
-- if one of your real persons is at home by then, the prompt is withdrawn
-  (`cancelled`, reason `person_home`);
-- if its time ran out while Home Assistant was off, it reports `expired`;
-- otherwise it simply continues with the time it has left and says nothing new.
-
-A prompt you opened yourself with **Open prompt** is an exception to the first
-case: it was never about an empty house, so neither a person being at home nor
-the switch being off withdraws it after a restart. It still expires on time.
-
-A prompt that was still waiting for its **Prompt delay** is forgotten instead:
-it had not been announced yet, so there is nothing to take back. Switching **Ask
-when empty** off withdraws an open or waiting prompt with the reason
-`option_disabled` — at once, not at the next restart, and again with the
-exception of a prompt you opened yourself. A message that is still on a phone is
-taken off it in every one of these cases, including the ones that happen while
-Home Assistant starts up again.
+Every prompt and reminder is also announced by an event entity and can be
+answered with an action, so any other channel — a speaker, Telegram, a dashboard
+button — can carry the question instead of (or alongside) the phone. Leave **Who
+is asked?** empty and the integration sends nothing at all; the question still
+opens, and your own automation is in charge. See
+[docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) for the event types, the actions, and
+a ready-made automation example.
 
 ## Remind me when a tracker has been on for too long
 
@@ -678,66 +477,25 @@ to be answered before your away routines run, while a reminder asks about a
 whole day, and answering it an hour later is perfectly normal. Changing one of
 them never changes the other.
 
-The reminder is announced by the same event entity, `event.kid_questions`, with
-its own event types, and the switch carries `reminder_open` and
-`reminder_expires_at` while it is waiting.
-Leave **Who is asked?** empty and nothing is sent at all — the events and the
-actions still work, so your own automation can deliver it.
+Like the prompt, the reminder is announced by `event.kid_questions` and can be
+opened and answered with actions. [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) has
+those, plus how the waiting time is counted and what a restart does to an open
+reminder.
 
-The counting starts when the tracker is switched on, and it starts again every
-time somebody answers "still home" or lets a reminder run out. Switching the
-tracker off ends it; switching it on starts it over. If you raise **Remind
-after** the next reminder moves further away, and if you lower it below the time
-the tracker has already been on, you are asked straight away — which is the
-point of a safety net.
+## Try it without waiting
 
-A reminder survives a restart of Home Assistant: it keeps the time it has left,
-or reports `reminder_expired` if its time ran out while Home Assistant was off,
-or is withdrawn (`reminder_cancelled`, reason `switched_off`) if the tracker
-was switched off meanwhile. A tracker whose interval passed while Home
-Assistant was down is asked about shortly after the start.
+Neither question needs a real departure or a day of waiting to be tried out:
 
-### The reminder actions
-
-```yaml
-action: virtual_presence_tracker.answer_reminder
-target:
-  entity_id: switch.kid_at_home
-data:
-  answer: "yes"          # or "no", which switches the tracker off
-  answered_by: person.dabo53ck   # optional
-```
-
-```yaml
-action: virtual_presence_tracker.open_reminder
-target:
-  entity_id: switch.kid_at_home
-```
-
-Target the tracker's **At home** switch (or its device) here too; the settings
-switches are not valid targets and say so.
-
-**Open reminder** asks right now, without waiting for **Remind after** to
-pass — it even works for a tracker whose interval is 0. It refuses, without
-changing anything, if the tracker is **switched off** (there is nobody to
-remind you about) or if a reminder for it is **already open**. **Answer
-reminder** fails with "there is no open reminder" if nothing is waiting, so a
-late answer cannot switch anything off by accident.
-
-### Try the reminder without waiting for hours
-
-1. Switch the tracker on.
-2. **Developer tools → Actions**, pick **Virtual Presence Tracker: Open
-   reminder**.
+1. **Developer tools → Actions**.
+2. Pick **Virtual Presence Tracker: Open prompt** (the tracker has to be off) or
+   **Virtual Presence Tracker: Open reminder** (the tracker has to be on).
 3. Choose the tracker's switch (`switch.kid_at_home`) as the target and press
    **Perform action**.
 
-The question appears on the phones of everybody under **Who is asked?**,
-`event.kid_questions` fires `reminder_started`, and the switch gets
-`reminder_open: true`. Answer on the phone, answer with **Answer reminder**,
-switch the tracker off or let the time run out — all of it behaves exactly as
-it does after a real interval. Set **Reminder answer time** to a minute while
-you are testing.
+The question appears on the phones of everybody under **Who is asked?** and from
+then on behaves exactly as after a real departure or a real interval: answer it
+on the phone, switch the tracker yourself, or let the time run out. Set **Prompt
+answer time** or **Reminder answer time** to a minute while you are testing.
 
 ## Troubleshooting: repair issues
 
@@ -790,21 +548,8 @@ without a tracked device. Create one tracker per person, or one shared tracker f
 a group ("Guests").
 
 **Does the other person have to install anything?**
-No. Nothing runs on their side, and nothing about them is tracked. For each
-tracker the integration only stores whether it is on and since when, plus an open
-prompt if there is one.
-
-**Does it ask me whether somebody is at home?**
-Yes, unless you switch that off for the tracker — see "Ask when the house
-empties". Pick who is asked and the question goes to their phone by itself;
-leave that empty and an automation of yours delivers it, with the example above
-as a starting point. It also asks again when a tracker has been on for a long
-time — see "Remind me when a tracker has been on for too long".
-
-**Does it switch a forgotten tracker off by itself?**
-No. It reminds you and leaves the decision to you: "no, switch off" on the
-notification does it, and so does the switch. Nothing in this integration ever
-changes a tracker without somebody saying so.
+No, nothing runs on their side. For each tracker the integration only stores
+whether it is on and since when, plus an open prompt if there is one.
 
 **Why is the tracker's `source_type` "router"?**
 Home Assistant's device trackers have to declare where their information comes

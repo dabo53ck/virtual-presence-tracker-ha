@@ -28,8 +28,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # "brands" needs an entry in home-assistant/brands (out of scope here).
-          ignore: brands
 
   lint:
     name: Ruff
