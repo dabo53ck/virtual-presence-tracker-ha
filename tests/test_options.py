@@ -25,6 +25,7 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_USER_ID,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_AWAY_AFTER,
     CONF_DEVICE_NAME,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
@@ -35,6 +36,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_RESET_ON_RETURN,
     CONF_USER_ID,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_AWAY_AFTER,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_REMIND_AFTER,
     DEFAULT_REMINDER_TIMEOUT,
@@ -87,6 +89,7 @@ TIMEOUT_A = "number.kid_prompt_answer_time"
 DELAY_A = "number.kid_prompt_delay"
 REMIND_A = "number.kid_remind_after"
 REMINDER_TIMEOUT_A = "number.kid_reminder_answer_time"
+AWAY_A = "number.kid_away_after"
 
 SWITCH_A = "switch.kid_at_home"
 TRACKER_A_ENTITY = "device_tracker.kid"
@@ -191,7 +194,7 @@ def add_phone(hass: HomeAssistant) -> list[Any]:
 async def test_every_tracker_gets_the_option_entities(
     hass: HomeAssistant, tracker_entry: MockConfigEntry
 ) -> None:
-    """Eight entities per tracker, on the tracker's own device, all settings."""
+    """Nine entities per tracker, on the tracker's own device, all settings."""
     await setup_entry(hass, tracker_entry)
 
     registry = er.async_get(hass)
@@ -204,6 +207,7 @@ async def test_every_tracker_gets_the_option_entities(
         DELAY_A: (CONF_PROMPT_DELAY, EntityCategory.CONFIG),
         REMIND_A: (CONF_REMIND_AFTER, EntityCategory.CONFIG),
         REMINDER_TIMEOUT_A: (CONF_REMINDER_TIMEOUT, EntityCategory.CONFIG),
+        AWAY_A: (CONF_AWAY_AFTER, EntityCategory.CONFIG),
     }
     device = dr.async_get(hass).async_get_device_by_identifier(
         (DOMAIN, TRACKER_A), tracker_entry.entry_id
@@ -245,6 +249,7 @@ async def test_an_old_tracker_shows_the_defaults_of_a_missing_key(
     assert float(hass.states.get(REMINDER_TIMEOUT_A).state) == (
         DEFAULT_REMINDER_TIMEOUT
     )
+    assert float(hass.states.get(AWAY_A).state) == DEFAULT_AWAY_AFTER == 10
     # Nothing was written to the subentry by showing it.
     assert dict(tracker_entry.subentries[TRACKER_A].data) == {}
 
@@ -268,6 +273,7 @@ async def test_the_entities_show_what_the_tracker_has_stored(
                     CONF_PROMPT_DELAY: 90,
                     CONF_REMIND_AFTER: 36,
                     CONF_REMINDER_TIMEOUT: 240,
+                    CONF_AWAY_AFTER: 25,
                 },
             ),
             make_subentry(TRACKER_B, "Granny"),
@@ -282,6 +288,7 @@ async def test_the_entities_show_what_the_tracker_has_stored(
     assert float(hass.states.get(DELAY_A).state) == 90
     assert float(hass.states.get(REMIND_A).state) == 36
     assert float(hass.states.get(REMINDER_TIMEOUT_A).state) == 240
+    assert float(hass.states.get(AWAY_A).state) == 25
     # The other tracker is untouched by it.
     assert hass.states.get("switch.granny_ask_when_empty").state == STATE_OFF
     assert float(hass.states.get("number.granny_prompt_answer_time").state) == (
@@ -326,6 +333,15 @@ async def test_the_numbers_are_durations(
     assert reminder_timeout.attributes["max"] == 360
     assert reminder_timeout.attributes["step"] == 1
     assert reminder_timeout.attributes["mode"] == "box"
+
+    # How long the presence sources have to be away (M3e), in minutes.
+    away = hass.states.get(AWAY_A)
+    assert away.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.MINUTES
+    assert away.attributes[ATTR_DEVICE_CLASS] == "duration"
+    assert away.attributes["min"] == 1
+    assert away.attributes["max"] == 120
+    assert away.attributes["step"] == 1
+    assert away.attributes["mode"] == "box"
 
 
 @pytest.mark.parametrize(
@@ -392,6 +408,7 @@ async def test_the_new_value_is_there_when_the_action_returns(
         (DELAY_A, CONF_PROMPT_DELAY, 120),
         (REMIND_A, CONF_REMIND_AFTER, 6),
         (REMINDER_TIMEOUT_A, CONF_REMINDER_TIMEOUT, 180),
+        (AWAY_A, CONF_AWAY_AFTER, 45),
     ],
 )
 async def test_a_number_writes_its_option(
@@ -423,6 +440,8 @@ async def test_a_number_writes_its_option(
         (REMIND_A, 169),
         (REMINDER_TIMEOUT_A, 0),
         (REMINDER_TIMEOUT_A, 361),
+        (AWAY_A, 0),
+        (AWAY_A, 121),
     ],
 )
 async def test_the_numbers_keep_their_range(
@@ -457,6 +476,7 @@ async def test_changing_an_option_does_not_reload_the_entry(
     await set_number(hass, DELAY_A, 5)
     await set_number(hass, REMIND_A, 48)
     await set_number(hass, REMINDER_TIMEOUT_A, 90)
+    await set_number(hass, AWAY_A, 20)
 
     assert watcher.changes == []
     # The same manager, so nothing was rebuilt behind the entities either.
@@ -468,6 +488,7 @@ async def test_changing_an_option_does_not_reload_the_entry(
     assert manager.option(TRACKER_A, CONF_PROMPT_DELAY) == 5
     assert manager.option(TRACKER_A, CONF_REMIND_AFTER) == 48
     assert manager.option(TRACKER_A, CONF_REMINDER_TIMEOUT) == 90
+    assert manager.option(TRACKER_A, CONF_AWAY_AFTER) == 20
     assert manager.option(TRACKER_A, CONF_OVERRIDE_DND) is True
 
     await unload(hass, tracker_entry)

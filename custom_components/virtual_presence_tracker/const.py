@@ -86,6 +86,16 @@ DEFAULT_NOTIFY_ON_EXPIRY: Final = False
 CONF_OVERRIDE_DND: Final = "override_dnd"
 DEFAULT_OVERRIDE_DND: Final = False
 
+# How long the presence sources of a tracker (M3e) have to be absent before the
+# tracker is switched off, in minutes - the guard against a missed Bluetooth
+# advertisement or a Wi-Fi drop flipping the house to "empty". For a Bluetooth
+# source it is also the window an advertisement counts in. A tracker without
+# the key uses the default, like every other missing option.
+CONF_AWAY_AFTER: Final = "away_after"
+DEFAULT_AWAY_AFTER: Final = 10
+MIN_AWAY_AFTER: Final = 1
+MAX_AWAY_AFTER: Final = 120
+
 # The options a tracker carries an entity for (M2f, grown in M3a), with the
 # value that applies while the key is missing. They are the only keys of a
 # subentry that
@@ -101,6 +111,7 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_REMIND_AFTER: DEFAULT_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
     CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
+    CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 
@@ -130,12 +141,35 @@ SUGGESTED_BUTTON_HOME_TYPE: Final = "press"
 SUGGESTED_BUTTON_AWAY_TYPE: Final = "long_press"
 EVENT_DOMAIN: Final = "event"
 
+# Presence sources (M3e): entities whose state says whether the person is at
+# home - a `device_tracker` (present = `home`) or a `binary_sensor` (present =
+# `on`) of any integration - and Bluetooth devices by address, heard through
+# Home Assistant's own Bluetooth manager. A tracker counts as present while any
+# of them is. Both keys are absent from a tracker without such sources, which
+# is what every tracker from before M3e looks like, and the form takes a key
+# off again when its last source is removed.
+CONF_PRESENCE_SOURCES: Final = "presence_sources"
+CONF_BLE_SOURCES: Final = "ble_sources"
+PRESENCE_KEYS: Final = frozenset({CONF_PRESENCE_SOURCES, CONF_BLE_SOURCES})
+DEVICE_TRACKER_DOMAIN: Final = "device_tracker"
+BINARY_SENSOR_DOMAIN: Final = "binary_sensor"
+# Spelled out rather than imported: the integration has to load on an instance
+# without Bluetooth, so only a configured Bluetooth source ever imports it.
+BLUETOOTH_DOMAIN: Final = "bluetooth"
+# How often the last advertisement of a Bluetooth source is looked at, in
+# seconds. Home Assistant's own unavailable tracking runs every five minutes
+# and waits up to fifteen, which is far coarser than `away_after`.
+BLE_POLL_INTERVAL: Final = 30
+
 # Every key of a subentry that may change while the config entry stays loaded:
-# the options an entity writes, the marker above and the button sources, whose
-# listeners the manager moves by itself. A reload would take the trackers and
-# their persons to `unavailable` for a moment, and none of these is allowed to
-# do that (see the reload fingerprint in __init__.py).
-NO_RELOAD_KEYS: Final = LIVE_OPTION_KEYS | {CONF_CREATE_PERSON} | BUTTON_KEYS
+# the options an entity writes, the marker above, the button sources and the
+# presence sources, whose listeners the manager moves by itself. A reload
+# would take the trackers and their persons to `unavailable` for a moment, and
+# none of these is allowed to do that (see the reload fingerprint in
+# __init__.py).
+NO_RELOAD_KEYS: Final = (
+    LIVE_OPTION_KEYS | {CONF_CREATE_PERSON} | BUTTON_KEYS | PRESENCE_KEYS
+)
 
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"

@@ -25,22 +25,27 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
     TextSelector,
 )
 
+from . import ble
 from .const import (
     ATTR_DEVICE_TRACKERS,
+    BINARY_SENSOR_DOMAIN,
     BUTTON_KEYS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_AWAY_AFTER,
+    CONF_BLE_SOURCES,
     CONF_BUTTON_AWAY_TYPES,
     CONF_BUTTON_HOME_TYPES,
     CONF_BUTTON_SOURCES,
@@ -49,17 +54,20 @@ from .const import (
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
     CONF_PERSONS,
+    CONF_PRESENCE_SOURCES,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_AWAY_AFTER,
     DEFAULT_CREATE_PERSON,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
     DEFAULT_REMINDER_TIMEOUT,
     DEFAULT_RESET_ON_RETURN,
+    DEVICE_TRACKER_DOMAIN,
     DOMAIN,
     EVENT_DOMAIN,
     NEW_TRACKER_ASK_ON_DEPARTURE,
@@ -71,6 +79,7 @@ from .const import (
 )
 from .issues import async_persons_with_virtual_tracker
 from .manager import async_own_event_entities
+from .presence import async_own_presence_entities
 
 TITLE = "Virtual Presence Tracker"
 
@@ -87,7 +96,11 @@ PERSONS_SCHEMA = vol.Schema(
 
 
 def _tracker_schema(
-    entry: ConfigEntry, subentry: ConfigSubentry | None, own_events: list[str]
+    entry: ConfigEntry,
+    subentry: ConfigSubentry | None,
+    own_events: list[str],
+    own_presence: list[str],
+    ble_options: list[SelectOptionDict] | None,
 ) -> vol.Schema:
     """Return the form of one virtual tracker: its name and who is asked.
 
@@ -106,9 +119,14 @@ def _tracker_schema(
     use (M2g). An existing one is not: it either has its person by now, or the
     user said no once and is not asked again.
 
-    The button sources (M3d) come last and are optional: what their events
+    The button sources (M3d) come next and are optional: what their events
     mean depends on the entities chosen, so that is asked in a second step.
     The integration's own event entities (``own_events``) are not offered.
+
+    The presence sources (M3e) come last, optional as well: device trackers
+    and binary sensors - but none of the integration's own (``own_presence``)
+    - and, only while Bluetooth is set up (``ble_options`` is not None), the
+    Bluetooth devices to listen for.
     """
     real_persons: list[str] = list(entry.data.get(CONF_PERSONS, []))
     stored: list[str] = list(
@@ -137,7 +155,85 @@ def _tracker_schema(
     schema[vol.Optional(CONF_BUTTON_SOURCES, default=list)] = EntitySelector(
         selector_config
     )
+    presence_config = EntitySelectorConfig(
+        domain=[DEVICE_TRACKER_DOMAIN, BINARY_SENSOR_DOMAIN], multiple=True
+    )
+    if own_presence:
+        # A virtual tracker following a virtual tracker - or the household
+        # sensor, which follows all of them - would be a loop.
+        presence_config["exclude_entities"] = own_presence
+    schema[vol.Optional(CONF_PRESENCE_SOURCES, default=list)] = EntitySelector(
+        presence_config
+    )
+    if ble_options is not None:
+        schema[vol.Optional(CONF_BLE_SOURCES, default=list)] = SelectSelector(
+            SelectSelectorConfig(
+                options=ble_options,
+                multiple=True,
+                # A device out of range right now is not in the list, so its
+                # address can be typed in.
+                custom_value=True,
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
     return vol.Schema(schema)
+
+
+@callback
+def _ble_options(hass: HomeAssistant, stored: list[str]) -> list[SelectOptionDict]:
+    """Return the Bluetooth devices the form offers, strongest signal first.
+
+    Every device Home Assistant hears right now, named after the device of
+    that Bluetooth address in the device registry where there is one, else
+    after what it advertises, else just by its address. The addresses the
+    tracker already has follow, so that a device out of range stays selected.
+    """
+    registry = dr.async_get(hass)
+    options: dict[str, SelectOptionDict] = {}
+
+    def add(address: str, name: str | None) -> None:
+        """Offer one address, once."""
+        if address in options:
+            return
+        name = _registry_name(registry, address) or name
+        label = f"{name} ({address})" if name else address
+        options[address] = SelectOptionDict(value=address, label=label)
+
+    heard = sorted(
+        ble.async_heard_devices(hass),
+        key=lambda device: device.rssi if device.rssi is not None else -1000,
+        reverse=True,
+    )
+    for device in heard:
+        add(device.address, device.name)
+    for raw in stored:
+        add(ble.normalize_address(raw) or raw, None)
+    return list(options.values())
+
+
+@callback
+def _registry_name(registry: dr.DeviceRegistry, address: str) -> str | None:
+    """Return the name of the device with a Bluetooth address, if there is one.
+
+    The name the user gave it, else the one its integration did. Home
+    Assistant 2026.8 added `async_get_devices()`, and 2026.9 deprecated both
+    `async_get_device()` and looking a device up through `devices`; the old
+    call is only used where the new one does not exist yet (our floor is
+    2026.6).
+    """
+    connections = {
+        (dr.CONNECTION_BLUETOOTH, address),
+        (dr.CONNECTION_BLUETOOTH, address.lower()),
+    }
+    if (get_devices := getattr(registry, "async_get_devices", None)) is not None:
+        devices = get_devices(connections=connections)
+    else:
+        found = registry.async_get_device(connections=connections)
+        devices = [found] if found is not None else []
+    for device in devices:
+        if name := device.name_by_user or device.name:
+            return name
+    return None
 
 
 @callback
@@ -480,6 +576,7 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                     CONF_NOTIFY_PERSONS: recipients,
                     CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
                     CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
+                    CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
                 }
                 if subentry is None
                 else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}
@@ -495,6 +592,13 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 for person in recipients
                 if person not in entry.data.get(CONF_PERSONS, [])
             ]
+            addresses: list[str] = []
+            invalid: list[str] = []
+            for raw in user_input.get(CONF_BLE_SOURCES, []):
+                if (address := ble.normalize_address(raw)) is None:
+                    invalid.append(raw)
+                else:
+                    addresses.append(address)
             if not name:
                 errors[CONF_NAME] = "name_required"
             elif name.casefold() in _tracker_names(entry, skip):
@@ -502,7 +606,22 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
             elif strangers:
                 errors[CONF_NOTIFY_PERSONS] = "person_not_real"
                 placeholders = {"persons": ", ".join(strangers)}
+            elif invalid:
+                errors[CONF_BLE_SOURCES] = "invalid_ble_address"
+                placeholders = {"addresses": ", ".join(invalid)}
             else:
+                # A tracker without presence sources carries neither key, and
+                # the Bluetooth field is only there while Bluetooth is set up -
+                # without it, the stored addresses are kept as they are.
+                if presence := list(user_input.get(CONF_PRESENCE_SOURCES, [])):
+                    data[CONF_PRESENCE_SOURCES] = presence
+                else:
+                    data.pop(CONF_PRESENCE_SOURCES, None)
+                if CONF_BLE_SOURCES in user_input:
+                    if addresses:
+                        data[CONF_BLE_SOURCES] = list(dict.fromkeys(addresses))
+                    else:
+                        data.pop(CONF_BLE_SOURCES, None)
                 self._subentry = subentry
                 self._name = name
                 self._data = data
@@ -526,6 +645,27 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 else {CONF_NAME: subentry.title, **subentry.data}
             )
         own_events = sorted(async_own_event_entities(self.hass))
+        own_presence = sorted(async_own_presence_entities(self.hass))
+        if CONF_PRESENCE_SOURCES in suggested:
+            # The same for one of our own device trackers or the sensor.
+            suggested = {
+                **suggested,
+                CONF_PRESENCE_SOURCES: [
+                    entity_id
+                    for entity_id in suggested[CONF_PRESENCE_SOURCES]
+                    if entity_id not in own_presence
+                ],
+            }
+        ble_options = (
+            _ble_options(
+                self.hass,
+                list(subentry.data.get(CONF_BLE_SOURCES, []))
+                if subentry is not None
+                else [],
+            )
+            if ble.async_bluetooth_loaded(self.hass)
+            else None
+        )
         if CONF_BUTTON_SOURCES in suggested:
             # One of our own event entities that got stored somehow is left out
             # rather than offered: the selector would refuse it on submit.
@@ -541,7 +681,8 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
         return self.async_show_form(
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(
-                _tracker_schema(entry, subentry, own_events), suggested
+                _tracker_schema(entry, subentry, own_events, own_presence, ble_options),
+                suggested,
             ),
             errors=errors,
             description_placeholders=placeholders,

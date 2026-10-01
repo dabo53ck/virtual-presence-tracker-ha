@@ -1,6 +1,7 @@
 {
   "domain": "virtual_presence_tracker",
   "name": "Virtual Presence Tracker",
+  "after_dependencies": ["bluetooth"],
   "codeowners": ["@dabo53ck"],
   "config_flow": true,
   "documentation": "https://github.com/dabo53ck/virtual-presence-tracker-ha",

@@ -2,10 +2,11 @@
 
 The timings of a tracker: how long its prompt stays open, how long it waits
 before it opens, after how many hours at home the tracker reminds about itself
-(M3a) and how long that reminder waits for its answer. All of them live in the
-data of the tracker's config subentry,
-where they have always lived - these entities show the stored value and write
-it, without reloading the entry.
+(M3a), how long that reminder waits for its answer and how long the presence
+sources have to be absent before the tracker goes off (M3e). All of them live
+in the data of the tracker's config subentry, where they have always lived -
+these entities show the stored value and write it, without reloading the
+entry.
 """
 
 from __future__ import annotations
@@ -18,14 +19,17 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import VirtualPresenceTrackerConfigEntry
 from .const import (
     CONF_ANSWER_TIMEOUT,
+    CONF_AWAY_AFTER,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     MAX_ANSWER_TIMEOUT,
+    MAX_AWAY_AFTER,
     MAX_PROMPT_DELAY,
     MAX_REMIND_AFTER,
     MAX_REMINDER_TIMEOUT,
     MIN_ANSWER_TIMEOUT,
+    MIN_AWAY_AFTER,
     MIN_PROMPT_DELAY,
     MIN_REMIND_AFTER,
     MIN_REMINDER_TIMEOUT,
@@ -50,6 +54,7 @@ async def async_setup_entry(
                 PromptDelayNumber(manager, subentry),
                 RemindAfterNumber(manager, subentry),
                 ReminderTimeoutNumber(manager, subentry),
+                AwayAfterNumber(manager, subentry),
             ],
             config_subentry_id=subentry.subentry_id,
         )
@@ -128,3 +133,18 @@ class ReminderTimeoutNumber(VirtualTrackerOptionNumber):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_native_min_value = MIN_REMINDER_TIMEOUT
     _attr_native_max_value = MAX_REMINDER_TIMEOUT
+
+
+class AwayAfterNumber(VirtualTrackerOptionNumber):
+    """How many minutes the presence sources have to be absent (M3e).
+
+    Only then is the tracker switched off, so that a missed Bluetooth
+    advertisement or a short Wi-Fi drop does not empty the house. For a
+    Bluetooth source it is also the window an advertisement counts in. A
+    pending switch-off follows a new value at once.
+    """
+
+    _option_key = CONF_AWAY_AFTER
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_native_min_value = MIN_AWAY_AFTER
+    _attr_native_max_value = MAX_AWAY_AFTER

@@ -17,6 +17,9 @@
       "answer_timeout": {
         "default": "mdi:timer-outline"
       },
+      "away_after": {
+        "default": "mdi:home-export-outline"
+      },
       "prompt_delay": {
         "default": "mdi:timer-sand"
       },

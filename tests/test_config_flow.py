@@ -12,17 +12,20 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_AWAY_AFTER,
     CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
     CONF_PERSONS,
+    CONF_PRESENCE_SOURCES,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_AWAY_AFTER,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
@@ -63,6 +66,7 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
         CONF_NOTIFY_PERSONS: [],
         CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
         CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
+        CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
     } | overrides
 
 
@@ -376,8 +380,9 @@ async def test_the_form_asks_for_the_name_and_the_recipients_only(
     """The four settings that have an entity now are gone from the form.
 
     What is left is the name, the recipients, the offer to create the person
-    the tracker needs, which is ticked unless the user unticks it, and the
-    optional button sources (M3d).
+    the tracker needs, which is ticked unless the user unticks it, the
+    optional button sources (M3d) and the optional presence sources (M3e) -
+    the Bluetooth field only while Bluetooth is set up, which it is not here.
     """
     await setup_entry(hass, config_entry)
 
@@ -391,12 +396,14 @@ async def test_the_form_asks_for_the_name_and_the_recipients_only(
         CONF_NOTIFY_PERSONS,
         CONF_CREATE_PERSON,
         CONF_BUTTON_SOURCES,
+        CONF_PRESENCE_SOURCES,
     ]
     assert schema({CONF_NAME: "Kid"}) == {
         CONF_NAME: "Kid",
         CONF_NOTIFY_PERSONS: [],
         CONF_CREATE_PERSON: True,
         CONF_BUTTON_SOURCES: [],
+        CONF_PRESENCE_SOURCES: [],
     }
 
 
@@ -413,6 +420,7 @@ async def test_the_reconfigure_form_does_not_offer_a_person(
         CONF_NAME,
         CONF_NOTIFY_PERSONS,
         CONF_BUTTON_SOURCES,
+        CONF_PRESENCE_SOURCES,
     ]
 
 

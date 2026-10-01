@@ -73,6 +73,7 @@ from .const import (
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
 )
+from .presence import TrackerPresence
 
 if TYPE_CHECKING:
     from . import VirtualPresenceTrackerConfigEntry
@@ -304,6 +305,9 @@ class HouseholdManager:
         # which is moved whenever the set of sources changes (M3d).
         self._button_entities: frozenset[str] = frozenset()
         self._unsub_buttons: CALLBACK_TYPE | None = None
+        # The presence sources of every tracker (M3e): their listeners, the
+        # Bluetooth poll and the switch-off timers live there.
+        self._presence = TrackerPresence(hass, entry, self)
         # Prompt state machine, per tracker: an open prompt with its expiry
         # timer, or a prompt that is still waiting for its delay.
         self._prompts: dict[str, Prompt] = {}
@@ -381,11 +385,13 @@ class HouseholdManager:
 
     @callback
     def async_start(self) -> None:
-        """Subscribe to the real persons and the button sources.
+        """Subscribe to the real persons, the button and the presence sources.
 
         The baseline of the persons is read from the current states so that a
         person who is already home when the entry is set up does not trigger a
-        reset. The button sources have no baseline: only a press counts.
+        reset. The button sources have no baseline: only a press counts. The
+        presence sources do, and it is never an edge: nothing is switched on
+        because a source is present at the start.
         """
         # async_track_state_change_event lower cases the entity IDs it is given,
         # so the baseline keys have to match.
@@ -401,6 +407,7 @@ class HouseholdManager:
             self.hass, persons, self._async_person_changed
         )
         self._async_follow_buttons()
+        self._presence.async_start()
 
     @callback
     def async_resume_prompts(self) -> None:
@@ -478,6 +485,7 @@ class HouseholdManager:
             self._unsub_buttons()
             self._unsub_buttons = None
         self._button_entities = frozenset()
+        self._presence.async_stop()
         for unsub in (*self._expiry.values(), *self._reminder_expiry.values()):
             unsub()
         self._expiry.clear()
@@ -736,9 +744,9 @@ class HouseholdManager:
         Everything else - the reset, the timeout, the delay, the expiry
         notice, the event types of the button sources - is read where it is
         used, so it is enough to let the entities write their new state. The
-        button sources themselves are the one thing that is followed rather
-        than read, so the listener moves to the sources that are configured
-        now.
+        button sources and the presence sources are followed rather than read,
+        so their listeners move to the sources that are configured now - and
+        a changed `away_after` moves a pending switch-off.
         """
         self._async_follow_buttons()
         for subentry_id in list(self._trackers):
@@ -754,6 +762,7 @@ class HouseholdManager:
             self._async_schedule_reminder(subentry_id)
 
             self._async_notify(self._tracker_listeners.get(subentry_id, []))
+        self._presence.async_sources_changed()
 
     @callback
     def _async_asking_switched_off(self, subentry_id: str) -> None:
@@ -980,8 +989,17 @@ class HouseholdManager:
 
     @callback
     def _async_ask_the_trackers(self) -> None:
-        """Open or schedule a prompt for every tracker that wants one."""
+        """Open or schedule a prompt for every tracker that wants one.
+
+        A tracker that does not ask is still switched on when its presence
+        sources say the person is at home (M3e) - right now, because there is
+        no prompt whose delay it could wait for. A tracker that asks gets that
+        check when its prompt would open, after the delay.
+        """
         for subentry_id in list(self._trackers):
+            if not self._ask_on_departure(subentry_id):
+                self._async_switch_on_if_present(subentry_id)
+                continue
             if subentry_id in self._scheduled or not self._async_may_ask(subentry_id):
                 continue
             # The ID is drawn now, not when the prompt opens, so that a
@@ -1024,13 +1042,38 @@ class HouseholdManager:
         """Open a prompt, unless the reason for it has gone away meanwhile.
 
         Everything is checked again: the delay can be minutes, and in that time
-        somebody may have come home.
+        somebody may have come home. A tracker whose presence sources say that
+        the person is at home is not asked about at all (M3e): it is switched
+        on instead, which needs no answer and sends nothing.
         """
         self._scheduled.pop(subentry_id, None)
         if not self._async_may_ask(subentry_id):
             _LOGGER.debug("Not asking about tracker %s after all", subentry_id)
             return
+        if self._async_switch_on_if_present(subentry_id):
+            return
         self._async_start_prompt(subentry_id, prompt_id)
+
+    @callback
+    def _async_switch_on_if_present(self, subentry_id: str) -> bool:
+        """Switch a tracker on for the empty house if its sources are present.
+
+        The departure rule of the presence sources (M3e): whoever is marked as
+        present by a source is at home, so nobody has to be asked and nothing
+        is sent. Returns whether the sources were present. Looks at them right
+        now first, so a Bluetooth source is not up to a poll behind.
+        """
+        self._presence.async_update(subentry_id)
+        if not self._presence.is_present(subentry_id):
+            return False
+        if not self.is_home(subentry_id):
+            _LOGGER.debug(
+                "Switching tracker %s on: the house is empty and a presence "
+                "source is present",
+                subentry_id,
+            )
+            self.async_set_home(subentry_id, True)
+        return True
 
     @callback
     def _async_start_prompt(
@@ -1316,11 +1359,17 @@ class HouseholdManager:
 
     @callback
     def _async_reset_trackers(self) -> None:
-        """Switch off the trackers that reset when the house is entered."""
+        """Switch off the trackers that reset when the house is entered.
+
+        A tracker with presence sources is left alone (M3e): its sources know
+        better whether the person is at home than "somebody else came home".
+        """
         for subentry_id, tracker in list(self._trackers.items()):
             if not tracker.home:
                 continue
             if not self.option(subentry_id, CONF_RESET_ON_RETURN):
+                continue
+            if self._presence.has_sources(subentry_id):
                 continue
             _LOGGER.debug("Resetting tracker %s: a real person came home", subentry_id)
             self._async_set_tracker(subentry_id, False)

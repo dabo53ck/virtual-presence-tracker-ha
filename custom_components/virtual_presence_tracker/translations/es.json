@@ -46,13 +46,17 @@
             "name": "Nombre",
             "notify_persons": "¿A quién se pregunta?",
             "create_person": "Crear una persona para este rastreador",
-            "button_sources": "Botones"
+            "button_sources": "Botones",
+            "presence_sources": "Fuentes de presencia",
+            "ble_sources": "Dispositivos Bluetooth"
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
-            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta».",
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta» y «Ausente después de».",
             "create_person": "Crea una persona sin inicio de sesión, con el nombre del rastreador, y le asigna el rastreador – el paso que hace que alguien cuente como en casa. Desmárcalo si ya tienes una persona para este rastreador y quieres asignarlo tú mismo en Configuración > Personas.",
-            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones."
+            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones.",
+            "presence_sources": "Opcional. Rastreadores de dispositivo (presente = en casa) y sensores binarios (presente = encendido) de cualquier integración – por ejemplo una etiqueta Bluetooth mediante iBeacon Tracker, Private BLE Device o Bermuda, o un dispositivo de tu wifi mediante la integración de tu router. El rastreador cuenta como presente mientras alguna fuente lo esté: se enciende cuando pasan a estar presentes y se apaga en cuanto todas han estado ausentes durante «Ausente después de». Un cambio manual entre medias se mantiene hasta el siguiente cambio de ese tipo. Si la última persona real se va mientras una fuente está presente, el rastreador se enciende en lugar de preguntar, y «Restablecer al volver» no se aplica a un rastreador con fuentes.",
+            "ble_sources": "Opcional. Dispositivos Bluetooth que Home Assistant recibe, la señal más fuerte primero – cualquier etiqueta o botón que emite con una dirección fija, la conozca la integración que sea o ninguna. Un dispositivo cuenta como presente mientras se haya recibido dentro de «Ausente después de». ¿No está en la lista porque ahora mismo está fuera de alcance? Escribe su dirección, por ejemplo AA:BB:CC:DD:EE:FF. Los teléfonos y otros dispositivos que cambian de dirección continuamente no se pueden seguir así – usa arriba un rastreador de dispositivo de su propia integración."
           }
         },
         "reconfigure": {
@@ -61,12 +65,16 @@
           "data": {
             "name": "Nombre",
             "notify_persons": "¿A quién se pregunta?",
-            "button_sources": "Botones"
+            "button_sources": "Botones",
+            "presence_sources": "Fuentes de presencia",
+            "ble_sources": "Dispositivos Bluetooth"
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
-            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta».",
-            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones."
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta» y «Ausente después de».",
+            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones.",
+            "presence_sources": "Opcional. Rastreadores de dispositivo (presente = en casa) y sensores binarios (presente = encendido) de cualquier integración – por ejemplo una etiqueta Bluetooth mediante iBeacon Tracker, Private BLE Device o Bermuda, o un dispositivo de tu wifi mediante la integración de tu router. El rastreador cuenta como presente mientras alguna fuente lo esté: se enciende cuando pasan a estar presentes y se apaga en cuanto todas han estado ausentes durante «Ausente después de». Un cambio manual entre medias se mantiene hasta el siguiente cambio de ese tipo. Si la última persona real se va mientras una fuente está presente, el rastreador se enciende en lugar de preguntar, y «Restablecer al volver» no se aplica a un rastreador con fuentes.",
+            "ble_sources": "Opcional. Dispositivos Bluetooth que Home Assistant recibe, la señal más fuerte primero – cualquier etiqueta o botón que emite con una dirección fija, la conozca la integración que sea o ninguna. Un dispositivo cuenta como presente mientras se haya recibido dentro de «Ausente después de». ¿No está en la lista porque ahora mismo está fuera de alcance? Escribe su dirección, por ejemplo AA:BB:CC:DD:EE:FF. Los teléfonos y otros dispositivos que cambian de dirección continuamente no se pueden seguir así – usa arriba un rastreador de dispositivo de su propia integración."
           }
         },
         "buttons": {
@@ -87,7 +95,8 @@
         "name_exists": "Ya existe un rastreador con este nombre.",
         "person_not_real": "{persons} no está entre las personas reales de este hogar, así que no se le puede preguntar. Quita a la persona de aquí o añádela a las personas reales con «Reconfigurar» en la página de la integración.",
         "button_types_overlap": "{types} no puede significar a la vez en casa y fuera. Desmárcalo en una de las dos listas.",
-        "button_types_missing": "Elige al menos un evento que signifique en casa o fuera – un botón que no enciende ni apaga nada no tiene ningún efecto."
+        "button_types_missing": "Elige al menos un evento que signifique en casa o fuera – un botón que no enciende ni apaga nada no tiene ningún efecto.",
+        "invalid_ble_address": "{addresses} no es una dirección Bluetooth. Escríbela como seis pares de dígitos hexadecimales separados por dos puntos, por ejemplo AA:BB:CC:DD:EE:FF."
       },
       "abort": {
         "reconfigure_successful": "Se actualizó el rastreador."
@@ -124,6 +133,9 @@
     "number": {
       "answer_timeout": {
         "name": "Tiempo de respuesta de la consulta"
+      },
+      "away_after": {
+        "name": "Ausente después de"
       },
       "prompt_delay": {
         "name": "Retraso de la consulta"
