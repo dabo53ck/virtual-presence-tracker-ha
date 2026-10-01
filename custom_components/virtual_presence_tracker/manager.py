@@ -19,6 +19,7 @@ import logging
 from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 from uuid import uuid4
 
+from homeassistant.components.event import ATTR_EVENT_TYPE
 from homeassistant.const import STATE_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import (
     CALLBACK_TYPE,
@@ -28,6 +29,7 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -41,14 +43,19 @@ from .const import (
     ATTR_TRACKER,
     CONF_ANSWER_TIMEOUT,
     CONF_ASK_ON_DEPARTURE,
+    CONF_BUTTON_AWAY_TYPES,
+    CONF_BUTTON_HOME_TYPES,
+    CONF_BUTTON_SOURCES,
     CONF_PERSONS,
     CONF_PROMPT_DELAY,
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
+    DOMAIN,
     EVENT_ANSWERED_NO,
     EVENT_ANSWERED_YES,
     EVENT_CANCELLED,
+    EVENT_DOMAIN,
     EVENT_EXPIRED,
     EVENT_PROMPT_STARTED,
     EVENT_REMINDER_ANSWERED_NO,
@@ -75,6 +82,32 @@ _LOGGER = logging.getLogger(__name__)
 # What a prompt event entity is called with: the event type and its data. The
 # reminder uses the same shape, through a channel of its own.
 type PromptListener = Callable[[str, dict[str, Any]], None]
+
+# States of a button source that are never a press. An event entity restores
+# its last event when Home Assistant starts or its integration reloads - that
+# comes from no state at all - and a device that comes back from `unavailable`
+# shows its last event again: neither is somebody pressing a button. `unknown`
+# is different as the state an event comes *from*: it is what an event entity
+# shows before its very first event, so the first press of a new button has to
+# count - the same rule Home Assistant's own "event received" trigger follows.
+# As the state an event goes *to*, `unknown` carries no event at all.
+_BUTTON_IGNORED_FROM_STATES = frozenset({STATE_UNAVAILABLE})
+_BUTTON_IGNORED_TO_STATES = frozenset({STATE_UNAVAILABLE, STATE_UNKNOWN})
+
+
+@callback
+def async_own_event_entities(hass: HomeAssistant) -> set[str]:
+    """Return the event entities of this integration itself.
+
+    The questions entity of a tracker is an `event` entity too, but it is no
+    button: it is never offered as a source, and one that is stored anyway is
+    ignored. Found through the entity registry, never by name.
+    """
+    return {
+        entry.entity_id
+        for entry in er.async_get(hass).entities.values()
+        if entry.platform == DOMAIN and entry.domain == EVENT_DOMAIN
+    }
 
 
 class OpenPromptResult(StrEnum):
@@ -267,6 +300,10 @@ class HouseholdManager:
         self._listeners: list[Callable[[], None]] = []
         self._tracker_listeners: dict[str, list[Callable[[], None]]] = {}
         self._unsub_persons: CALLBACK_TYPE | None = None
+        # The button sources of every tracker are followed by one listener,
+        # which is moved whenever the set of sources changes (M3d).
+        self._button_entities: frozenset[str] = frozenset()
+        self._unsub_buttons: CALLBACK_TYPE | None = None
         # Prompt state machine, per tracker: an open prompt with its expiry
         # timer, or a prompt that is still waiting for its delay.
         self._prompts: dict[str, Prompt] = {}
@@ -344,10 +381,11 @@ class HouseholdManager:
 
     @callback
     def async_start(self) -> None:
-        """Subscribe to the configured real persons and take the baseline.
+        """Subscribe to the real persons and the button sources.
 
-        The baseline is read from the current states so that a person who is
-        already home when the entry is set up does not trigger a reset.
+        The baseline of the persons is read from the current states so that a
+        person who is already home when the entry is set up does not trigger a
+        reset. The button sources have no baseline: only a press counts.
         """
         # async_track_state_change_event lower cases the entity IDs it is given,
         # so the baseline keys have to match.
@@ -362,6 +400,7 @@ class HouseholdManager:
         self._unsub_persons = async_track_state_change_event(
             self.hass, persons, self._async_person_changed
         )
+        self._async_follow_buttons()
 
     @callback
     def async_resume_prompts(self) -> None:
@@ -435,6 +474,10 @@ class HouseholdManager:
         if self._unsub_persons is not None:
             self._unsub_persons()
             self._unsub_persons = None
+        if self._unsub_buttons is not None:
+            self._unsub_buttons()
+            self._unsub_buttons = None
+        self._button_entities = frozenset()
         for unsub in (*self._expiry.values(), *self._reminder_expiry.values()):
             unsub()
         self._expiry.clear()
@@ -691,9 +734,13 @@ class HouseholdManager:
         must not withdraw it.
 
         Everything else - the reset, the timeout, the delay, the expiry
-        notice - is read where it is used, so it is enough to let the entities
-        write their new state.
+        notice, the event types of the button sources - is read where it is
+        used, so it is enough to let the entities write their new state. The
+        button sources themselves are the one thing that is followed rather
+        than read, so the listener moves to the sources that are configured
+        now.
         """
+        self._async_follow_buttons()
         for subentry_id in list(self._trackers):
             asking = self._ask_on_departure(subentry_id)
             if self._asking.get(subentry_id, asking) and not asking:
@@ -839,6 +886,97 @@ class HouseholdManager:
         if departs:
             self._async_ask_the_trackers()
         self._async_notify(self._listeners)
+
+    @callback
+    def _async_follow_buttons(self) -> None:
+        """Listen to the button sources that are configured right now.
+
+        One listener for the sources of every tracker: a button may switch
+        more than one tracker, one event type each. Nothing happens when the
+        set is the one already followed, so this can be called after every
+        change of the subentries.
+        """
+        entities = frozenset(
+            entity_id
+            for subentry_id in self._trackers
+            for entity_id in self._button_sources(subentry_id)
+        )
+        if entities == self._button_entities:
+            return
+        if self._unsub_buttons is not None:
+            self._unsub_buttons()
+            self._unsub_buttons = None
+        self._button_entities = entities
+        if entities:
+            self._unsub_buttons = async_track_state_change_event(
+                self.hass, list(entities), self._async_button_pressed
+            )
+
+    @callback
+    def _async_button_pressed(self, event: Event[EventStateChangedData]) -> None:
+        """Switch the trackers a button event means something to.
+
+        Only a real event counts: a state that comes from nothing or from
+        `unavailable` is a restore or a device coming back, a state that goes
+        to nothing, `unavailable` or `unknown` carries no event, and a state
+        that did not change is an attribute update, not a press. Coming from
+        `unknown` does count: that is a new button's very first press. The
+        event type is looked up in the tracker's sets every time, so a changed
+        mapping applies to the very next press. A tracker that already is
+        where the event says is left alone, and everything else goes down the
+        same path as the tracker's own switch.
+        """
+        old_state = event.data["old_state"]
+        new_state = event.data["new_state"]
+        if (
+            old_state is None
+            or new_state is None
+            or old_state.state in _BUTTON_IGNORED_FROM_STATES
+            or new_state.state in _BUTTON_IGNORED_TO_STATES
+            or old_state.state == new_state.state
+        ):
+            return
+        event_type = new_state.attributes.get(ATTR_EVENT_TYPE)
+        if not isinstance(event_type, str):
+            return
+        entity_id = event.data["entity_id"]
+        for subentry_id in list(self._trackers):
+            if entity_id not in self._button_sources(subentry_id):
+                continue
+            if event_type in self._button_types(subentry_id, CONF_BUTTON_HOME_TYPES):
+                home = True
+            elif event_type in self._button_types(subentry_id, CONF_BUTTON_AWAY_TYPES):
+                home = False
+            else:
+                continue
+            if self.is_home(subentry_id) == home:
+                continue
+            _LOGGER.debug(
+                "Switching tracker %s %s: %s sent %s",
+                subentry_id,
+                "on" if home else "off",
+                entity_id,
+                event_type,
+            )
+            self.async_set_home(subentry_id, home)
+
+    def _button_sources(self, subentry_id: str) -> list[str]:
+        """Return the event entities whose events switch a tracker.
+
+        The integration's own questions entities are left out, whatever is
+        stored: the form never offers them, and a tracker that switched itself
+        on its own announcements would be a loop waiting to happen.
+        """
+        own = async_own_event_entities(self.hass)
+        return [
+            source
+            for entity_id in self._option(subentry_id, CONF_BUTTON_SOURCES, [])
+            if (source := entity_id.lower()) not in own
+        ]
+
+    def _button_types(self, subentry_id: str, key: str) -> list[str]:
+        """Return the event types of a tracker that mean "home" or "away"."""
+        return list(self._option(subentry_id, key, []))
 
     @callback
     def _async_ask_the_trackers(self) -> None:

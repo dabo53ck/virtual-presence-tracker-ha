@@ -45,12 +45,14 @@
           "data": {
             "name": "Name",
             "notify_persons": "Wer wird gefragt?",
-            "create_person": "Person für diesen Tracker anlegen"
+            "create_person": "Person für diesen Tracker anlegen",
+            "button_sources": "Tasten"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
             "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“ und „Nicht stören umgehen für Nachfragen“.",
-            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
+            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest.",
+            "button_sources": "Optional. Event-Entitäten von Tasten – aus jeder Integration, zum Beispiel ein Shelly-, Zigbee- oder Hue-Taster –, die diesen Tracker ein- oder ausschalten. Welcher Tastendruck was bedeutet, legst du im nächsten Schritt fest; jeder andere wird ignoriert und bleibt frei für deine eigenen Automationen."
           }
         },
         "reconfigure": {
@@ -58,18 +60,34 @@
           "description": "Benenne den Tracker um oder ändere, wer zu ihm gefragt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
           "data": {
             "name": "Name",
-            "notify_persons": "Wer wird gefragt?"
+            "notify_persons": "Wer wird gefragt?",
+            "button_sources": "Tasten"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“ und „Nicht stören umgehen für Nachfragen“."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“ und „Nicht stören umgehen für Nachfragen“.",
+            "button_sources": "Optional. Event-Entitäten von Tasten – aus jeder Integration, zum Beispiel ein Shelly-, Zigbee- oder Hue-Taster –, die diesen Tracker ein- oder ausschalten. Welcher Tastendruck was bedeutet, legst du im nächsten Schritt fest; jeder andere wird ignoriert und bleibt frei für deine eigenen Automationen."
+          }
+        },
+        "buttons": {
+          "title": "Tastenereignisse",
+          "description": "Wähle, welche Ereignisse der gewählten Tasten {name} einschalten (zu Hause) und welche ihn ausschalten (weg). Ein Ereignis kann nur eins von beiden bedeuten; alles, was du nicht ankreuzt, wird ignoriert und bleibt frei für deine eigenen Automationen.",
+          "data": {
+            "button_home_types": "Bedeutet zu Hause (einschalten)",
+            "button_away_types": "Bedeutet weg (ausschalten)"
+          },
+          "data_description": {
+            "button_home_types": "Einschalten wirkt wie der eigene Schalter des Trackers: Eine offene Nachfrage wird zurückgezogen. Ist der Tracker schon eingeschaltet, ändert ein Tastendruck nichts.",
+            "button_away_types": "Ausschalten wirkt wie der eigene Schalter des Trackers: Eine offene Erinnerung wird zurückgezogen. Ist der Tracker schon ausgeschaltet, ändert ein Tastendruck nichts."
           }
         }
       },
       "error": {
         "name_required": "Gib einen Namen für den Tracker ein.",
         "name_exists": "Ein Tracker mit diesem Namen existiert bereits.",
-        "person_not_real": "{persons} gehört nicht zu den echten Personen dieses Haushalts und kann deshalb nicht gefragt werden. Nimm die Person hier heraus, oder füge sie über „Neu konfigurieren“ auf der Seite der Integration zu den echten Personen hinzu."
+        "person_not_real": "{persons} gehört nicht zu den echten Personen dieses Haushalts und kann deshalb nicht gefragt werden. Nimm die Person hier heraus, oder füge sie über „Neu konfigurieren“ auf der Seite der Integration zu den echten Personen hinzu.",
+        "button_types_overlap": "{types} kann nicht gleichzeitig zu Hause und weg bedeuten. Nimm das Häkchen in einer der beiden Listen heraus.",
+        "button_types_missing": "Wähle mindestens ein Ereignis, das zu Hause oder weg bedeutet – eine Taste, die nichts schaltet, bewirkt nichts."
       },
       "abort": {
         "reconfigure_successful": "Der Tracker wurde aktualisiert."

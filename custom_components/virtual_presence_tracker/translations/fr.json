@@ -45,12 +45,14 @@
           "data": {
             "name": "Nom",
             "notify_persons": "Qui est interrogé ?",
-            "create_person": "Créer une personne pour ce tracker"
+            "create_person": "Créer une personne pour ce tracker",
+            "button_sources": "Boutons"
           },
           "data_description": {
             "name": "Utilisé pour les entités de ce tracker, par exemple le prénom de l'enfant ou de l'invité qu'il représente.",
             "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nTout le reste se règle sur la page de l'appareil du tracker : « Demander quand la maison est vide » (s'il pose une question quand la dernière personne réelle part), « Délai de réponse à la demande », « Délai avant la demande », « Réinitialiser au retour », « Avis si sans réponse », « Rappel après », « Délai de réponse au rappel » et « Ignorer Ne pas déranger pour la demande ».",
-            "create_person": "Crée une personne sans identifiant de connexion, portant le nom du tracker, et lui attribue le tracker – c'est cette étape qui fait que quelqu'un compte comme étant à la maison. Décochez la case si vous avez déjà une personne pour ce tracker et souhaitez l'attribuer vous-même dans Paramètres > Personnes."
+            "create_person": "Crée une personne sans identifiant de connexion, portant le nom du tracker, et lui attribue le tracker – c'est cette étape qui fait que quelqu'un compte comme étant à la maison. Décochez la case si vous avez déjà une personne pour ce tracker et souhaitez l'attribuer vous-même dans Paramètres > Personnes.",
+            "button_sources": "Facultatif. Entités d'événement de boutons – de n'importe quelle intégration, par exemple un bouton Shelly, Zigbee ou Hue – qui activent ou désactivent ce tracker. La signification de chaque appui se choisit à l'étape suivante ; tout autre appui est ignoré et reste libre pour vos propres automatisations."
           }
         },
         "reconfigure": {
@@ -58,18 +60,34 @@
           "description": "Renommez le tracker ou changez qui est interrogé à son sujet. Le renommer ne pose aucun problème : les entités du tracker conservent leur identité.",
           "data": {
             "name": "Nom",
-            "notify_persons": "Qui est interrogé ?"
+            "notify_persons": "Qui est interrogé ?",
+            "button_sources": "Boutons"
           },
           "data_description": {
             "name": "Utilisé pour les entités de ce tracker, par exemple le prénom de l'enfant ou de l'invité qu'il représente.",
-            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nTout le reste se règle sur la page de l'appareil du tracker : « Demander quand la maison est vide » (s'il pose une question quand la dernière personne réelle part), « Délai de réponse à la demande », « Délai avant la demande », « Réinitialiser au retour », « Avis si sans réponse », « Rappel après », « Délai de réponse au rappel » et « Ignorer Ne pas déranger pour la demande »."
+            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nTout le reste se règle sur la page de l'appareil du tracker : « Demander quand la maison est vide » (s'il pose une question quand la dernière personne réelle part), « Délai de réponse à la demande », « Délai avant la demande », « Réinitialiser au retour », « Avis si sans réponse », « Rappel après », « Délai de réponse au rappel » et « Ignorer Ne pas déranger pour la demande ».",
+            "button_sources": "Facultatif. Entités d'événement de boutons – de n'importe quelle intégration, par exemple un bouton Shelly, Zigbee ou Hue – qui activent ou désactivent ce tracker. La signification de chaque appui se choisit à l'étape suivante ; tout autre appui est ignoré et reste libre pour vos propres automatisations."
+          }
+        },
+        "buttons": {
+          "title": "Événements des boutons",
+          "description": "Choisissez quels événements des boutons sélectionnés activent {name} (à la maison) et lesquels le désactivent (absent). Un événement ne peut avoir qu'une seule des deux significations ; tout événement non coché est ignoré et reste libre pour vos propres automatisations.",
+          "data": {
+            "button_home_types": "Signifie à la maison (activer)",
+            "button_away_types": "Signifie absent (désactiver)"
+          },
+          "data_description": {
+            "button_home_types": "L'activation fonctionne comme l'interrupteur du tracker : une demande en cours est retirée. Un appui alors que le tracker est déjà activé ne change rien.",
+            "button_away_types": "La désactivation fonctionne comme l'interrupteur du tracker : un rappel en cours est retiré. Un appui alors que le tracker est déjà désactivé ne change rien."
           }
         }
       },
       "error": {
         "name_required": "Saisissez un nom pour le tracker.",
         "name_exists": "Un tracker portant ce nom existe déjà.",
-        "person_not_real": "{persons} ne fait pas partie des personnes réelles de ce foyer, on ne peut donc pas lui poser la question. Retirez la personne ici, ou ajoutez-la aux personnes réelles avec « Reconfigurer » sur la page de l'intégration."
+        "person_not_real": "{persons} ne fait pas partie des personnes réelles de ce foyer, on ne peut donc pas lui poser la question. Retirez la personne ici, ou ajoutez-la aux personnes réelles avec « Reconfigurer » sur la page de l'intégration.",
+        "button_types_overlap": "{types} ne peut pas signifier à la fois à la maison et absent. Décochez-le dans l'une des deux listes.",
+        "button_types_missing": "Choisissez au moins un événement qui signifie à la maison ou absent – un bouton qui n'active ni ne désactive rien n'a aucun effet."
       },
       "abort": {
         "reconfigure_successful": "Le tracker a été mis à jour."

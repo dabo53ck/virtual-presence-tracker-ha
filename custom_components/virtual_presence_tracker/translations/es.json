@@ -45,12 +45,14 @@
           "data": {
             "name": "Nombre",
             "notify_persons": "¿A quién se pregunta?",
-            "create_person": "Crear una persona para este rastreador"
+            "create_person": "Crear una persona para este rastreador",
+            "button_sources": "Botones"
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
             "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta».",
-            "create_person": "Crea una persona sin inicio de sesión, con el nombre del rastreador, y le asigna el rastreador – el paso que hace que alguien cuente como en casa. Desmárcalo si ya tienes una persona para este rastreador y quieres asignarlo tú mismo en Configuración > Personas."
+            "create_person": "Crea una persona sin inicio de sesión, con el nombre del rastreador, y le asigna el rastreador – el paso que hace que alguien cuente como en casa. Desmárcalo si ya tienes una persona para este rastreador y quieres asignarlo tú mismo en Configuración > Personas.",
+            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones."
           }
         },
         "reconfigure": {
@@ -58,18 +60,34 @@
           "description": "Cambia el nombre del rastreador o quién recibe las preguntas sobre él. Cambiar el nombre es seguro: las entidades del rastreador conservan su identidad.",
           "data": {
             "name": "Nombre",
-            "notify_persons": "¿A quién se pregunta?"
+            "notify_persons": "¿A quién se pregunta?",
+            "button_sources": "Botones"
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
-            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta»."
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio» e «Ignorar No molestar en la consulta».",
+            "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones."
+          }
+        },
+        "buttons": {
+          "title": "Eventos de los botones",
+          "description": "Elige qué eventos de los botones seleccionados encienden {name} (en casa) y cuáles lo apagan (fuera). Un evento solo puede significar una de las dos cosas; todo evento sin marcar se ignora y queda libre para tus propias automatizaciones.",
+          "data": {
+            "button_home_types": "Significa en casa (encender)",
+            "button_away_types": "Significa fuera (apagar)"
+          },
+          "data_description": {
+            "button_home_types": "Encender funciona como el interruptor del propio rastreador: se retira una consulta abierta. Pulsar con el rastreador ya encendido no cambia nada.",
+            "button_away_types": "Apagar funciona como el interruptor del propio rastreador: se retira un recordatorio abierto. Pulsar con el rastreador ya apagado no cambia nada."
           }
         }
       },
       "error": {
         "name_required": "Introduce un nombre para el rastreador.",
         "name_exists": "Ya existe un rastreador con este nombre.",
-        "person_not_real": "{persons} no está entre las personas reales de este hogar, así que no se le puede preguntar. Quita a la persona de aquí o añádela a las personas reales con «Reconfigurar» en la página de la integración."
+        "person_not_real": "{persons} no está entre las personas reales de este hogar, así que no se le puede preguntar. Quita a la persona de aquí o añádela a las personas reales con «Reconfigurar» en la página de la integración.",
+        "button_types_overlap": "{types} no puede significar a la vez en casa y fuera. Desmárcalo en una de las dos listas.",
+        "button_types_missing": "Elige al menos un evento que signifique en casa o fuera – un botón que no enciende ni apaga nada no tiene ningún efecto."
       },
       "abort": {
         "reconfigure_successful": "Se actualizó el rastreador."

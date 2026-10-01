@@ -35,7 +35,8 @@ PLATFORMS = [
 # device trackers and their persons to `unavailable` for a moment - long enough
 # for the user's own "somebody came home" automations to fire. The marker of a
 # tracker that asked for a person is left out for the same reason: it is taken
-# off as soon as the person exists.
+# off as soon as the person exists. So are the button sources (M3d): the
+# manager moves its listeners to the new ones instead.
 type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 
@@ -133,9 +134,10 @@ async def _async_entry_updated(
 ) -> None:
     """Reload the entry after its persons or trackers changed.
 
-    A change of nothing but the options an entity writes is the one case that
-    does *not* reload: the manager reads them where it uses them, and the
-    entities are told to write their new state. Anything else - the real
+    A change of nothing but the options an entity writes or the button sources
+    is the one case that does *not* reload: the manager reads them where it
+    uses them, moves its button listeners, and the entities are told to write
+    their new state. Anything else - the real
     persons, a renamed tracker, its recipients, a tracker that was added or
     removed - needs the manager, the delivery and the platforms to be built
     again.

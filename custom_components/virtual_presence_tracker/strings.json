@@ -45,12 +45,14 @@
           "data": {
             "name": "Name",
             "notify_persons": "Who is asked?",
-            "create_person": "Create a person for this tracker"
+            "create_person": "Create a person for this tracker",
+            "button_sources": "Buttons"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
             "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\".",
-            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
+            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People.",
+            "button_sources": "Optional. Event entities of buttons - from any integration, for example a Shelly, Zigbee or Hue button - that switch this tracker on or off. Which press means what is chosen in the next step; every other press is ignored and stays free for your own automations."
           }
         },
         "reconfigure": {
@@ -58,18 +60,34 @@
           "description": "Rename the tracker or change who is asked about it. Renaming is safe: the entities of the tracker keep their identity.",
           "data": {
             "name": "Name",
-            "notify_persons": "Who is asked?"
+            "notify_persons": "Who is asked?",
+            "button_sources": "Buttons"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\"."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\".",
+            "button_sources": "Optional. Event entities of buttons - from any integration, for example a Shelly, Zigbee or Hue button - that switch this tracker on or off. Which press means what is chosen in the next step; every other press is ignored and stays free for your own automations."
+          }
+        },
+        "buttons": {
+          "title": "Button events",
+          "description": "Choose which events of the selected buttons switch {name} on (home) and which switch it off (away). An event can mean only one of the two; every event left unticked is ignored and stays free for your own automations.",
+          "data": {
+            "button_home_types": "Means home (switch on)",
+            "button_away_types": "Means away (switch off)"
+          },
+          "data_description": {
+            "button_home_types": "Switching on works like the tracker's own switch: an open prompt is withdrawn. Pressing while the tracker is already on changes nothing.",
+            "button_away_types": "Switching off works like the tracker's own switch: an open reminder is withdrawn. Pressing while the tracker is already off changes nothing."
           }
         }
       },
       "error": {
         "name_required": "Enter a name for the tracker.",
         "name_exists": "A tracker with this name already exists.",
-        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page."
+        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page.",
+        "button_types_overlap": "{types} cannot mean both home and away. Untick it in one of the two lists.",
+        "button_types_missing": "Choose at least one event that means home or away - a button that switches nothing has no effect."
       },
       "abort": {
         "reconfigure_successful": "The tracker was updated."

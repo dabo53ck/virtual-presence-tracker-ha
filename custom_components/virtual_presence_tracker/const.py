@@ -112,12 +112,30 @@ LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 CONF_CREATE_PERSON: Final = "create_person"
 DEFAULT_CREATE_PERSON: Final = True
 
+# Button sources (M3d): `event` entities of any integration whose events switch
+# a tracker - a set of event types that means "home" (on) and a set that means
+# "away" (off); every other type is left alone. All three keys are absent from
+# a tracker without button sources, which is what every tracker from before
+# M3d looks like, and the form takes all three off again when the last source
+# is removed. Nothing about them is vendor-specific.
+CONF_BUTTON_SOURCES: Final = "button_sources"
+CONF_BUTTON_HOME_TYPES: Final = "button_home_types"
+CONF_BUTTON_AWAY_TYPES: Final = "button_away_types"
+BUTTON_KEYS: Final = frozenset(
+    {CONF_BUTTON_SOURCES, CONF_BUTTON_HOME_TYPES, CONF_BUTTON_AWAY_TYPES}
+)
+# What the form suggests for a source that offers them: a short press says
+# "home", a long press says "away". Only suggested when "press" is offered.
+SUGGESTED_BUTTON_HOME_TYPE: Final = "press"
+SUGGESTED_BUTTON_AWAY_TYPE: Final = "long_press"
+EVENT_DOMAIN: Final = "event"
+
 # Every key of a subentry that may change while the config entry stays loaded:
-# the options an entity writes, plus the marker above. A reload would take the
-# trackers and their persons to `unavailable` for a moment, and neither a
-# switch nor a marker that has served its purpose is allowed to do that (see
-# the reload fingerprint in __init__.py).
-NO_RELOAD_KEYS: Final = LIVE_OPTION_KEYS | {CONF_CREATE_PERSON}
+# the options an entity writes, the marker above and the button sources, whose
+# listeners the manager moves by itself. A reload would take the trackers and
+# their persons to `unavailable` for a moment, and none of these is allowed to
+# do that (see the reload fingerprint in __init__.py).
+NO_RELOAD_KEYS: Final = LIVE_OPTION_KEYS | {CONF_CREATE_PERSON} | BUTTON_KEYS
 
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"
