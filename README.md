@@ -394,6 +394,11 @@ The tracker counts as present while any of its sources is:
   other devices that keep changing their address cannot be followed this way;
   use the device tracker of their own integration instead.
 
+**Pick only sources that leave with the person.** One present source is
+enough to keep the tracker on, so a tablet left at home keeps it on while
+everybody is out, even if the Bluetooth tag went along. Several sources only
+help if each of them goes where the person goes.
+
 The tracker switches on when its sources become present and off once all of
 them have been away for **Away after**. A change by hand in between stays until
 the next such change, and `unknown` or `unavailable` never counts as away.
