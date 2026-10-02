@@ -61,7 +61,7 @@
         },
         "reconfigure": {
           "title": "Editar el rastreador virtual",
-          "description": "Cambia el nombre del rastreador o quién recibe las preguntas sobre él. Cambiar el nombre es seguro: las entidades del rastreador conservan su identidad.",
+          "description": "Cambia el nombre del rastreador, quién recibe las preguntas sobre él, o sus botones y fuentes de presencia. Cambiar el nombre es seguro: las entidades del rastreador conservan su identidad.",
           "data": {
             "name": "Nombre",
             "notify_persons": "¿A quién se pregunta?",

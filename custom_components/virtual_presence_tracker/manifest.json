@@ -11,5 +11,5 @@
   "loggers": ["custom_components.virtual_presence_tracker"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.0.1"
+  "version": "0.1.0"
 }

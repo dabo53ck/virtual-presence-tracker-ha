@@ -61,7 +61,7 @@
         },
         "reconfigure": {
           "title": "Modifier le tracker virtuel",
-          "description": "Renommez le tracker ou changez qui est interrogé à son sujet. Le renommer ne pose aucun problème : les entités du tracker conservent leur identité.",
+          "description": "Renommez le tracker, changez qui est interrogé à son sujet, ou changez ses boutons et ses sources de présence. Le renommer ne pose aucun problème : les entités du tracker conservent leur identité.",
           "data": {
             "name": "Nom",
             "notify_persons": "Qui est interrogé ?",

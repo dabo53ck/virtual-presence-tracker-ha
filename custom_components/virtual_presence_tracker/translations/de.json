@@ -61,7 +61,7 @@
         },
         "reconfigure": {
           "title": "Virtuellen Tracker bearbeiten",
-          "description": "Benenne den Tracker um oder ändere, wer zu ihm gefragt wird. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "description": "Benenne den Tracker um, ändere, wer zu ihm gefragt wird, oder ändere seine Tasten und Anwesenheitsquellen. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
           "data": {
             "name": "Name",
             "notify_persons": "Wer wird gefragt?",

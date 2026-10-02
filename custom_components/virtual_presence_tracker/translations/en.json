@@ -61,7 +61,7 @@
         },
         "reconfigure": {
           "title": "Edit the virtual tracker",
-          "description": "Rename the tracker or change who is asked about it. Renaming is safe: the entities of the tracker keep their identity.",
+          "description": "Rename the tracker, change who is asked about it, or change its buttons and presence sources. Renaming is safe: the entities of the tracker keep their identity.",
           "data": {
             "name": "Name",
             "notify_persons": "Who is asked?",
