@@ -48,8 +48,9 @@ and they can be combined:
 
   The tracker goes on when a source is present and off once all of them have
   been away for a while. A source only tells what it sees (a tablet in the
-  Wi-Fi, a tag in radio range), not who is holding it. See
-  [Presence sources](#presence-sources).
+  Wi-Fi, a tag in radio range), not who is holding it. **Pick only sources
+  that leave the house with the person**: one source left at home keeps the
+  tracker on. See [Presence sources](#presence-sources).
 
 Two things look after a tracker that is on:
 
@@ -381,6 +382,13 @@ mean away; for a button that offers `press` it suggests `press` and
 ![The Button events step: press ticked under "Means home (switch on)", long_press ticked under "Means away (switch off)", every other event type unticked](images/button-events.png)
 
 ### Presence sources
+
+> [!IMPORTANT]
+> **Pick only sources that leave the house with the person.** One present
+> source is enough to keep the tracker on. A tablet left at home keeps it on
+> while everybody is out, even if the Bluetooth tag went along, and the house
+> keeps counting as occupied. Several sources only help if each of them goes
+> where the person goes.
 
 The tracker counts as present while any of its sources is:
 
