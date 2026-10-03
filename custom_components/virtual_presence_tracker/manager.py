@@ -1,9 +1,10 @@
 """Household state of the Virtual Presence Tracker integration.
 
 The manager owns the state of every virtual tracker, the presence of the
-configured real persons and the two state machines that ask about a tracker:
-the prompt, when the house empties, and the reminder, when a tracker has been
-at home for too long. It is the single source
+configured real persons and the three state machines that ask about a tracker:
+the prompt, when the house empties, the reminder, when a tracker has been at
+home for too long, and the question about a device left behind (M3f), when a
+presence source keeps a tracker on in an empty house. It is the single source
 of truth: the entities are thin views on it, so the state survives a restart
 and is already correct before the platforms are set up.
 """
@@ -37,12 +38,16 @@ from homeassistant.util import dt as dt_util
 from .const import (
     ATTR_ANSWERED_BY,
     ATTR_EXPIRES_AT,
+    ATTR_LEFT_BEHIND_ID,
     ATTR_PROMPT_ID,
     ATTR_REASON,
     ATTR_REMINDER_ID,
+    ATTR_SOURCES,
     ATTR_TRACKER,
     CONF_ANSWER_TIMEOUT,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
+    CONF_AWAY_AFTER,
     CONF_BUTTON_AWAY_TYPES,
     CONF_BUTTON_HOME_TYPES,
     CONF_BUTTON_SOURCES,
@@ -57,6 +62,11 @@ from .const import (
     EVENT_CANCELLED,
     EVENT_DOMAIN,
     EVENT_EXPIRED,
+    EVENT_LEFT_BEHIND_ANSWERED_NO,
+    EVENT_LEFT_BEHIND_ANSWERED_YES,
+    EVENT_LEFT_BEHIND_CANCELLED,
+    EVENT_LEFT_BEHIND_EXPIRED,
+    EVENT_LEFT_BEHIND_STARTED,
     EVENT_PROMPT_STARTED,
     EVENT_REMINDER_ANSWERED_NO,
     EVENT_REMINDER_ANSWERED_YES,
@@ -135,18 +145,35 @@ class OpenReminderResult(StrEnum):
     REMINDER_OPEN = "reminder_open"
 
 
+class OpenLeftBehindResult(StrEnum):
+    """What came of the attempt to ask about a device left behind by hand.
+
+    Like the reminder it is about a tracker that is *on*; on top of that it is
+    about its presence sources, so a tracker without any is refused as well.
+    """
+
+    OPENED = "opened"
+    TRACKER_AWAY = "tracker_away"
+    NO_SOURCES = "no_sources"
+    LEFT_BEHIND_OPEN = "left_behind_open"
+
+
 class StoredTracker(TypedDict):
     """Persisted state of a single virtual tracker.
 
     ``anchor`` was added in M3a and is optional: a tracker written before it
     simply has none, and the last change of the tracker is then what the
-    reminder counts from. Nothing has to be converted, so the store version
+    reminder counts from. ``left_behind_wait_since`` and ``source_lock`` were
+    added in M3f on the same terms: a tracker written before them is neither
+    waiting nor locked. Nothing has to be converted, so the store version
     stays where it is.
     """
 
     home: bool
     since: str | None
     anchor: NotRequired[str | None]
+    left_behind_wait_since: NotRequired[str | None]
+    source_lock: NotRequired[bool]
 
 
 class StoredPrompt(TypedDict):
@@ -175,18 +202,32 @@ class StoredReminder(TypedDict):
     expires_at: str
 
 
+class StoredLeftBehind(TypedDict):
+    """Persisted state of an open question about a device left behind (M3f).
+
+    ``manual`` has the prompt's meaning: opened by hand, so neither the option
+    nor an occupied house takes it back after a restart.
+    """
+
+    left_behind_id: str
+    started_at: str
+    expires_at: str
+    manual: NotRequired[bool]
+
+
 class StoredData(TypedDict):
     """Persisted state of a config entry.
 
-    ``prompts`` was added in M2a and ``reminders`` in M3a. A store written
-    before either simply does not have the key, which means "nothing was open"
-    - exactly what a fresh install looks like - so the store version does not
-    have to be raised.
+    ``prompts`` was added in M2a, ``reminders`` in M3a and ``left_behind`` in
+    M3f. A store written before any of them simply does not have the key,
+    which means "nothing was open" - exactly what a fresh install looks like -
+    so the store version does not have to be raised.
     """
 
     trackers: dict[str, StoredTracker]
     prompts: NotRequired[dict[str, StoredPrompt]]
     reminders: NotRequired[dict[str, StoredReminder]]
+    left_behind: NotRequired[dict[str, StoredLeftBehind]]
 
 
 @dataclass(slots=True)
@@ -204,6 +245,11 @@ class TrackerState:
     home: bool = False
     since: datetime | None = None
     anchor: datetime | None = None
+    # M3f: when the empty-house period whose question about a device left
+    # behind is still to be decided began (the last real departure), and
+    # whether the presence sources are kept from switching the tracker on.
+    wait_since: datetime | None = None
+    source_lock: bool = False
 
 
 @dataclass(slots=True)
@@ -228,6 +274,21 @@ class Reminder:
     reminder_id: str
     started_at: datetime
     expires_at: datetime
+
+
+@dataclass(slots=True)
+class LeftBehind:
+    """An open question about a device left behind (M3f).
+
+    ``manual`` marks one somebody opened themselves, with the prompt's
+    consequences: switching the option off does not take it back, and neither
+    does a restart in an occupied house.
+    """
+
+    left_behind_id: str
+    started_at: datetime
+    expires_at: datetime
+    manual: bool = False
 
 
 @dataclass(slots=True)
@@ -267,6 +328,26 @@ def _prompt_from_store(stored: StoredPrompt) -> Prompt | None:
         expires_at=expires_at,
         manual=bool(stored.get("manual")),
     )
+
+
+def _left_behind_from_store(stored: StoredLeftBehind) -> LeftBehind | None:
+    """Return a persisted question about a device left behind, or None."""
+    started_at = dt_util.parse_datetime(stored.get("started_at") or "")
+    expires_at = dt_util.parse_datetime(stored.get("expires_at") or "")
+    left_behind_id = stored.get("left_behind_id")
+    if not left_behind_id or started_at is None or expires_at is None:
+        return None
+    return LeftBehind(
+        left_behind_id=left_behind_id,
+        started_at=started_at,
+        expires_at=expires_at,
+        manual=bool(stored.get("manual")),
+    )
+
+
+def _parse_optional(value: str | None) -> datetime | None:
+    """Return a stored timestamp, or None if there is none or it is unreadable."""
+    return dt_util.parse_datetime(value) if value else None
 
 
 def _reminder_from_store(stored: StoredReminder) -> Reminder | None:
@@ -327,6 +408,14 @@ class HouseholdManager:
         # reported - and only these two have anything to take back.
         self._asking: dict[str, bool] = {}
         self._reminding: dict[str, int] = {}
+        # The question about a device left behind (M3f), per tracker: an open
+        # one with its expiry timer, the timer that decides it, and the last
+        # value of its option, for the same reason as the two above.
+        self._left_behind: dict[str, LeftBehind] = {}
+        self._left_behind_expiry: dict[str, CALLBACK_TYPE] = {}
+        self._left_behind_due: dict[str, CALLBACK_TYPE] = {}
+        self._left_behind_listeners: dict[str, list[PromptListener]] = {}
+        self._asking_left_behind: dict[str, bool] = {}
 
     async def async_load(self) -> None:
         """Load the persisted tracker states, prompts and reminders.
@@ -342,6 +431,7 @@ class HouseholdManager:
         stored_trackers = stored["trackers"] if stored else {}
         stored_prompts = stored.get("prompts", {}) if stored else {}
         stored_reminders = stored.get("reminders", {}) if stored else {}
+        stored_left_behind = stored.get("left_behind", {}) if stored else {}
         known_ids = [
             subentry.subentry_id
             for subentry in self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
@@ -350,6 +440,7 @@ class HouseholdManager:
         trackers: dict[str, TrackerState] = {}
         prompts: dict[str, Prompt] = {}
         reminders: dict[str, Reminder] = {}
+        left_behind: dict[str, LeftBehind] = {}
         for subentry_id in known_ids:
             if (stored_prompt := stored_prompts.get(subentry_id)) is not None and (
                 prompt := _prompt_from_store(stored_prompt)
@@ -359,27 +450,48 @@ class HouseholdManager:
                 reminder := _reminder_from_store(stored_reminder)
             ) is not None:
                 reminders[subentry_id] = reminder
+            if (
+                stored_question := stored_left_behind.get(subentry_id)
+            ) is not None and (
+                question := _left_behind_from_store(stored_question)
+            ) is not None:
+                left_behind[subentry_id] = question
             if (stored_tracker := stored_trackers.get(subentry_id)) is None:
                 trackers[subentry_id] = TrackerState()
                 continue
             since = stored_tracker.get("since")
             anchor = stored_tracker.get("anchor")
+            home = bool(stored_tracker.get("home"))
             trackers[subentry_id] = TrackerState(
-                home=bool(stored_tracker.get("home")),
+                home=home,
                 since=dt_util.parse_datetime(since) if since else None,
                 anchor=dt_util.parse_datetime(anchor) if anchor else None,
+                wait_since=_parse_optional(
+                    stored_tracker.get("left_behind_wait_since")
+                ),
+                # A lock only ever exists on a tracker that is off.
+                source_lock=bool(stored_tracker.get("source_lock")) and not home,
             )
         self._trackers = trackers
         self._prompts = prompts
         self._reminders = reminders
+        self._left_behind = left_behind
         self._asking = {
             subentry_id: self._ask_on_departure(subentry_id) for subentry_id in trackers
         }
         self._reminding = {
             subentry_id: self._remind_after(subentry_id) for subentry_id in trackers
         }
+        self._asking_left_behind = {
+            subentry_id: self._ask_left_behind(subentry_id) for subentry_id in trackers
+        }
 
-        stale = stored_trackers.keys() | stored_prompts.keys() | stored_reminders.keys()
+        stale = (
+            stored_trackers.keys()
+            | stored_prompts.keys()
+            | stored_reminders.keys()
+            | stored_left_behind.keys()
+        )
         if stale - set(known_ids):
             self._async_schedule_save()
 
@@ -469,6 +581,44 @@ class HouseholdManager:
         for subentry_id in list(self._trackers):
             self._async_schedule_reminder(subentry_id)
 
+    @callback
+    def async_resume_left_behind(self) -> None:
+        """Pick the questions about a device left behind up again (M3f).
+
+        Must run after the platforms are set up, and after the reminders: an
+        expiry here switches the tracker off, which withdraws an open reminder,
+        and that withdrawal needs a reminder that has been resumed.
+
+        An open question goes the prompt's way - withdrawn when the tracker is
+        off by now, when a real person is at home or the option is off (both
+        not for one opened by hand) - except for a deadline that passed while
+        Home Assistant was down: that is an unanswered question, and an
+        unanswered question switches the tracker off and locks it. Home
+        Assistant being down vouches for nobody.
+
+        A real person at home ends the empty-house period, so the waiting marks
+        and the locks go. Every mark that is left gets its timer back; the
+        decision is never made before the sources have been followed for
+        `away_after` since this start.
+        """
+        now = dt_util.utcnow()
+        for subentry_id, question in list(self._left_behind.items()):
+            if not self.is_home(subentry_id):
+                self._async_cancel_left_behind(subentry_id, REASON_SWITCHED_OFF)
+            elif not question.manual and self.real_home:
+                self._async_cancel_left_behind(subentry_id, REASON_PERSON_HOME)
+            elif not question.manual and not self._ask_left_behind(subentry_id):
+                self._async_cancel_left_behind(subentry_id, REASON_OPTION_DISABLED)
+            elif question.expires_at <= now:
+                self._async_left_behind_unanswered(subentry_id, question)
+            else:
+                # Still open: it keeps the time it has left and says nothing.
+                self._async_start_left_behind_expiry(subentry_id, question, now)
+        if self.real_home:
+            self._async_end_empty_period()
+        for subentry_id in list(self._trackers):
+            self._async_schedule_left_behind(subentry_id)
+
     async def async_stop(self) -> None:
         """Unsubscribe, drop every timer and write the current state to disk.
 
@@ -493,6 +643,13 @@ class HouseholdManager:
         for unsub in self._due.values():
             unsub()
         self._due.clear()
+        for unsub in (
+            *self._left_behind_expiry.values(),
+            *self._left_behind_due.values(),
+        ):
+            unsub()
+        self._left_behind_expiry.clear()
+        self._left_behind_due.clear()
         for scheduled in self._scheduled.values():
             scheduled.unsub()
         self._scheduled.clear()
@@ -549,6 +706,27 @@ class HouseholdManager:
         """Return when the open reminder of a tracker gives up, if there is one."""
         reminder = self._reminders.get(subentry_id)
         return reminder.expires_at if reminder is not None else None
+
+    def left_behind_open(self, subentry_id: str) -> bool:
+        """Return whether a tracker has a question about a device left behind."""
+        return subentry_id in self._left_behind
+
+    def left_behind_expires_at(self, subentry_id: str) -> datetime | None:
+        """Return when that question gives up - and switches off - if it is open."""
+        question = self._left_behind.get(subentry_id)
+        return question.expires_at if question is not None else None
+
+    def source_locked(self, subentry_id: str) -> bool:
+        """Return whether the presence sources may not switch a tracker on (M3f)."""
+        tracker = self._trackers.get(subentry_id)
+        return tracker.source_lock if tracker is not None else False
+
+    def tracker_of_left_behind(self, left_behind_id: str) -> str | None:
+        """Return the tracker a question about a device left behind belongs to."""
+        for subentry_id, question in self._left_behind.items():
+            if question.left_behind_id == left_behind_id:
+                return subentry_id
+        return None
 
     def home_hours(self, subentry_id: str) -> int:
         """Return how many whole hours a tracker has been at home, at least one.
@@ -700,6 +878,69 @@ class HouseholdManager:
         )
         return True
 
+    @callback
+    def async_open_left_behind(self, subentry_id: str) -> OpenLeftBehindResult:
+        """Ask about a device left behind right now, because somebody asked.
+
+        The manual counterpart of the decision after the last departure: it
+        ignores who is at home, the option and the waiting time. What it does
+        not ignore: the tracker has to be on, it has to have a presence source
+        - the question and its lock are about those - and it is only asked
+        once at a time. All three are checked before anything changes.
+        """
+        if not self.is_home(subentry_id):
+            return OpenLeftBehindResult.TRACKER_AWAY
+        if not self._presence.has_sources(subentry_id):
+            return OpenLeftBehindResult.NO_SOURCES
+        if subentry_id in self._left_behind:
+            return OpenLeftBehindResult.LEFT_BEHIND_OPEN
+        self._async_start_left_behind(subentry_id, manual=True)
+        return OpenLeftBehindResult.OPENED
+
+    @callback
+    def async_answer_left_behind(
+        self, subentry_id: str, answer: bool, answered_by: str | None = None
+    ) -> bool:
+        """Answer the open question about a device left behind, if there is one.
+
+        "Yes" changes nothing. "No" switches the tracker off down the same path
+        a switch does and locks it against its presence sources, so that a
+        source that flaps does not switch it straight back on.
+        """
+        question = self._left_behind.get(subentry_id)
+        if question is None:
+            return False
+        # Ending it first means the switch-off finds nothing to cancel.
+        self._async_end_left_behind(subentry_id)
+        if not answer:
+            self._async_lock(subentry_id)
+            self.async_set_home(subentry_id, False)
+        self._async_fire_left_behind(
+            subentry_id,
+            question.left_behind_id,
+            EVENT_LEFT_BEHIND_ANSWERED_YES if answer else EVENT_LEFT_BEHIND_ANSWERED_NO,
+            {ATTR_ANSWERED_BY: answered_by},
+        )
+        return True
+
+    @callback
+    def async_sources_away(self, subentry_id: str) -> None:
+        """Take in that a tracker's presence sources were away for `away_after`.
+
+        They really left, so the next time they come back is a real arrival:
+        the lock ends. Called by the follower whether the tracker is on or off.
+        """
+        self._async_unlock(subentry_id)
+
+    @callback
+    def async_sources_replaced(self, subentry_id: str) -> None:
+        """Take in that a tracker follows other presence sources than before.
+
+        The lock was about the old ones, and the follower starts a fresh
+        baseline anyway.
+        """
+        self._async_unlock(subentry_id)
+
     def option(self, subentry_id: str, key: str) -> Any:
         """Return one of the options a tracker has an entity for.
 
@@ -761,8 +1002,20 @@ class HouseholdManager:
             self._reminding[subentry_id] = reminding
             self._async_schedule_reminder(subentry_id)
 
+            asking_left_behind = self._ask_left_behind(subentry_id)
+            if (
+                self._asking_left_behind.get(subentry_id, asking_left_behind)
+                and not asking_left_behind
+            ):
+                self._async_left_behind_switched_off(subentry_id)
+            self._asking_left_behind[subentry_id] = asking_left_behind
+
             self._async_notify(self._tracker_listeners.get(subentry_id, []))
         self._presence.async_sources_changed()
+        # After the sources: the decision waits for the follower's baseline,
+        # and a change of the sources or of `away_after` moves it.
+        for subentry_id in list(self._trackers):
+            self._async_schedule_left_behind(subentry_id)
 
     @callback
     def _async_asking_switched_off(self, subentry_id: str) -> None:
@@ -776,6 +1029,20 @@ class HouseholdManager:
         if prompt is not None and prompt.manual:
             return
         self._async_cancel_prompt(subentry_id, REASON_OPTION_DISABLED)
+
+    @callback
+    def _async_left_behind_switched_off(self, subentry_id: str) -> None:
+        """Take back what the option of the question about a device had started.
+
+        Without the question there is no loop to guard against, so the lock
+        goes too: "off" means the presence sources behave as they did before
+        M3f. A question somebody opened by hand stays, like a manual prompt.
+        """
+        self._async_unlock(subentry_id)
+        question = self._left_behind.get(subentry_id)
+        if question is not None and question.manual:
+            return
+        self._async_cancel_left_behind(subentry_id, REASON_OPTION_DISABLED)
 
     @callback
     def async_add_prompt_listener(
@@ -798,6 +1065,15 @@ class HouseholdManager:
         """
         return self._async_add_event_listener(
             self._reminder_listeners, subentry_id, reminder_listener
+        )
+
+    @callback
+    def async_add_left_behind_listener(
+        self, subentry_id: str, left_behind_listener: PromptListener
+    ) -> CALLBACK_TYPE:
+        """Listen for the events of the question about a device left behind."""
+        return self._async_add_event_listener(
+            self._left_behind_listeners, subentry_id, left_behind_listener
         )
 
     @callback
@@ -848,7 +1124,10 @@ class HouseholdManager:
         This is where the reminder begins and ends, whoever moved the switch: a
         tracker that goes on starts counting from now, and a tracker that goes
         off has nothing left to be reminded about, so an open reminder is
-        withdrawn and the anchor is dropped.
+        withdrawn and the anchor is dropped. The same goes for the question
+        about a device left behind (M3f). A tracker that goes on was switched
+        by somebody - the presence sources never get here while it is locked -
+        so its lock ends.
         """
         tracker = self._trackers.setdefault(subentry_id, TrackerState())
         if tracker.home == home:
@@ -856,10 +1135,13 @@ class HouseholdManager:
         tracker.home = home
         tracker.since = dt_util.utcnow()
         tracker.anchor = tracker.since if home else None
+        if home:
+            tracker.source_lock = False
         self._async_schedule_save()
         self._async_notify(self._tracker_listeners.get(subentry_id, []))
         if not home:
             self._async_cancel_reminder(subentry_id, REASON_SWITCHED_OFF)
+            self._async_cancel_left_behind(subentry_id, REASON_SWITCHED_OFF)
         self._async_schedule_reminder(subentry_id)
         return True
 
@@ -890,10 +1172,15 @@ class HouseholdManager:
         if cancels:
             for subentry_id in list(self._prompts):
                 self._async_cancel_prompt(subentry_id, REASON_PERSON_HOME)
+            # The empty-house period is over (M3f).
+            for subentry_id in list(self._left_behind):
+                self._async_cancel_left_behind(subentry_id, REASON_PERSON_HOME)
+            self._async_end_empty_period()
         if resets:
             self._async_reset_trackers()
         if departs:
             self._async_ask_the_trackers()
+            self._async_start_empty_period()
         self._async_notify(self._listeners)
 
     @callback
@@ -1065,6 +1352,12 @@ class HouseholdManager:
         """
         self._presence.async_update(subentry_id)
         if not self._presence.is_present(subentry_id):
+            return False
+        if self.source_locked(subentry_id):
+            # Somebody said no, or nobody answered (M3f): a source is not
+            # allowed to overrule that. Ask a human instead, as if it were
+            # absent. A real person coming home ends the lock, so this only
+            # matters if that arrival was never seen.
             return False
         if not self.is_home(subentry_id):
             _LOGGER.debug(
@@ -1325,6 +1618,232 @@ class HouseholdManager:
             return default
         return tracker.anchor or tracker.since or default
 
+    @callback
+    def _async_start_empty_period(self) -> None:
+        """Mark every tracker as waiting for its decision (M3f).
+
+        The last real person has left. Whether a device keeps a tracker on is
+        decided `away_after` later, per tracker - not now, because a Bluetooth
+        tag that has just left is still "present" for that long.
+        """
+        now = dt_util.utcnow()
+        for subentry_id, tracker in self._trackers.items():
+            tracker.wait_since = now
+            self._async_schedule_left_behind(subentry_id)
+        self._async_schedule_save()
+
+    @callback
+    def _async_end_empty_period(self) -> None:
+        """End the empty-house period: no more waiting, and no lock (M3f).
+
+        Nothing is announced: a waiting mark was never announced, and a lock
+        is not something an automation sees.
+        """
+        changed = False
+        for subentry_id, tracker in self._trackers.items():
+            if (unsub := self._left_behind_due.pop(subentry_id, None)) is not None:
+                unsub()
+            if tracker.wait_since is not None or tracker.source_lock:
+                tracker.wait_since = None
+                tracker.source_lock = False
+                changed = True
+        if changed:
+            self._async_schedule_save()
+
+    @callback
+    def _async_schedule_left_behind(self, subentry_id: str) -> None:
+        """Set the timer that decides the question about a device left behind.
+
+        The one place that timer is decided, called after the departure, after
+        every change of an option or of the sources and from the resume. It
+        drops the old handle first, so it can be called as often as it likes.
+
+        The decision is due `away_after` after the departure - and never
+        sooner than `away_after` after the follower took its baseline, which
+        after a restart or a change of the sources is when the readings are
+        known. It only runs while the option is on and the tracker has a
+        source; until then the mark simply waits, so switching the option on
+        while the house is empty still decides - at once, if it is overdue.
+        """
+        if (unsub := self._left_behind_due.pop(subentry_id, None)) is not None:
+            unsub()
+        tracker = self._trackers.get(subentry_id)
+        if tracker is None or tracker.wait_since is None:
+            return
+        if not self._ask_left_behind(subentry_id):
+            return
+        following_since = self._presence.following_since(subentry_id)
+        if following_since is None:
+            return
+        due = max(tracker.wait_since, following_since) + timedelta(
+            minutes=self._away_after(subentry_id)
+        )
+        now = dt_util.utcnow()
+        if due <= now:
+            self._async_decide_left_behind(subentry_id)
+            return
+        self._left_behind_due[subentry_id] = async_call_later(
+            self.hass,
+            (due - now).total_seconds(),
+            partial(self._async_left_behind_due, subentry_id),
+        )
+
+    @callback
+    def _async_left_behind_due(self, subentry_id: str, _now: datetime) -> None:
+        """Decide the question about a device left behind when its time has come."""
+        self._left_behind_due.pop(subentry_id, None)
+        self._async_decide_left_behind(subentry_id)
+
+    @callback
+    def _async_decide_left_behind(self, subentry_id: str) -> None:
+        """Ask, once per empty-house period, whether a device is all that is home.
+
+        Asks when nobody real is at home, the tracker is on and its sources say
+        present right now - looked at now, so that a Bluetooth tag that left
+        with the last person is no longer counted. Whatever the outcome, the
+        period's decision is made: a source that becomes present later is an
+        arrival, which is what sources are for.
+        """
+        tracker = self._trackers.get(subentry_id)
+        if tracker is None or tracker.wait_since is None:
+            return
+        if not self._ask_left_behind(subentry_id) or not self._presence.has_sources(
+            subentry_id
+        ):
+            return
+        tracker.wait_since = None
+        self._async_schedule_save()
+        if self.real_persons_home > 0 or subentry_id in self._left_behind:
+            return
+        self._presence.async_update(subentry_id)
+        if not self.is_home(subentry_id) or not self._presence.is_present(subentry_id):
+            _LOGGER.debug("No device left behind for tracker %s", subentry_id)
+            return
+        self._async_start_left_behind(subentry_id)
+
+    @callback
+    def _async_start_left_behind(self, subentry_id: str, manual: bool = False) -> None:
+        """Open a question about a device left behind and announce it."""
+        now = dt_util.utcnow()
+        question = LeftBehind(
+            left_behind_id=uuid4().hex,
+            started_at=now,
+            expires_at=now + timedelta(minutes=self._answer_timeout(subentry_id)),
+            manual=manual,
+        )
+        self._left_behind[subentry_id] = question
+        self._async_schedule_save()
+        self._async_start_left_behind_expiry(subentry_id, question, now)
+        self._async_notify(self._tracker_listeners.get(subentry_id, []))
+        self._async_fire_left_behind(
+            subentry_id,
+            question.left_behind_id,
+            EVENT_LEFT_BEHIND_STARTED,
+            {
+                ATTR_EXPIRES_AT: question.expires_at.isoformat(),
+                ATTR_SOURCES: self._presence.present_sources(subentry_id),
+            },
+        )
+
+    @callback
+    def _async_start_left_behind_expiry(
+        self, subentry_id: str, question: LeftBehind, now: datetime
+    ) -> None:
+        """Let a question about a device left behind give up when its time is up."""
+        self._left_behind_expiry[subentry_id] = async_call_later(
+            self.hass,
+            max((question.expires_at - now).total_seconds(), 0),
+            partial(
+                self._async_left_behind_expired, subentry_id, question.left_behind_id
+            ),
+        )
+
+    @callback
+    def _async_left_behind_expired(
+        self, subentry_id: str, left_behind_id: str, _now: datetime
+    ) -> None:
+        """Give up on a question about a device left behind nobody answered."""
+        question = self._left_behind.get(subentry_id)
+        if question is None or question.left_behind_id != left_behind_id:
+            return
+        self._async_left_behind_unanswered(subentry_id, question)
+
+    @callback
+    def _async_left_behind_unanswered(
+        self, subentry_id: str, question: LeftBehind
+    ) -> None:
+        """Switch the tracker off and lock it: nobody vouched for the person.
+
+        The one place in this integration where no answer changes a tracker,
+        and deliberately so: the question is about a tracker that a *device*
+        keeps on, and nobody answering is exactly the case it is there for.
+        """
+        self._async_end_left_behind(subentry_id)
+        self._async_lock(subentry_id)
+        self.async_set_home(subentry_id, False)
+        self._async_fire_left_behind(
+            subentry_id, question.left_behind_id, EVENT_LEFT_BEHIND_EXPIRED
+        )
+
+    @callback
+    def _async_cancel_left_behind(self, subentry_id: str, reason: str) -> None:
+        """Take an open question about a device left behind back, saying why."""
+        if (question := self._async_end_left_behind(subentry_id)) is None:
+            return
+        self._async_fire_left_behind(
+            subentry_id,
+            question.left_behind_id,
+            EVENT_LEFT_BEHIND_CANCELLED,
+            {ATTR_REASON: reason},
+        )
+
+    @callback
+    def _async_end_left_behind(self, subentry_id: str) -> LeftBehind | None:
+        """Close an open question about a device left behind, without saying why."""
+        if (unsub := self._left_behind_expiry.pop(subentry_id, None)) is not None:
+            unsub()
+        question = self._left_behind.pop(subentry_id, None)
+        if question is not None:
+            self._async_schedule_save()
+            self._async_notify(self._tracker_listeners.get(subentry_id, []))
+        return question
+
+    @callback
+    def _async_fire_left_behind(
+        self,
+        subentry_id: str,
+        left_behind_id: str,
+        event_type: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        """Announce an event of the question about a device left behind."""
+        subentry = self.entry.subentries.get(subentry_id)
+        event_data = {
+            ATTR_LEFT_BEHIND_ID: left_behind_id,
+            ATTR_TRACKER: subentry.title if subentry is not None else "",
+            **(data or {}),
+        }
+        for listener in list(self._left_behind_listeners.get(subentry_id, [])):
+            listener(event_type, event_data)
+
+    @callback
+    def _async_lock(self, subentry_id: str) -> None:
+        """Keep the presence sources from switching a tracker on (M3f)."""
+        if (tracker := self._trackers.get(subentry_id)) is None:
+            return
+        tracker.source_lock = True
+        self._async_schedule_save()
+
+    @callback
+    def _async_unlock(self, subentry_id: str) -> None:
+        """Let the presence sources switch a tracker on again."""
+        tracker = self._trackers.get(subentry_id)
+        if tracker is None or not tracker.source_lock:
+            return
+        _LOGGER.debug("Tracker %s is no longer locked", subentry_id)
+        tracker.source_lock = False
+        self._async_schedule_save()
+
     def _option(self, subentry_id: str, key: str, default: Any) -> Any:
         """Return one option of a tracker, or its default."""
         subentry = self.entry.subentries.get(subentry_id)
@@ -1343,6 +1862,14 @@ class HouseholdManager:
     def _prompt_delay(self, subentry_id: str) -> int:
         """Return how many seconds a tracker waits before it asks."""
         return int(self.option(subentry_id, CONF_PROMPT_DELAY))
+
+    def _ask_left_behind(self, subentry_id: str) -> bool:
+        """Return whether a tracker asks about a device left behind (M3f)."""
+        return bool(self.option(subentry_id, CONF_ASK_LEFT_BEHIND))
+
+    def _away_after(self, subentry_id: str) -> int:
+        """Return the minutes a tracker's sources take to count as away."""
+        return int(self.option(subentry_id, CONF_AWAY_AFTER))
 
     def _remind_after(self, subentry_id: str) -> int:
         """Return after how many hours at home a tracker reminds; 0 is never."""
@@ -1394,6 +1921,10 @@ class HouseholdManager:
                     "home": tracker.home,
                     "since": tracker.since.isoformat() if tracker.since else None,
                     "anchor": tracker.anchor.isoformat() if tracker.anchor else None,
+                    "left_behind_wait_since": (
+                        tracker.wait_since.isoformat() if tracker.wait_since else None
+                    ),
+                    "source_lock": tracker.source_lock,
                 }
                 for subentry_id, tracker in self._trackers.items()
             },
@@ -1413,5 +1944,14 @@ class HouseholdManager:
                     "expires_at": reminder.expires_at.isoformat(),
                 }
                 for subentry_id, reminder in self._reminders.items()
+            },
+            "left_behind": {
+                subentry_id: {
+                    "left_behind_id": question.left_behind_id,
+                    "started_at": question.started_at.isoformat(),
+                    "expires_at": question.expires_at.isoformat(),
+                    "manual": question.manual,
+                }
+                for subentry_id, question in self._left_behind.items()
             },
         }

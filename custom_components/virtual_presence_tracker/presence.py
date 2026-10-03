@@ -14,6 +14,13 @@ during the first `away_after` of listening - is never absence by itself: the
 last known value is kept, and the very first known value is a baseline, not an
 edge. Nothing here is persisted; every start and every change of the sources
 starts from a fresh baseline, and the absence clock never starts before it.
+
+The one thing that can hold an on-edge back is the manager's lock (M3f): after
+the question about a device left behind switched a tracker off, its sources
+must not switch it straight back on. The lock lives in the manager, because it
+has to survive a restart; this follower asks for it before every switch-on and
+tells the manager when an absence has run its full `away_after`, which is one
+of the things that end it.
 """
 
 from __future__ import annotations
@@ -147,6 +154,38 @@ class TrackerPresence:
         follow = self._follows.get(subentry_id)
         return follow is not None and follow.present is True
 
+    def following_since(self, subentry_id: str) -> datetime | None:
+        """Return since when the current sources of a tracker are followed.
+
+        The start of the entry or the last change of the sources, whichever is
+        later; None for a tracker without sources. Before `away_after` has
+        passed since then, a Bluetooth source may still read "not known".
+        """
+        follow = self._follows.get(subentry_id)
+        return follow.since if follow is not None else None
+
+    def present_sources(self, subentry_id: str) -> list[str]:
+        """Return the sources of a tracker that are present right now.
+
+        Entity IDs first, then Bluetooth addresses, each in the order they are
+        configured. What the question about a device left behind names.
+        """
+        follow = self._follows.get(subentry_id)
+        if follow is None:
+            return []
+        present = [
+            entity_id
+            for entity_id in follow.entities
+            if self._entity_reading(entity_id, follow.since)[0] is True
+        ]
+        if follow.addresses and ble.async_bluetooth_loaded(self.hass):
+            window = self._away_after(subentry_id).total_seconds()
+            for address in follow.addresses:
+                age = ble.async_seconds_since_heard(self.hass, address)
+                if age is not None and age < window:
+                    present.append(address)
+        return present
+
     @callback
     def async_update(self, subentry_id: str) -> None:
         """Look at the sources of one tracker right now."""
@@ -174,6 +213,7 @@ class TrackerPresence:
             if not entities and not addresses:
                 if follow is not None:
                     self._async_cancel_off(self._follows.pop(subentry_id))
+                    self._manager.async_sources_replaced(subentry_id)
                 continue
             if follow is None or (follow.entities, follow.addresses) != (
                 entities,
@@ -181,6 +221,8 @@ class TrackerPresence:
             ):
                 if follow is not None:
                     self._async_cancel_off(follow)
+                    # The lock was about the old sources (M3f).
+                    self._manager.async_sources_replaced(subentry_id)
                 follow = _Follow(entities, addresses, now)
                 self._follows[subentry_id] = follow
             self._async_evaluate(subentry_id, follow)
@@ -249,6 +291,15 @@ class TrackerPresence:
             self._async_cancel_off(follow)
             follow.absent_since = None
             if previous is False and not self._manager.is_home(subentry_id):
+                if self._manager.source_locked(subentry_id):
+                    # Answered "no" or left unanswered (M3f): a source that
+                    # flaps back does not undo that. The edge is still recorded.
+                    _LOGGER.debug(
+                        "Not switching tracker %s on: it is locked against its "
+                        "presence sources",
+                        subentry_id,
+                    )
+                    return
                 _LOGGER.debug(
                     "Switching tracker %s on: a presence source is present",
                     subentry_id,
@@ -360,9 +411,15 @@ class TrackerPresence:
 
     @callback
     def _async_away(self, subentry_id: str, follow: _Follow) -> None:
-        """Switch a tracker off for an absence, once per absence."""
+        """Switch a tracker off for an absence, once per absence.
+
+        Whether or not the tracker is still on, an absence that lasted
+        `away_after` means the sources really were away, which ends a lock the
+        question about a device left behind may have set (M3f).
+        """
         self._async_cancel_off(follow)
         follow.absent_since = None
+        self._manager.async_sources_away(subentry_id)
         if self._manager.is_home(subentry_id):
             _LOGGER.debug(
                 "Switching tracker %s off: its presence sources are absent",

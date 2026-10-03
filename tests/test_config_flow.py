@@ -11,10 +11,12 @@ import voluptuous as vol
 from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     CONF_ANSWER_TIMEOUT,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
     CONF_AWAY_AFTER,
     CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
+    CONF_LEFT_BEHIND_OVERRIDE_DND,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
@@ -25,7 +27,9 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_AWAY_AFTER,
+    DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
@@ -54,7 +58,8 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
     """Return the subentry data a new tracker is written with.
 
     Every option is spelled out, so that the entities on the tracker's device
-    page have a value from the start - and a new tracker asks and reminds.
+    page have a value from the start - and a new tracker asks and reminds, but
+    does not ask about a device left behind (M3f).
     """
     return {
         CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
@@ -67,6 +72,8 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
         CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
         CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
         CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+        CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
+        CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
     } | overrides
 
 

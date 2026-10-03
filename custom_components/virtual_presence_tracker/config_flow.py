@@ -43,6 +43,7 @@ from .const import (
     BINARY_SENSOR_DOMAIN,
     BUTTON_KEYS,
     CONF_ANSWER_TIMEOUT,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
     CONF_AWAY_AFTER,
     CONF_BLE_SOURCES,
@@ -50,6 +51,7 @@ from .const import (
     CONF_BUTTON_HOME_TYPES,
     CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
+    CONF_LEFT_BEHIND_OVERRIDE_DND,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
@@ -60,8 +62,10 @@ from .const import (
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_AWAY_AFTER,
     DEFAULT_CREATE_PERSON,
+    DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_OVERRIDE_DND,
     DEFAULT_PROMPT_DELAY,
@@ -195,7 +199,7 @@ def _ble_options(hass: HomeAssistant, stored: list[str]) -> list[SelectOptionDic
         """Offer one address, once."""
         if address in options:
             return
-        name = _registry_name(registry, address) or name
+        name = ble.registry_name(registry, address) or name
         label = f"{name} ({address})" if name else address
         options[address] = SelectOptionDict(value=address, label=label)
 
@@ -209,31 +213,6 @@ def _ble_options(hass: HomeAssistant, stored: list[str]) -> list[SelectOptionDic
     for raw in stored:
         add(ble.normalize_address(raw) or raw, None)
     return list(options.values())
-
-
-@callback
-def _registry_name(registry: dr.DeviceRegistry, address: str) -> str | None:
-    """Return the name of the device with a Bluetooth address, if there is one.
-
-    The name the user gave it, else the one its integration did. Home
-    Assistant 2026.8 added `async_get_devices()`, and 2026.9 deprecated both
-    `async_get_device()` and looking a device up through `devices`; the old
-    call is only used where the new one does not exist yet (our floor is
-    2026.6).
-    """
-    connections = {
-        (dr.CONNECTION_BLUETOOTH, address),
-        (dr.CONNECTION_BLUETOOTH, address.lower()),
-    }
-    if (get_devices := getattr(registry, "async_get_devices", None)) is not None:
-        devices = get_devices(connections=connections)
-    else:
-        found = registry.async_get_device(connections=connections)
-        devices = [found] if found is not None else []
-    for device in devices:
-        if name := device.name_by_user or device.name:
-            return name
-    return None
 
 
 @callback
@@ -577,6 +556,8 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                     CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
                     CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
                     CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+                    CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
+                    CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
                 }
                 if subentry is None
                 else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}

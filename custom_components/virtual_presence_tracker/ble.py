@@ -15,6 +15,7 @@ from types import ModuleType
 from typing import NamedTuple
 
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 
 from .const import BLUETOOTH_DOMAIN
 
@@ -85,3 +86,29 @@ def async_heard_devices(hass: HomeAssistant) -> list[HeardDevice]:
             name = None
         devices.append(HeardDevice(address, name, info.rssi))
     return devices
+
+
+@callback
+def registry_name(registry: dr.DeviceRegistry, address: str) -> str | None:
+    """Return the name of the device with a Bluetooth address, if there is one.
+
+    The name the user gave it, else the one its integration did. Only the
+    device registry is read - nothing of the Bluetooth component - so this
+    works on an instance without Bluetooth too. Home Assistant 2026.8 added
+    `async_get_devices()`, and 2026.9 deprecated both `async_get_device()` and
+    looking a device up through `devices`; the old call is only used where the
+    new one does not exist yet (our floor is 2026.6).
+    """
+    connections = {
+        (dr.CONNECTION_BLUETOOTH, address),
+        (dr.CONNECTION_BLUETOOTH, address.lower()),
+    }
+    if (get_devices := getattr(registry, "async_get_devices", None)) is not None:
+        devices = get_devices(connections=connections)
+    else:
+        found = registry.async_get_device(connections=connections)
+        devices = [found] if found is not None else []
+    for device in devices:
+        if name := device.name_by_user or device.name:
+            return name
+    return None

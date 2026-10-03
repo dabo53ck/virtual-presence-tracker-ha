@@ -52,7 +52,7 @@
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
-            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta» y «Ausente después de».",
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta», «Ausente después de», «Preguntar por un dispositivo olvidado» y «Ignorar No molestar para un dispositivo olvidado».",
             "create_person": "Crea una persona sin inicio de sesión, con el nombre del rastreador, y le asigna el rastreador – el paso que hace que alguien cuente como en casa. Desmárcalo si ya tienes una persona para este rastreador y quieres asignarlo tú mismo en Configuración > Personas.",
             "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones.",
             "presence_sources": "Opcional. IMPORTANTE: elige solo fuentes que salgan de casa con la persona. Basta una fuente presente para mantener el rastreador encendido, así que una tableta que se queda en casa lo mantiene encendido aunque todos hayan salido. Rastreadores de dispositivo (presente = en casa) y sensores binarios (presente = encendido) de cualquier integración – por ejemplo una etiqueta Bluetooth mediante iBeacon Tracker, Private BLE Device o Bermuda, o un dispositivo de tu wifi mediante la integración de tu router. El rastreador cuenta como presente mientras alguna fuente lo esté: se enciende cuando pasan a estar presentes y se apaga en cuanto todas han estado ausentes durante «Ausente después de». Un cambio manual entre medias se mantiene hasta el siguiente cambio de ese tipo. Si la última persona real se va mientras una fuente está presente, el rastreador se enciende en lugar de preguntar, y «Restablecer al volver» no se aplica a un rastreador con fuentes.",
@@ -71,7 +71,7 @@
           },
           "data_description": {
             "name": "Se usa para las entidades de este rastreador, por ejemplo el nombre del niño o del invitado al que representa.",
-            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta» y «Ausente después de».",
+            "notify_persons": "Las personas reales cuya app Home Assistant Companion recibe las preguntas sobre este rastreador, con un botón Sí y otro No. Cada persona a la que se pregunta necesita la app con la sesión iniciada con su propia cuenta de usuario; cuenta la primera respuesta. Déjalo vacío para no enviar nada en absoluto y entregar las preguntas con una automatización propia.\n\nTodo lo demás se ajusta en la página del dispositivo del rastreador: «Preguntar con la casa vacía» (si pregunta o no cuando se va la última persona real), «Tiempo de respuesta de la consulta», «Retraso de la consulta», «Restablecer al volver», «Aviso si no hay respuesta», «Recordar después de», «Tiempo de respuesta del recordatorio», «Ignorar No molestar en la consulta», «Ausente después de», «Preguntar por un dispositivo olvidado» y «Ignorar No molestar para un dispositivo olvidado».",
             "button_sources": "Opcional. Entidades de evento de botones – de cualquier integración, por ejemplo un botón Shelly, Zigbee o Hue – que encienden o apagan este rastreador. Qué significa cada pulsación se elige en el siguiente paso; cualquier otra pulsación se ignora y queda libre para tus propias automatizaciones.",
             "presence_sources": "Opcional. IMPORTANTE: elige solo fuentes que salgan de casa con la persona. Basta una fuente presente para mantener el rastreador encendido, así que una tableta que se queda en casa lo mantiene encendido aunque todos hayan salido. Rastreadores de dispositivo (presente = en casa) y sensores binarios (presente = encendido) de cualquier integración – por ejemplo una etiqueta Bluetooth mediante iBeacon Tracker, Private BLE Device o Bermuda, o un dispositivo de tu wifi mediante la integración de tu router. El rastreador cuenta como presente mientras alguna fuente lo esté: se enciende cuando pasan a estar presentes y se apaga en cuanto todas han estado ausentes durante «Ausente después de». Un cambio manual entre medias se mantiene hasta el siguiente cambio de ese tipo. Si la última persona real se va mientras una fuente está presente, el rastreador se enciende en lugar de preguntar, y «Restablecer al volver» no se aplica a un rastreador con fuentes.",
             "ble_sources": "Opcional. IMPORTANTE: elige solo dispositivos que salgan de casa con la persona; basta una fuente presente para mantener el rastreador encendido. Dispositivos Bluetooth que Home Assistant recibe, la señal más fuerte primero – cualquier etiqueta o botón que emite con una dirección fija, la conozca la integración que sea o ninguna. Un dispositivo cuenta como presente mientras se haya recibido dentro de «Ausente después de». ¿No está en la lista porque ahora mismo está fuera de alcance? Escribe su dirección, por ejemplo AA:BB:CC:DD:EE:FF. Los teléfonos y otros dispositivos que cambian de dirección continuamente no se pueden seguir así – usa arriba un rastreador de dispositivo de su propia integración."
@@ -124,7 +124,12 @@
               "reminder_answered_yes": "Recordatorio respondido con sí",
               "reminder_answered_no": "Recordatorio respondido con no",
               "reminder_expired": "Recordatorio sin respuesta",
-              "reminder_cancelled": "Recordatorio retirado"
+              "reminder_cancelled": "Recordatorio retirado",
+              "left_behind_started": "Dispositivo olvidado: preguntado",
+              "left_behind_answered_yes": "Dispositivo olvidado: respuesta sí",
+              "left_behind_answered_no": "Dispositivo olvidado: respuesta no",
+              "left_behind_expired": "Dispositivo olvidado: sin respuesta",
+              "left_behind_cancelled": "Dispositivo olvidado: retirado"
             }
           }
         }
@@ -148,11 +153,17 @@
       }
     },
     "switch": {
+      "ask_left_behind": {
+        "name": "Preguntar por un dispositivo olvidado"
+      },
       "ask_on_departure": {
         "name": "Preguntar con la casa vacía"
       },
       "at_home": {
         "name": "En casa"
+      },
+      "left_behind_override_dnd": {
+        "name": "Ignorar No molestar para un dispositivo olvidado"
       },
       "notify_on_expiry": {
         "name": "Aviso si no hay respuesta"
@@ -166,11 +177,20 @@
     }
   },
   "exceptions": {
+    "left_behind_already_open": {
+      "message": "Ya hay una pregunta abierta sobre un dispositivo olvidado para {entity_id}, así que no hay nada que volver a preguntar."
+    },
+    "no_open_left_behind": {
+      "message": "No hay ninguna pregunta abierta sobre un dispositivo olvidado para {entity_id}, así que no hay nada que responder."
+    },
     "no_open_prompt": {
       "message": "No hay ninguna consulta abierta para {entity_id}, así que no hay nada que responder."
     },
     "no_open_reminder": {
       "message": "No hay ningún recordatorio abierto para {entity_id}, así que no hay nada que responder."
+    },
+    "no_presence_sources": {
+      "message": "{entity_id} no tiene ninguna fuente de presencia, así que no puede haberse olvidado ningún dispositivo."
     },
     "not_a_tracker_switch": {
       "message": "{entity_id} es un ajuste del rastreador, no su interruptor de presencia. Usa como destino el interruptor «En casa» del rastreador o su dispositivo."
@@ -203,7 +223,7 @@
     },
     "recipient_without_phone": {
       "title": "{person} no tiene ningún teléfono en el que preguntarle",
-      "description": "A {person} se le debe preguntar por {tracker}, pero Home Assistant no tiene ningún teléfono al que enviar la pregunta: no hay ninguna app Home Assistant Companion registrada para la cuenta de usuario de {person}.\n\nInstala la app Companion en el teléfono de esa persona e inicia sesión con su propia cuenta de usuario (Configuración > Personas muestra a qué usuario pertenece una persona), o saca a {person} de «¿A quién se pregunta?» en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Editar rastreador virtual. Las preguntas en sí siguen funcionando: las anuncia la entidad de evento del rastreador y se pueden responder con las acciones «Responder a la consulta» y «Responder al recordatorio»."
+      "description": "A {person} se le debe preguntar por {tracker}, pero Home Assistant no tiene ningún teléfono al que enviar la pregunta: no hay ninguna app Home Assistant Companion registrada para la cuenta de usuario de {person}.\n\nInstala la app Companion en el teléfono de esa persona e inicia sesión con su propia cuenta de usuario (Configuración > Personas muestra a qué usuario pertenece una persona), o saca a {person} de «¿A quién se pregunta?» en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Editar rastreador virtual. Las preguntas en sí siguen funcionando: las anuncia la entidad de evento del rastreador y se pueden responder con las acciones «Responder a la consulta», «Responder al recordatorio» y «Responder sobre un dispositivo olvidado»."
     },
     "real_person_missing": {
       "title": "La persona real {person} ya no existe",
@@ -222,9 +242,29 @@
         "yes": "Sí, sigue en casa",
         "no": "No, apagar el rastreador"
       }
+    },
+    "left_behind_answer": {
+      "options": {
+        "yes": "Sí, está en casa",
+        "no": "No, apagar el rastreador"
+      }
     }
   },
   "services": {
+    "answer_left_behind": {
+      "name": "Responder sobre un dispositivo olvidado",
+      "description": "Responde a la pregunta abierta de un rastreador virtual sobre un dispositivo olvidado. «Sí» no cambia nada, «no» apaga el rastreador e impide que sus fuentes de presencia lo vuelvan a encender hasta que hayan estado ausentes durante «Ausente después de» o vuelva a casa una persona real.",
+      "fields": {
+        "answer": {
+          "name": "Respuesta",
+          "description": "Si la persona a la que representa el rastreador está en casa."
+        },
+        "answered_by": {
+          "name": "Respondido por",
+          "description": "La persona que dio la respuesta. Solo se pasa a la entidad de evento del rastreador, para las automatizaciones que quieran saber quién respondió."
+        }
+      }
+    },
     "answer_prompt": {
       "name": "Responder a la consulta",
       "description": "Responde a la consulta abierta de un rastreador virtual. «Sí» enciende el rastreador, «no» lo deja todo como está.",
@@ -252,6 +292,10 @@
           "description": "La persona que dio la respuesta. Solo se pasa a la entidad de evento del rastreador, para las automatizaciones que quieran saber quién respondió."
         }
       }
+    },
+    "open_left_behind": {
+      "name": "Abrir pregunta por dispositivo olvidado",
+      "description": "Pregunta ahora mismo si la persona a la que representa un rastreador virtual está realmente en casa, sin esperar a que la casa lleve vacía «Ausente después de». El rastreador tiene que estar encendido y tener una fuente de presencia; todo lo demás es la pregunta habitual, incluidos la notificación, el «Tiempo de respuesta de la consulta» y el apagado si nadie responde."
     },
     "open_prompt": {
       "name": "Abrir consulta",

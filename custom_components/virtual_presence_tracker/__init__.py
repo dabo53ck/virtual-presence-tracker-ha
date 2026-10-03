@@ -115,6 +115,9 @@ async def async_setup_entry(
     # lost. Forwarding the platforms waits for the entities to be added.
     manager.async_resume_prompts()
     manager.async_resume_reminders()
+    # After the reminders: an unanswered question about a device left behind
+    # switches its tracker off, which withdraws a reminder that is open.
+    manager.async_resume_left_behind()
     # After the platforms: the repair issues look the tracker entities up in
     # the entity registry, which only knows them once they are added. Stopping
     # on unload clears the issues of this entry, and setting the entry up again
