@@ -372,7 +372,7 @@ and presence sources only add more ways to switch it; the switch, your
 automations and the questions keep working. Both are picked in the tracker's
 form (**Add virtual tracker** or **Edit virtual tracker**).
 
-![The optional fields of a tracker's form: a Shelly BLU button under Buttons, a tablet's device tracker under Presence sources, and the same Shelly picked under Bluetooth devices](images/sources.png)
+![The optional fields of a tracker's form: a Shelly BLU button under Buttons, a smartwatch under Presence sources, and the same Shelly picked under Bluetooth devices](images/sources.png)
 
 Three examples:
 
