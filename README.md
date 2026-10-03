@@ -435,8 +435,7 @@ on while everybody is out, and the house keeps counting as occupied. With **Ask
 about a device left behind** on (off by default), the people under **Who is
 asked?** get one question when that happens:
 
-> **Device left behind?** Nobody else is home, but Xiaomi Tablet is. Is Kid
-> home? Without an answer within 10 minutes, Kid is switched off.
+![A critical alert on an iPhone lock screen: "Device left behind? Nobody else is home, but Noah's tablet is. Is Noah home? Without an answer within 10 minutes, Noah is switched off.", with the buttons "Yes, home" and "No, switch off"](images/left-behind.png)
 
 - It comes **Away after** minutes after the last real person left, and only if
   the tracker is on and a source still reports present then. A Bluetooth tag
