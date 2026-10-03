@@ -589,12 +589,13 @@ class HouseholdManager:
         expiry here switches the tracker off, which withdraws an open reminder,
         and that withdrawal needs a reminder that has been resumed.
 
-        An open question goes the prompt's way - withdrawn when the tracker is
-        off by now, when a real person is at home or the option is off (both
-        not for one opened by hand) - except for a deadline that passed while
-        Home Assistant was down: that is an unanswered question, and an
-        unanswered question switches the tracker off and locks it. Home
-        Assistant being down vouches for nobody.
+        An open question goes the prompt's way, and the withdrawals come first:
+        it is withdrawn when the tracker is off by now, when a real person is
+        at home or the option is off (both not for one opened by hand), even
+        if its deadline passed meanwhile. Only a question that is not
+        withdrawn and whose deadline passed while Home Assistant was down
+        counts as unanswered, and an unanswered question switches the tracker
+        off and locks it. Home Assistant being down vouches for nobody.
 
         A real person at home ends the empty-house period, so the waiting marks
         and the locks go. Every mark that is left gets its timer back; the
