@@ -35,10 +35,12 @@ from homeassistant.helpers.start import async_at_started
 
 from .const import (
     ATTR_DEVICE_TRACKERS,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
     CONF_CREATE_PERSON,
     CONF_PERSONS,
     CONF_REMIND_AFTER,
+    DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_ASK_ON_DEPARTURE,
     DEFAULT_REMIND_AFTER,
     DOMAIN,
@@ -114,14 +116,18 @@ def _async_attached_trackers(
 def _async_asks_anybody(subentry: ConfigSubentry) -> bool:
     """Return whether a tracker ever sends a question to a phone.
 
-    A tracker asks twice: when the house empties (`ask_on_departure`) and after
-    `remind_after` hours at home. Both go to the same recipients, so either one
-    is enough to make an unreachable recipient worth reporting - and a tracker
-    that does neither sends nothing at all.
+    A tracker asks up to three times: when the house empties
+    (`ask_on_departure`), after `remind_after` hours at home, and when a
+    device keeps it on in the empty house (`ask_left_behind`, M3f). All of
+    them go to the same recipients, so any one is enough to make an
+    unreachable recipient worth reporting - and a tracker that does none of
+    them sends nothing at all.
     """
-    return bool(
-        subentry.data.get(CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE)
-    ) or bool(subentry.data.get(CONF_REMIND_AFTER, DEFAULT_REMIND_AFTER))
+    return (
+        bool(subentry.data.get(CONF_ASK_ON_DEPARTURE, DEFAULT_ASK_ON_DEPARTURE))
+        or bool(subentry.data.get(CONF_REMIND_AFTER, DEFAULT_REMIND_AFTER))
+        or bool(subentry.data.get(CONF_ASK_LEFT_BEHIND, DEFAULT_ASK_LEFT_BEHIND))
+    )
 
 
 class HouseholdIssues:

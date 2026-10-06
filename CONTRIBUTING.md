@@ -12,8 +12,8 @@ needs two changes, both in `custom_components/virtual_presence_tracker/`.
    copy `translations/en.json` to `translations/<code>.json`, where `<code>` is
    the language code Home Assistant uses (`nl`, `it`, `lb`, …), and translate
    the values. Leave every key exactly as it is.
-2. **The phone messages** (the prompt, the reminder and the notes about an
-   unanswered question): these are sent by the integration itself and live in
+2. **The phone messages** (the prompt, the reminder, the question about a
+   device left behind and the notes about an unanswered question): these are sent by the integration itself and live in
    `messages.py`, in the `_TEXTS` dictionary. Add a block for your language
    with the same keys as the `"en"` block. Until a language is there, its
    messages are sent in English.

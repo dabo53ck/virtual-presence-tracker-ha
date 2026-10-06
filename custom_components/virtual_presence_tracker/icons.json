@@ -31,6 +31,12 @@
       }
     },
     "switch": {
+      "ask_left_behind": {
+        "default": "mdi:tablet-cellphone",
+        "state": {
+          "off": "mdi:comment-off-outline"
+        }
+      },
       "ask_on_departure": {
         "default": "mdi:comment-question",
         "state": {
@@ -41,6 +47,12 @@
         "default": "mdi:home-account",
         "state": {
           "off": "mdi:home-outline"
+        }
+      },
+      "left_behind_override_dnd": {
+        "default": "mdi:bell-ring",
+        "state": {
+          "off": "mdi:bell-sleep"
         }
       },
       "notify_on_expiry": {
@@ -58,11 +70,17 @@
     }
   },
   "services": {
+    "answer_left_behind": {
+      "service": "mdi:tablet-cellphone"
+    },
     "answer_prompt": {
       "service": "mdi:comment-check-outline"
     },
     "answer_reminder": {
       "service": "mdi:alarm-check"
+    },
+    "open_left_behind": {
+      "service": "mdi:comment-question-outline"
     },
     "open_prompt": {
       "service": "mdi:comment-question"

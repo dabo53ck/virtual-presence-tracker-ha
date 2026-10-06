@@ -2,11 +2,11 @@
 
 The "at home" switch of a virtual tracker is the control the user sees: a
 dashboard toggle, an NFC tag or an automation flips it, and the device tracker
-follows. It also carries the four question actions, as entity services: the
-switch is the entity a prompt or a reminder is about, so targeting it is
-targeting the tracker.
+follows. It also carries the six question actions, as entity services: the
+switch is the entity a prompt, a reminder or a question about a device left
+behind is about, so targeting it is targeting the tracker.
 
-Next to it sit the switches of the tracker's boolean options (M2f, M3c). They
+Next to it sit the switches of the tracker's boolean options (M2f, M3c, M3f). They
 write the subentry data the options have always lived in, so that changing one
 is a tap on the tracker's device page instead of a form - and, unlike the form,
 without reloading the entry.
@@ -32,19 +32,25 @@ from .const import (
     ANSWER_YES,
     ATTR_ANSWER,
     ATTR_ANSWERED_BY,
+    ATTR_LEFT_BEHIND_EXPIRES_AT,
+    ATTR_LEFT_BEHIND_OPEN,
     ATTR_PROMPT_EXPIRES_AT,
     ATTR_PROMPT_OPEN,
     ATTR_REMINDER_EXPIRES_AT,
     ATTR_REMINDER_OPEN,
     ATTR_SINCE,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
+    CONF_LEFT_BEHIND_OVERRIDE_DND,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_OVERRIDE_DND,
     CONF_RESET_ON_RETURN,
     DOMAIN,
     PERSON_DOMAIN,
+    SERVICE_ANSWER_LEFT_BEHIND,
     SERVICE_ANSWER_PROMPT,
     SERVICE_ANSWER_REMINDER,
+    SERVICE_OPEN_LEFT_BEHIND,
     SERVICE_OPEN_PROMPT,
     SERVICE_OPEN_REMINDER,
     SUBENTRY_TYPE_TRACKER,
@@ -54,7 +60,12 @@ from .entity import (
     VirtualTrackerOptionEntity,
     tracker_device_info,
 )
-from .manager import HouseholdManager, OpenPromptResult, OpenReminderResult
+from .manager import (
+    HouseholdManager,
+    OpenLeftBehindResult,
+    OpenPromptResult,
+    OpenReminderResult,
+)
 
 PARALLEL_UPDATES = 0
 
@@ -71,6 +82,11 @@ OPEN_PROMPT_ERRORS = {
 OPEN_REMINDER_ERRORS = {
     OpenReminderResult.TRACKER_AWAY: "tracker_not_home",
     OpenReminderResult.REMINDER_OPEN: "reminder_already_open",
+}
+OPEN_LEFT_BEHIND_ERRORS = {
+    OpenLeftBehindResult.TRACKER_AWAY: "tracker_not_home",
+    OpenLeftBehindResult.NO_SOURCES: "no_presence_sources",
+    OpenLeftBehindResult.LEFT_BEHIND_OPEN: "left_behind_already_open",
 }
 
 
@@ -89,6 +105,8 @@ async def async_setup_entry(
                 ResetOnReturnSwitch(manager, subentry),
                 NotifyOnExpirySwitch(manager, subentry),
                 OverrideDndSwitch(manager, subentry),
+                AskLeftBehindSwitch(manager, subentry),
+                LeftBehindOverrideDndSwitch(manager, subentry),
             ],
             config_subentry_id=subentry.subentry_id,
         )
@@ -106,6 +124,12 @@ async def async_setup_entry(
     )
     platform.async_register_entity_service(
         SERVICE_OPEN_REMINDER, None, "async_open_reminder"
+    )
+    platform.async_register_entity_service(
+        SERVICE_ANSWER_LEFT_BEHIND, ANSWER_SCHEMA, "async_answer_left_behind"
+    )
+    platform.async_register_entity_service(
+        SERVICE_OPEN_LEFT_BEHIND, None, "async_open_left_behind"
     )
 
 
@@ -132,6 +156,7 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
         since = self._manager.since(self._subentry_id)
         expires_at = self._manager.prompt_expires_at(self._subentry_id)
         reminder_expires_at = self._manager.reminder_expires_at(self._subentry_id)
+        left_behind_expires_at = self._manager.left_behind_expires_at(self._subentry_id)
         return {
             ATTR_SINCE: since.isoformat() if since is not None else None,
             ATTR_PROMPT_OPEN: self._manager.prompt_open(self._subentry_id),
@@ -142,6 +167,12 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
             ATTR_REMINDER_EXPIRES_AT: (
                 reminder_expires_at.isoformat()
                 if reminder_expires_at is not None
+                else None
+            ),
+            ATTR_LEFT_BEHIND_OPEN: self._manager.left_behind_open(self._subentry_id),
+            ATTR_LEFT_BEHIND_EXPIRES_AT: (
+                left_behind_expires_at.isoformat()
+                if left_behind_expires_at is not None
                 else None
             ),
         }
@@ -200,11 +231,34 @@ class VirtualTrackerSwitch(VirtualTrackerEntity, SwitchEntity):
                 translation_placeholders={"entity_id": self.entity_id},
             )
 
+    async def async_answer_left_behind(
+        self, answer: str, answered_by: str | None = None
+    ) -> None:
+        """Answer the open question about a device left behind (M3f)."""
+        if not self._manager.async_answer_left_behind(
+            self._subentry_id, answer == ANSWER_YES, answered_by
+        ):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="no_open_left_behind",
+                translation_placeholders={"entity_id": self.entity_id},
+            )
+
+    async def async_open_left_behind(self) -> None:
+        """Ask about a device left behind now, without waiting for a departure."""
+        result = self._manager.async_open_left_behind(self._subentry_id)
+        if (translation_key := OPEN_LEFT_BEHIND_ERRORS.get(result)) is not None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key=translation_key,
+                translation_placeholders={"entity_id": self.entity_id},
+            )
+
 
 class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
     """A switch that shows and writes one boolean option of a tracker.
 
-    The four question actions are registered for the whole `switch` platform,
+    The six question actions are registered for the whole `switch` platform,
     so these switches carry them too, although the questions are about the
     tracker rather than about one of its settings. Targeting a device or an
     area never lands here - Home Assistant leaves entities with a category out
@@ -243,6 +297,16 @@ class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
 
     async def async_open_reminder(self) -> None:
         """Refuse to open a reminder: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    async def async_answer_left_behind(
+        self, answer: str, answered_by: str | None = None
+    ) -> None:
+        """Refuse to answer a question: this entity is a setting, not the tracker."""
+        self._raise_not_a_tracker_switch()
+
+    async def async_open_left_behind(self) -> None:
+        """Refuse to open a question: this entity is a setting, not the tracker."""
         self._raise_not_a_tracker_switch()
 
     def _raise_not_a_tracker_switch(self) -> NoReturn:
@@ -295,3 +359,28 @@ class OverrideDndSwitch(VirtualTrackerOptionSwitch):
 
     _attr_entity_category = EntityCategory.CONFIG
     _option_key = CONF_OVERRIDE_DND
+
+
+class AskLeftBehindSwitch(VirtualTrackerOptionSwitch):
+    """Whether the tracker asks about a device left behind (M3f).
+
+    Off by default. With it on, a tracker that a presence source keeps on is
+    asked about `away_after` after the last real person left, and switched
+    off when nobody answers. Switching it off takes an open question back
+    (`option_disabled`, not for one opened by hand) and ends the lock.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _option_key = CONF_ASK_LEFT_BEHIND
+
+
+class LeftBehindOverrideDndSwitch(VirtualTrackerOptionSwitch):
+    """Whether the question about a device left behind gets through silence.
+
+    The prompt's technique (M3c) for this question alone: a critical alert on
+    iOS, the alarm channel on Android. Off by default, and separate from the
+    prompt's switch.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _option_key = CONF_LEFT_BEHIND_OVERRIDE_DND

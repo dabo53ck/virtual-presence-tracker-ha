@@ -1,9 +1,12 @@
 """Built-in delivery of the questions through the Companion App.
 
 A tracker whose recipients are set sends its questions - the prompt when the
-house empties (M2b) and the reminder about a tracker that has been on for a
-long time (M3a) - to their phones as an actionable `mobile_app` notification,
-and takes the message back as soon as the question ends, whatever ended it.
+house empties (M2b), the reminder about a tracker that has been on for a long
+time (M3a) and the question about a device left behind (M3f) - to their phones
+as an actionable `mobile_app` notification,
+and takes the message back as soon as the question ends, whatever ended it. A
+question that nobody answered is not taken back but replaced in place by the
+expiry notice, when that is on: the notice carries the question's own tag.
 Without recipients nothing is sent at all and both stay what they were: an
 event entity and an action.
 
@@ -21,19 +24,27 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.util import slugify
 
+from . import ble
 from .const import (
+    ACTION_LEFT_BEHIND_NO_PREFIX,
+    ACTION_LEFT_BEHIND_YES_PREFIX,
     ACTION_NO_PREFIX,
     ACTION_REMIND_NO_PREFIX,
     ACTION_REMIND_YES_PREFIX,
     ACTION_YES_PREFIX,
+    ATTR_LEFT_BEHIND_ID,
     ATTR_PROMPT_ID,
     ATTR_REMINDER_ID,
+    ATTR_SOURCES,
     ATTR_USER_ID,
     CLEAR_NOTIFICATION,
     CONF_ANSWER_TIMEOUT,
+    CONF_AWAY_AFTER,
     CONF_DEVICE_NAME,
+    CONF_LEFT_BEHIND_OVERRIDE_DND,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
@@ -41,11 +52,15 @@ from .const import (
     CONF_REMINDER_TIMEOUT,
     CONF_USER_ID,
     DEFAULT_ANSWER_TIMEOUT,
+    DEFAULT_AWAY_AFTER,
+    DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
     DEFAULT_NOTIFY_ON_EXPIRY,
     DEFAULT_OVERRIDE_DND,
     DEFAULT_REMINDER_TIMEOUT,
     DOMAIN,
     EVENT_EXPIRED,
+    EVENT_LEFT_BEHIND_EXPIRED,
+    EVENT_LEFT_BEHIND_STARTED,
     EVENT_NOTIFICATION_ACTION,
     EVENT_PROMPT_STARTED,
     EVENT_REMINDER_EXPIRED,
@@ -54,7 +69,7 @@ from .const import (
     NOTIFICATION_ALARM_CHANNEL,
     NOTIFICATION_CRITICAL_SOUND,
     NOTIFICATION_ICON,
-    NOTIFICATION_INFO_TAG_PREFIX,
+    NOTIFICATION_LEFT_BEHIND_TAG_PREFIX,
     NOTIFICATION_REMINDER_TAG_PREFIX,
     NOTIFICATION_TAG_PREFIX,
     NOTIFY_DOMAIN,
@@ -66,6 +81,10 @@ from .messages import (
     async_expired_message,
     async_expired_title,
     async_group,
+    async_left_behind_answer_titles,
+    async_left_behind_expired_message,
+    async_left_behind_message,
+    async_left_behind_title,
     async_prompt_message,
     async_prompt_title,
     async_reminder_answer_titles,
@@ -139,8 +158,9 @@ class PromptDelivery:
     """Send the questions of a config entry to the phones of their recipients.
 
     Named after the prompt it was built for (M2b); it carries the reminder of
-    M3a as well, which is the same message mechanics with texts, a tag and
-    button names of its own.
+    M3a and the question about a device left behind of M3f as well, which are
+    the same message mechanics with texts, a tag and button names of their
+    own.
     """
 
     def __init__(
@@ -154,15 +174,27 @@ class PromptDelivery:
         self.entry = entry
         self._manager = manager
         self._unsubs: list[CALLBACK_TYPE] = []
+        # The sources each open question about a device left behind named,
+        # by its ID: its expiry notice names them again, and the event that
+        # ends it does not carry them.
+        self._left_behind_sources: dict[str, list[str]] = {}
 
     @callback
     def async_start(self) -> None:
         """Follow the questions of every tracker and the answers of the phones.
 
         Adding, changing or removing a tracker reloads the entry, so the
-        listeners never go stale.
+        listeners never go stale. A question about a device left behind that
+        a previous run opened has no opening event in this one, so its sources
+        come from the manager, which keeps them with the question.
         """
         for subentry in self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER):
+            if (
+                question := self._manager.left_behind_question(subentry.subentry_id)
+            ) is not None:
+                self._left_behind_sources[question.left_behind_id] = list(
+                    question.sources
+                )
             self._unsubs.append(
                 self._manager.async_add_prompt_listener(
                     subentry.subentry_id,
@@ -173,6 +205,12 @@ class PromptDelivery:
                 self._manager.async_add_reminder_listener(
                     subentry.subentry_id,
                     partial(self._async_reminder_event, subentry.subentry_id),
+                )
+            )
+            self._unsubs.append(
+                self._manager.async_add_left_behind_listener(
+                    subentry.subentry_id,
+                    partial(self._async_left_behind_event, subentry.subentry_id),
                 )
             )
         self._unsubs.append(
@@ -187,6 +225,7 @@ class PromptDelivery:
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
+        self._left_behind_sources.clear()
 
     @callback
     def _async_services_of(self, subentry_id: str) -> list[str]:
@@ -212,13 +251,12 @@ class PromptDelivery:
         prompt_id: str = data[ATTR_PROMPT_ID]
         if event_type == EVENT_PROMPT_STARTED:
             payloads = [self._async_prompt_payload(subentry, prompt_id)]
+        elif event_type == EVENT_EXPIRED and _notify_on_expiry(subentry):
+            # The notice takes the question's place on the phone.
+            payloads = [self._async_expired_payload(subentry, prompt_id)]
         else:
             # Every other event ends the prompt, so the question goes away.
             payloads = [_clear_payload(NOTIFICATION_TAG_PREFIX, prompt_id)]
-            if event_type == EVENT_EXPIRED and subentry.data.get(
-                CONF_NOTIFY_ON_EXPIRY, DEFAULT_NOTIFY_ON_EXPIRY
-            ):
-                payloads.append(self._async_expired_payload(subentry, prompt_id))
 
         self.entry.async_create_background_task(
             self.hass,
@@ -250,20 +288,65 @@ class PromptDelivery:
             payloads = [
                 self._async_reminder_payload(subentry, subentry_id, reminder_id)
             ]
+        elif event_type == EVENT_REMINDER_EXPIRED and _notify_on_expiry(subentry):
+            # The notice takes the question's place on the phone.
+            payloads = [self._async_reminder_expired_payload(subentry, reminder_id)]
         else:
             # Every other event ends the reminder, so the question goes away.
             payloads = [_clear_payload(NOTIFICATION_REMINDER_TAG_PREFIX, reminder_id)]
-            if event_type == EVENT_REMINDER_EXPIRED and subentry.data.get(
-                CONF_NOTIFY_ON_EXPIRY, DEFAULT_NOTIFY_ON_EXPIRY
-            ):
-                payloads.append(
-                    self._async_reminder_expired_payload(subentry, reminder_id)
-                )
 
         self.entry.async_create_background_task(
             self.hass,
             self._async_send(services, payloads),
             name=f"{DOMAIN} {event_type} {reminder_id}",
+        )
+
+    @callback
+    def _async_left_behind_event(
+        self, subentry_id: str, event_type: str, data: dict[str, Any]
+    ) -> None:
+        """Send or take back the message of one question about a device (M3f).
+
+        The prompt's mechanics, the expiry notice included - with a text that
+        says the tracker was switched off, because here that is what no answer
+        does, and which devices are ignored from now on. Those are the ones
+        the question named, remembered from its opening event.
+        """
+        left_behind_id: str = data[ATTR_LEFT_BEHIND_ID]
+        if event_type == EVENT_LEFT_BEHIND_STARTED:
+            sources: list[str] = list(data.get(ATTR_SOURCES) or [])
+            self._left_behind_sources[left_behind_id] = sources
+        else:
+            # Every other event ends the question.
+            sources = self._left_behind_sources.pop(left_behind_id, [])
+
+        subentry = self.entry.subentries.get(subentry_id)
+        if subentry is None:
+            return
+        services = self._async_services_of(subentry_id)
+        if not services:
+            return
+
+        if event_type == EVENT_LEFT_BEHIND_STARTED:
+            payloads = [
+                self._async_left_behind_payload(subentry, left_behind_id, sources)
+            ]
+        elif event_type == EVENT_LEFT_BEHIND_EXPIRED and _notify_on_expiry(subentry):
+            # The notice takes the question's place on the phone.
+            payloads = [
+                self._async_left_behind_expired_payload(
+                    subentry, left_behind_id, sources
+                )
+            ]
+        else:
+            payloads = [
+                _clear_payload(NOTIFICATION_LEFT_BEHIND_TAG_PREFIX, left_behind_id)
+            ]
+
+        self.entry.async_create_background_task(
+            self.hass,
+            self._async_send(services, payloads),
+            name=f"{DOMAIN} {event_type} {left_behind_id}",
         )
 
     async def _async_send(
@@ -321,18 +404,7 @@ class PromptDelivery:
             "group": async_group(self.hass, subentry.title),
         }
         if subentry.data.get(CONF_OVERRIDE_DND, DEFAULT_OVERRIDE_DND):
-            # iOS: a critical alert, which ignores the mute switch and Do Not
-            # Disturb. The `sound` dictionary needs both keys: `critical` makes
-            # it a critical alert, and a non-empty `name` - "default" is the
-            # system sound - is what the push relay insists on before it
-            # forwards the payload at all.
-            data["push"] = {
-                "interruption-level": "critical",
-                "sound": {"name": NOTIFICATION_CRITICAL_SOUND, "critical": 1},
-            }
-            # Android: the alarm channel, which carries the alarm category and
-            # the alarm audio stream - the exception Do Not Disturb keeps.
-            data["channel"] = NOTIFICATION_ALARM_CHANNEL
+            _make_loud(data)
         return {
             "title": async_prompt_title(self.hass, subentry.title),
             "message": async_prompt_message(self.hass, minutes),
@@ -381,30 +453,132 @@ class PromptDelivery:
         }
 
     @callback
+    def _async_left_behind_payload(
+        self, subentry: ConfigSubentry, left_behind_id: str, sources: list[str]
+    ) -> dict[str, Any]:
+        """Return the actionable notification about a device left behind (M3f).
+
+        The prompt's delivery hints and answer time. It names the devices that
+        are still at home, so whoever answers knows what kept the tracker on,
+        says that they are ignored after a "no" until they have been away for
+        `away_after`, and it may be loud through a switch of its own - not the
+        prompt's.
+        """
+        minutes = int(subentry.data.get(CONF_ANSWER_TIMEOUT, DEFAULT_ANSWER_TIMEOUT))
+        yes, no = async_left_behind_answer_titles(self.hass)
+        data: dict[str, Any] = {
+            "tag": f"{NOTIFICATION_LEFT_BEHIND_TAG_PREFIX}{left_behind_id}",
+            "actions": [
+                {
+                    "action": f"{ACTION_LEFT_BEHIND_YES_PREFIX}{left_behind_id}",
+                    "title": yes,
+                },
+                {
+                    "action": f"{ACTION_LEFT_BEHIND_NO_PREFIX}{left_behind_id}",
+                    "title": no,
+                },
+            ],
+            "ttl": 0,
+            "priority": "high",
+            "timeout": minutes * 60,
+            "push": {"interruption-level": "time-sensitive"},
+            "icon_url": NOTIFICATION_ICON,
+            "group": async_group(self.hass, subentry.title),
+        }
+        if subentry.data.get(
+            CONF_LEFT_BEHIND_OVERRIDE_DND, DEFAULT_LEFT_BEHIND_OVERRIDE_DND
+        ):
+            _make_loud(data)
+        return {
+            "title": async_left_behind_title(self.hass),
+            "message": async_left_behind_message(
+                self.hass,
+                subentry.title,
+                self._async_source_names(sources),
+                minutes,
+                _away_after(subentry),
+            ),
+            "data": data,
+        }
+
+    @callback
+    def _async_source_names(self, sources: list[str]) -> list[str]:
+        """Return what a person calls each of a list of presence sources."""
+        return [self._async_source_name(source) for source in sources]
+
+    @callback
+    def _async_source_name(self, source: str) -> str:
+        """Return what a person calls a presence source.
+
+        An entity by its friendly name; a Bluetooth address by the name of its
+        device in the device registry, else by the address itself.
+        """
+        if (address := ble.normalize_address(source)) is not None:
+            return ble.registry_name(dr.async_get(self.hass), address) or address
+        if (state := self.hass.states.get(source)) is not None:
+            return state.name
+        return source
+
+    @callback
+    def _async_left_behind_expired_payload(
+        self, subentry: ConfigSubentry, left_behind_id: str, sources: list[str]
+    ) -> dict[str, Any]:
+        """Return the notice that nobody answered and the tracker went off."""
+        return self._async_notice_payload(
+            subentry,
+            NOTIFICATION_LEFT_BEHIND_TAG_PREFIX,
+            left_behind_id,
+            async_left_behind_expired_message(
+                self.hass,
+                subentry.title,
+                self._async_source_names(sources),
+                _away_after(subentry),
+            ),
+        )
+
+    @callback
     def _async_expired_payload(
         self, subentry: ConfigSubentry, prompt_id: str
     ) -> dict[str, Any]:
         """Return the notice that nobody answered."""
-        return {
-            "title": async_expired_title(self.hass),
-            "message": async_expired_message(self.hass, subentry.title),
-            "data": {
-                "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{prompt_id}",
-                "icon_url": NOTIFICATION_ICON,
-                "group": async_group(self.hass, subentry.title),
-            },
-        }
+        return self._async_notice_payload(
+            subentry,
+            NOTIFICATION_TAG_PREFIX,
+            prompt_id,
+            async_expired_message(self.hass, subentry.title),
+        )
 
     @callback
     def _async_reminder_expired_payload(
         self, subentry: ConfigSubentry, reminder_id: str
     ) -> dict[str, Any]:
         """Return the notice that nobody answered the reminder."""
+        return self._async_notice_payload(
+            subentry,
+            NOTIFICATION_REMINDER_TAG_PREFIX,
+            reminder_id,
+            async_reminder_expired_message(self.hass, subentry.title),
+        )
+
+    @callback
+    def _async_notice_payload(
+        self, subentry: ConfigSubentry, tag_prefix: str, question_id: str, message: str
+    ) -> dict[str, Any]:
+        """Return an expiry notice that replaces its question on the phones.
+
+        It carries the question's own tag, which both Companion Apps use to
+        identify a message: a new message with the tag of one that is still
+        there takes its place. That is what takes the question away here,
+        instead of the separate clearing - a silent push that iOS may deliver
+        late or not at all, and which, arriving after the notice, would now
+        remove the notice itself. No `actions`, so the buttons go with the
+        question, and the tracker's `group`, so it stays in its stack.
+        """
         return {
             "title": async_expired_title(self.hass),
-            "message": async_reminder_expired_message(self.hass, subentry.title),
+            "message": message,
             "data": {
-                "tag": f"{NOTIFICATION_INFO_TAG_PREFIX}{reminder_id}",
+                "tag": f"{tag_prefix}{question_id}",
                 "icon_url": NOTIFICATION_ICON,
                 "group": async_group(self.hass, subentry.title),
             },
@@ -419,14 +593,22 @@ class PromptDelivery:
         answer - a second phone, a stale message, a message of a tracker that
         is gone - finds nothing to answer.
 
-        The reminder prefixes are tested first, but the order does not matter:
-        none of the four is a prefix of another (see const.py), so an action
-        can only ever be one of them.
+        The order of the tests does not matter: none of the six prefixes is a
+        prefix of another (see const.py), so an action can only ever be one of
+        them.
         """
         action = event.data.get("action")
         if not isinstance(action, str):
             return
-        if action.startswith(ACTION_REMIND_YES_PREFIX):
+        if action.startswith(ACTION_LEFT_BEHIND_YES_PREFIX):
+            self._async_answer_left_behind(
+                event, True, action.removeprefix(ACTION_LEFT_BEHIND_YES_PREFIX)
+            )
+        elif action.startswith(ACTION_LEFT_BEHIND_NO_PREFIX):
+            self._async_answer_left_behind(
+                event, False, action.removeprefix(ACTION_LEFT_BEHIND_NO_PREFIX)
+            )
+        elif action.startswith(ACTION_REMIND_YES_PREFIX):
             self._async_answer_reminder(
                 event, True, action.removeprefix(ACTION_REMIND_YES_PREFIX)
             )
@@ -472,6 +654,21 @@ class PromptDelivery:
         )
 
     @callback
+    def _async_answer_left_behind(
+        self, event: Event[dict[str, Any]], answer: bool, left_behind_id: str
+    ) -> None:
+        """Answer the question about a device a tapped button names, if open."""
+        subentry_id = self._manager.tracker_of_left_behind(left_behind_id)
+        if subentry_id is None:
+            _LOGGER.debug(
+                "Ignoring a left-behind answer: no question %s waits", left_behind_id
+            )
+            return
+        self._manager.async_answer_left_behind(
+            subentry_id, answer, self._async_person_of(event)
+        )
+
+    @callback
     def _async_person_of(self, event: Event[dict[str, Any]]) -> str | None:
         """Return the person whose phone sent an action, if it can be told.
 
@@ -485,6 +682,33 @@ class PromptDelivery:
             if state.attributes.get(ATTR_USER_ID) == user_id:
                 return state.entity_id
         return None
+
+
+def _notify_on_expiry(subentry: ConfigSubentry) -> bool:
+    """Return whether a tracker tells its phones when nobody answered."""
+    return bool(subentry.data.get(CONF_NOTIFY_ON_EXPIRY, DEFAULT_NOTIFY_ON_EXPIRY))
+
+
+def _away_after(subentry: ConfigSubentry) -> int:
+    """Return a tracker's `away_after` in minutes, read at send time."""
+    return int(subentry.data.get(CONF_AWAY_AFTER, DEFAULT_AWAY_AFTER))
+
+
+def _make_loud(data: dict[str, Any]) -> None:
+    """Make a question loud enough to get through a silenced phone (M3c).
+
+    iOS: a critical alert, which ignores the mute switch and Do Not Disturb.
+    The `sound` dictionary needs both keys: `critical` makes it a critical
+    alert, and a non-empty `name` - "default" is the system sound - is what
+    the push relay insists on before it forwards the payload at all.
+    Android: the alarm channel, which carries the alarm category and the alarm
+    audio stream - the exception Do Not Disturb keeps.
+    """
+    data["push"] = {
+        "interruption-level": "critical",
+        "sound": {"name": NOTIFICATION_CRITICAL_SOUND, "critical": 1},
+    }
+    data["channel"] = NOTIFICATION_ALARM_CHANNEL
 
 
 def _clear_payload(tag_prefix: str, question_id: str) -> dict[str, Any]:

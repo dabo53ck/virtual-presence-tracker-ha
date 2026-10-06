@@ -96,6 +96,19 @@ DEFAULT_AWAY_AFTER: Final = 10
 MIN_AWAY_AFTER: Final = 1
 MAX_AWAY_AFTER: Final = 120
 
+# The question about a device left behind (M3f): a tracker that a presence
+# source keeps on while the house is empty is asked about once, `away_after`
+# after the last real person left - and switched off when nobody answers. Off
+# by default, for a new tracker and for one without the key. It has a Do Not
+# Disturb override of its own, separate from the prompt's: a loud prompt and a
+# quiet question about a device, or the other way round, are both reasonable.
+# Its answer time is the prompt's `answer_timeout`, its waiting time is
+# `away_after`.
+CONF_ASK_LEFT_BEHIND: Final = "ask_left_behind"
+DEFAULT_ASK_LEFT_BEHIND: Final = False
+CONF_LEFT_BEHIND_OVERRIDE_DND: Final = "left_behind_override_dnd"
+DEFAULT_LEFT_BEHIND_OVERRIDE_DND: Final = False
+
 # The options a tracker carries an entity for (M2f, grown in M3a), with the
 # value that applies while the key is missing. They are the only keys of a
 # subentry that
@@ -112,6 +125,8 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
     CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
     CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+    CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
+    CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 
@@ -179,6 +194,8 @@ ATTR_PROMPT_OPEN: Final = "prompt_open"
 ATTR_PROMPT_EXPIRES_AT: Final = "prompt_expires_at"
 ATTR_REMINDER_OPEN: Final = "reminder_open"
 ATTR_REMINDER_EXPIRES_AT: Final = "reminder_expires_at"
+ATTR_LEFT_BEHIND_OPEN: Final = "left_behind_open"
+ATTR_LEFT_BEHIND_EXPIRES_AT: Final = "left_behind_expires_at"
 
 # Public contract of the prompt. The event types of the
 # per-tracker event entity, the keys of their data and the reasons a prompt can
@@ -215,11 +232,33 @@ REMINDER_EVENT_TYPES: Final = [
     EVENT_REMINDER_CANCELLED,
 ]
 
+# The question about a device left behind (M3f) follows the reminder's pattern:
+# a stem and the same five endings, on the same event entity, named by an ID of
+# its own (`left_behind_id`) and never by either of the other two.
+EVENT_LEFT_BEHIND_STARTED: Final = "left_behind_started"
+EVENT_LEFT_BEHIND_ANSWERED_YES: Final = "left_behind_answered_yes"
+EVENT_LEFT_BEHIND_ANSWERED_NO: Final = "left_behind_answered_no"
+EVENT_LEFT_BEHIND_EXPIRED: Final = "left_behind_expired"
+EVENT_LEFT_BEHIND_CANCELLED: Final = "left_behind_cancelled"
+LEFT_BEHIND_EVENT_TYPES: Final = [
+    EVENT_LEFT_BEHIND_STARTED,
+    EVENT_LEFT_BEHIND_ANSWERED_YES,
+    EVENT_LEFT_BEHIND_ANSWERED_NO,
+    EVENT_LEFT_BEHIND_EXPIRED,
+    EVENT_LEFT_BEHIND_CANCELLED,
+]
+
 # Everything one tracker's event entity can publish.
-TRACKER_EVENT_TYPES: Final = PROMPT_EVENT_TYPES + REMINDER_EVENT_TYPES
+TRACKER_EVENT_TYPES: Final = (
+    PROMPT_EVENT_TYPES + REMINDER_EVENT_TYPES + LEFT_BEHIND_EVENT_TYPES
+)
 
 ATTR_PROMPT_ID: Final = "prompt_id"
 ATTR_REMINDER_ID: Final = "reminder_id"
+ATTR_LEFT_BEHIND_ID: Final = "left_behind_id"
+# The presence sources that were still present when a question about a device
+# left behind opened: entity IDs and Bluetooth addresses.
+ATTR_SOURCES: Final = "sources"
 ATTR_TRACKER: Final = "tracker"
 ATTR_EXPIRES_AT: Final = "expires_at"
 ATTR_ANSWERED_BY: Final = "answered_by"
@@ -235,17 +274,21 @@ REASON_OPTION_DISABLED: Final = "option_disabled"
 # clearing may name a prompt that a previous Home Assistant run started.
 EVENT_NOTIFICATION_ACTION: Final = "mobile_app_notification_action"
 NOTIFICATION_TAG_PREFIX: Final = "vpt_"
-NOTIFICATION_INFO_TAG_PREFIX: Final = "vpt_info_"
 NOTIFICATION_REMINDER_TAG_PREFIX: Final = "vpt_reminder_"
+NOTIFICATION_LEFT_BEHIND_TAG_PREFIX: Final = "vpt_left_behind_"
 ACTION_YES_PREFIX: Final = "VPT_YES_"
 ACTION_NO_PREFIX: Final = "VPT_NO_"
 # The reminder buttons (M3a). Neither of these is a prefix of a prompt action
 # and no prompt action is a prefix of one of these - `VPT_REMIND_YES_x` does
 # not start with `VPT_YES_`, and `VPT_YES_x` does not start with
 # `VPT_REMIND_YES_` - so the same startswith() test tells the four apart in
-# either order. Whoever adds a sixth prefix has to keep that true.
+# either order. Whoever adds another prefix has to keep that true.
 ACTION_REMIND_YES_PREFIX: Final = "VPT_REMIND_YES_"
 ACTION_REMIND_NO_PREFIX: Final = "VPT_REMIND_NO_"
+# The buttons of the question about a device left behind (M3f), under the same
+# rule: none of the six prefixes starts with another one.
+ACTION_LEFT_BEHIND_YES_PREFIX: Final = "VPT_LEFT_BEHIND_YES_"
+ACTION_LEFT_BEHIND_NO_PREFIX: Final = "VPT_LEFT_BEHIND_NO_"
 CLEAR_NOTIFICATION: Final = "clear_notification"
 
 # The icon of the prompt message: the integration's own icon, out of the
@@ -274,6 +317,8 @@ SERVICE_ANSWER_PROMPT: Final = "answer_prompt"
 SERVICE_OPEN_PROMPT: Final = "open_prompt"
 SERVICE_ANSWER_REMINDER: Final = "answer_reminder"
 SERVICE_OPEN_REMINDER: Final = "open_reminder"
+SERVICE_ANSWER_LEFT_BEHIND: Final = "answer_left_behind"
+SERVICE_OPEN_LEFT_BEHIND: Final = "open_left_behind"
 ATTR_ANSWER: Final = "answer"
 ANSWER_YES: Final = "yes"
 ANSWER_NO: Final = "no"

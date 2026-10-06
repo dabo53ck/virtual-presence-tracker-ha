@@ -661,7 +661,7 @@ async def test_an_expired_prompt_clears_the_phone(
     """A prompt that ran out while Home Assistant was off is cleaned up.
 
     The tag comes from the persisted prompt ID, so the message a previous run
-    left behind can still be named.
+    left behind can still be named: cleared, or replaced by the notice.
     """
     now = dt_util.utcnow()
     hass_storage[STORE_KEY] = {
@@ -684,23 +684,23 @@ async def test_an_expired_prompt_clears_the_phone(
     await setup_entry(hass, make_entry(notify_on_expiry=notify_on_expiry))
     await settle(hass)
 
-    assert calls[0].data == {
-        "message": "clear_notification",
-        "data": {"tag": "vpt_abc"},
-    }
+    assert len(calls) == 1
     if notify_on_expiry:
-        assert calls[1].data["title"] == "No answer"
-        assert calls[1].data["message"] == "No answer: Kid counts as not at home."
-        # The notice is a message of its own, not a replacement of the
-        # question, and it carries the integration's icon just like the
-        # question did.
-        assert calls[1].data["data"] == {
-            "tag": "vpt_info_abc",
+        assert calls[0].data["title"] == "No answer"
+        assert calls[0].data["message"] == "No answer: Kid counts as not at home."
+        # The notice replaces the question in place: the question's own tag,
+        # no buttons, and the integration's icon just like the question had.
+        # No clearing goes with it - a late one would remove the notice.
+        assert calls[0].data["data"] == {
+            "tag": "vpt_abc",
             "icon_url": NOTIFICATION_ICON,
             "group": GROUP_KID,
         }
     else:
-        assert len(calls) == 1
+        assert calls[0].data == {
+            "message": "clear_notification",
+            "data": {"tag": "vpt_abc"},
+        }
 
 
 async def test_the_expiry_notice_is_not_sent_on_an_answer(
@@ -909,13 +909,13 @@ async def test_the_expiry_notice_is_never_loud(
     async_fire_time_changed(hass)
     await settle(hass)
 
-    assert calls[2].data["data"] == {
-        "tag": f"vpt_info_{prompt_id}",
+    # It replaces the question: the same tag, no buttons, no push hints.
+    assert len(calls) == 2
+    assert calls[1].data["data"] == {
+        "tag": f"vpt_{prompt_id}",
         "icon_url": NOTIFICATION_ICON,
         "group": GROUP_KID,
     }
-    # The clearing is not a message either.
-    assert calls[1].data["data"] == {"tag": f"vpt_{prompt_id}"}
 
     await unload(hass, entry)
 
@@ -1023,8 +1023,8 @@ async def test_the_reminder_notice_is_never_loud(
 
     await expire_the_reminder(hass, freezer)
 
-    assert calls[2].data["data"] == {
-        "tag": f"vpt_info_{reminder_id}",
+    assert calls[1].data["data"] == {
+        "tag": f"vpt_reminder_{reminder_id}",
         "icon_url": NOTIFICATION_ICON,
         "group": GROUP_KID,
     }
@@ -1224,19 +1224,15 @@ async def test_an_expired_reminder_sends_the_notice(
     assert hass.states.get("event.kid_questions").attributes["event_type"] == (
         "reminder_expired"
     )
-    # The question goes away first, the notice follows it.
-    assert len(calls) == 3
+    # The notice takes the question's place: the question's tag, the
+    # integration's icon and no buttons - there is nothing left to answer.
+    # No clearing before it: a late one would remove the notice.
+    assert len(calls) == 2
     assert calls[1].data == {
-        "message": "clear_notification",
-        "data": {"tag": f"vpt_reminder_{reminder_id}"},
-    }
-    assert calls[2].data == {
         "title": "No answer",
         "message": "No answer: Kid stays marked as home.",
-        # A message of its own, with the integration's icon and without
-        # buttons: there is nothing left to answer.
         "data": {
-            "tag": f"vpt_info_{reminder_id}",
+            "tag": f"vpt_reminder_{reminder_id}",
             "icon_url": NOTIFICATION_ICON,
             "group": GROUP_KID,
         },
@@ -1259,8 +1255,8 @@ async def test_the_reminder_notice_is_sent_in_german(
     await open_reminder(hass)
     await expire_the_reminder(hass, freezer)
 
-    assert calls[2].data["title"] == "Keine Antwort"
-    assert calls[2].data["message"] == (
+    assert calls[1].data["title"] == "Keine Antwort"
+    assert calls[1].data["message"] == (
         "Keine Antwort: Kid bleibt als zu Hause markiert."
     )
 
@@ -1313,8 +1309,8 @@ async def test_the_reminder_notice_follows_the_option_live(
 
     await expire_the_reminder(hass, freezer)
 
-    assert len(calls) == 3
-    assert calls[2].data["message"] == "No answer: Kid stays marked as home."
+    assert len(calls) == 2
+    assert calls[1].data["message"] == "No answer: Kid stays marked as home."
 
     # And the other way round: switched off while the next one is open.
     await open_reminder(hass)
@@ -1328,8 +1324,8 @@ async def test_the_reminder_notice_follows_the_option_live(
 
     await expire_the_reminder(hass, freezer)
 
-    assert len(calls) == 5
-    assert calls[4].data["message"] == "clear_notification"
+    assert len(calls) == 4
+    assert calls[3].data["message"] == "clear_notification"
 
     await unload(hass, entry)
 
@@ -1448,8 +1444,8 @@ async def test_every_message_of_a_tracker_is_grouped(
     """The question, the reminder and both notices share the tracker's group.
 
     The group is the tracker's, not the message's: a second prompt lands in
-    the same group as the first, although its tag is a new one. The clearings
-    carry no group - the phones find the message to remove by its tag alone.
+    the same group as the first, although its tag is a new one. A clearing
+    carries no group - the phones find the message to remove by its tag alone.
     """
     calls = add_dabo53ck(hass)
     entry = await setup_entry(
@@ -1466,18 +1462,14 @@ async def test_every_message_of_a_tracker_is_grouped(
     await open_reminder(hass)
     await expire_the_reminder(hass, freezer)
 
-    assert len(calls) == 6
-    prompt, prompt_clear, prompt_notice = calls[0:3]
-    reminder, reminder_clear, reminder_notice = calls[3:6]
+    assert len(calls) == 4
+    prompt, prompt_notice, reminder, reminder_notice = calls
     assert prompt.data["data"]["tag"].startswith("vpt_")
-    assert prompt_notice.data["data"]["tag"].startswith("vpt_info_")
+    assert prompt_notice.data["data"]["tag"] == prompt.data["data"]["tag"]
     assert reminder.data["data"]["tag"].startswith("vpt_reminder_")
-    assert reminder_notice.data["data"]["tag"].startswith("vpt_info_")
+    assert reminder_notice.data["data"]["tag"] == reminder.data["data"]["tag"]
     for call in (prompt, prompt_notice, reminder, reminder_notice):
         assert call.data["data"]["group"] == GROUP_KID
-    for call in (prompt_clear, reminder_clear):
-        assert call.data["message"] == "clear_notification"
-        assert "group" not in call.data["data"]
 
     # A second prompt of the same tracker: a new tag, the same group.
     await hass.services.async_call(
@@ -1488,6 +1480,11 @@ async def test_every_message_of_a_tracker_is_grouped(
 
     assert calls[-1].data["data"]["tag"] != prompt.data["data"]["tag"]
     assert calls[-1].data["data"]["group"] == GROUP_KID
+
+    # Switching on takes it back with a clearing, which has no group.
+    await switch_on(hass)
+    assert calls[-1].data["message"] == "clear_notification"
+    assert "group" not in calls[-1].data["data"]
 
     await unload(hass, entry)
 

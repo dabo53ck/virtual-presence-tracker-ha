@@ -40,24 +40,27 @@ and they can be combined:
 - **By a button** you already have in Home Assistant, for example a Shelly BLU
   button: one press for home, a long press for away. See [Buttons](#buttons).
 - **By a presence source** you already have in Home Assistant (optional):
-  - a **Wi-Fi device**, such as the child's tablet, through the device tracker
-    of your router's integration;
+  - a **Wi-Fi device** that goes with the person, such as a smartwatch that is
+    always on their wrist, through the device tracker of your router's
+    integration;
   - a **Bluetooth tag**, such as a key finder in the school bag, picked
     directly from the Bluetooth devices Home Assistant receives;
   - any other device tracker or binary sensor.
 
   The tracker goes on when a source is present and off once all of them have
-  been away for a while. A source only tells what it sees (a tablet in the
-  Wi-Fi, a tag in radio range), not who is holding it. **Pick only sources
-  that leave the house with the person**: one source left at home keeps the
-  tracker on. See [Presence sources](#presence-sources).
+  been away for a while. Pick sources that leave the house with the person;
+  see [Presence sources](#presence-sources).
 
-Two things look after a tracker that is on:
+Three things look after a tracker that is on:
 
 - When the first real person comes back to the empty house, it switches itself
-  off. See [Rules at a glance](#rules-at-a-glance).
+  off, unless it has presence sources. See
+  [Rules at a glance](#rules-at-a-glance).
 - If it stays on for a long time (24 hours by default), you get a reminder
   asking whether Kid is still home. See [The reminder](#the-reminder).
+- If a presence source keeps it on after everybody has left, you can be asked
+  whether Kid is really home (off by default). See
+  [A device left behind](#a-device-left-behind).
 
 ## Who it is for
 
@@ -78,7 +81,9 @@ Nothing has to be installed on the other person's side.
 - It delivers the questions only to the Home Assistant Companion App. Any other
   channel is an automation of your own; see
   [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md).
-- It never switches a tracker off because nobody answered. It reminds you;
+- It does not switch a tracker off because nobody answered, with one
+  exception you have to turn on yourself:
+  [A device left behind](#a-device-left-behind). The reminder only asks;
   switching off stays your decision.
 - It detects nothing by itself. A tracker only knows what you, an automation or
   a source you linked to it tells it.
@@ -173,9 +178,9 @@ For a tracker named *Kid*:
 |---|---|
 | `switch.kid_at_home` | The control. On means "Kid is at home". |
 | `device_tracker.kid` | Follows the switch (`home` / `not_home`). Assigned to Kid's person. |
-| `event.kid_questions` | Announces the prompt and the reminder (see below). |
+| `event.kid_questions` | Announces the prompt, the reminder and the question about a device left behind (see below). |
 
-Next to them sit nine settings entities; see [Settings](#settings).
+Next to them sit eleven settings entities; see [Settings](#settings).
 
 Entity IDs are built from the tracker's name and the entity names in the
 **language of your Home Assistant**. This README uses English; on a German
@@ -189,6 +194,8 @@ You do not have to leave the house to see the question on your phone:
 1. **Developer tools → Actions**.
 2. Pick **Virtual Presence Tracker: Open prompt** (the tracker has to be off)
    or **Virtual Presence Tracker: Open reminder** (the tracker has to be on).
+   With a presence source, **Virtual Presence Tracker: Ask about device left
+   behind** works the same way (the tracker has to be on).
 3. Choose the tracker's switch (`switch.kid_at_home`) as the target and press
    **Perform action**.
 
@@ -241,7 +248,10 @@ actions:
       message: Only virtual trackers are at home now.
 ```
 
-## The phone question and the reminder
+## The questions on the phone
+
+There are three: the prompt, the reminder and, for a tracker with presence
+sources, the question about [a device left behind](#a-device-left-behind).
 
 ### The prompt
 
@@ -279,8 +289,10 @@ because a reminder is often answered much later than a prompt.
 
 - **Notice if unanswered** sends a short note when a question expires: "No
   answer: Kid counts as not at home." for the prompt, "No answer: Kid stays
-  marked as home." for the reminder. Off by default, and only sent on an
-  expiry.
+  marked as home." for the reminder, "No answer: Kid has been switched off.
+  Kid's tablet is ignored until it has been away for 10 minutes." for a device
+  left behind. Off by default, and only sent on an expiry. The note takes the
+  place of the question on the phone.
 - All messages about one tracker are stacked in a group of their own on the
   phone; Android labels it "Virtual presence: Kid".
 - The messages show the integration's icon in place of the Home Assistant app
@@ -305,11 +317,13 @@ Disturb for the prompt** on, the prompt is sent:
 
 It is loud, at night and in meetings too, so it is **off by default**. It
 applies to the prompt only; the reminder and the notes about unanswered
-questions stay quiet.
+questions stay quiet. The question about a device left behind has a switch of
+its own, **Override Do Not Disturb for a device left behind**, also off by
+default.
 
 ### Other channels
 
-Every prompt and reminder is announced by the tracker's event entity and can be
+Every question is announced by the tracker's event entity and can be
 answered with an action, so a speaker, Telegram or a dashboard button can carry
 the question instead of the phone, or alongside it. See
 [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md).
@@ -321,19 +335,21 @@ Devices & services → Virtual Presence Tracker → Kid**, under **Configuration
 out of the way of everyday use. They can be used in automations like any other
 switch or number, and a change takes effect without a reload.
 
-![The Configuration section of a tracker's device page with the settings entities of a tracker](images/settings.png)
+![The Configuration section of a tracker's device page with all eleven settings of a tracker](images/settings.png)
 
 | Entity | What it does | Default |
 |---|---|---|
 | **Ask when empty** (switch) | Whether the tracker asks at all when the last real person leaves. | on |
 | **Reset on return** (switch) | Switches the tracker off when the first real person comes back to the empty house. | on |
-| **Prompt answer time** (number) | How long a prompt stays open, 1 to 120 minutes. | 10 |
+| **Prompt answer time** (number) | How long a prompt stays open, 1 to 120 minutes. Also the answer time of the question about a device left behind. | 10 |
 | **Prompt delay** (number) | How long to wait after the last departure before asking, 0 to 600 seconds. | 0 |
-| **Notice if unanswered** (switch) | Sends a short note when a prompt or a reminder expires. | off |
+| **Notice if unanswered** (switch) | Sends a short note when a question expires. | off |
 | **Remind after** (number) | After how many hours on the tracker asks whether the person is still there, 0 to 168 hours. 0 means never. | 24 |
 | **Reminder answer time** (number) | How long a reminder stays open, 1 to 360 minutes. | 60 |
 | **Override Do Not Disturb for the prompt** (switch) | Lets the prompt through a silenced phone; see [When the phone is on silent](#when-the-phone-is-on-silent). | off |
-| **Away after** (number) | Only for a tracker with presence sources: how long all of them have to report "away" before it switches off, 1 to 120 minutes. | 10 |
+| **Away after** (number) | Only for a tracker with presence sources: how long all of them have to report "away" before it switches off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about. | 10 |
+| **Ask about a device left behind** (switch) | Only for a tracker with presence sources; see [A device left behind](#a-device-left-behind). | off |
+| **Override Do Not Disturb for a device left behind** (switch) | Lets that question through a silenced phone, like the prompt's switch. | off |
 
 ### Rules at a glance
 
@@ -358,7 +374,7 @@ and presence sources only add more ways to switch it; the switch, your
 automations and the questions keep working. Both are picked in the tracker's
 form (**Add virtual tracker** or **Edit virtual tracker**).
 
-![The optional fields of a tracker's form: a Shelly BLU button under Buttons, a tablet's device tracker under Presence sources, and the same Shelly picked under Bluetooth devices](images/sources.png)
+![The optional fields of a tracker's form: a Shelly BLU button under Buttons, a smartwatch under Presence sources, and the same Shelly picked under Bluetooth devices](images/sources.png)
 
 Three examples:
 
@@ -368,9 +384,9 @@ Three examples:
 - **A Bluetooth tag in the school bag** as a Bluetooth device, with **Away
   after** at 10 minutes: the tracker switches on when the tag is heard and off
   once it has not been heard for 10 minutes.
-- **The child's tablet in your Wi-Fi** as a device tracker of your router's
-  integration: the tracker switches on when the tablet connects and off once it
-  has been away for **Away after**.
+- **A smartwatch that is always on the child's wrist** as a device tracker of
+  your router's integration: the tracker switches on when the watch connects to
+  your Wi-Fi and off once it has been away for **Away after**.
 
 ### Buttons
 
@@ -383,6 +399,17 @@ mean away; for a button that offers `press` it suggests `press` and
 
 ### Presence sources
 
+The tracker counts as present while any of its sources is:
+
+- a **device tracker** while it is `home`, for example a smartwatch in your
+  Wi-Fi through your router's integration, or a Bluetooth tag through an
+  integration such as iBeacon Tracker, Private BLE Device or Bermuda;
+- a **binary sensor** while it is `on`;
+- a **Bluetooth device**, picked by its fixed address from the devices Home
+  Assistant receives, while it has been heard within **Away after**. Phones and
+  other devices that keep changing their address cannot be followed this way;
+  use the device tracker of their own integration instead.
+
 > [!IMPORTANT]
 > **Pick only sources that leave the house with the person.** One present
 > source is enough to keep the tracker on. A tablet left at home keeps it on
@@ -390,32 +417,44 @@ mean away; for a button that offers `press` it suggests `press` and
 > keeps counting as occupied. Several sources only help if each of them goes
 > where the person goes.
 
-The tracker counts as present while any of its sources is:
-
-- a **device tracker** while it is `home`, for example a tablet or a games
-  console in your Wi-Fi through your router's integration, or a Bluetooth tag
-  through an integration such as iBeacon Tracker, Private BLE Device or
-  Bermuda;
-- a **binary sensor** while it is `on`;
-- a **Bluetooth device**, picked by its fixed address from the devices Home
-  Assistant receives, while it has been heard within **Away after**. Phones and
-  other devices that keep changing their address cannot be followed this way;
-  use the device tracker of their own integration instead.
-
 The tracker switches on when its sources become present and off once all of
 them have been away for **Away after**. A change by hand in between stays until
-the next such change, and `unknown` or `unavailable` never counts as away.
-
-A source only says what it says: a tablet in the Wi-Fi may be lying on the
-sofa while its owner is out, and a Bluetooth tag in range means it is near one
-of Home Assistant's Bluetooth adapters or proxies, which may include the garden
-or the flat next door.
+the next such change, and `unknown` or `unavailable` never counts as away. A
+Bluetooth tag in range only means it is near one of Home Assistant's Bluetooth
+adapters or proxies, which may include the garden or the flat next door.
 
 If a source is present when the last real person leaves, the tracker switches
 on instead of asking, also with **Ask when empty** off.
 
 Timing, polling and what a restart does are in
 [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md#buttons-and-presence-sources).
+
+### A device left behind
+
+If a source stays at home anyway (see [Presence sources](#presence-sources)),
+such as a tablet on the sofa, the tracker stays on while everybody is out. With
+**Ask about a device left behind** on (off by default), the people under **Who
+is asked?** get one question when that happens:
+
+![A critical alert on an iPhone lock screen: "Device left behind? Nobody else is home, but Noah's tablet is. Is Noah home? Without an answer within 10 minutes, Noah is switched off.", with the buttons "Yes, home" and "No, switch off"](images/left-behind.png)
+
+*Shown with **Override Do Not Disturb for a device left behind** on (off by
+default).*
+
+- It comes **Away after** minutes after the last real person left, and only if
+  the tracker is on and a source still reports present then.
+- **Yes, home** changes nothing, and you are not asked again until everybody
+  has left the next time.
+- **No, switch off** and **no answer** both switch the tracker off. This is the
+  one question that switches off when nobody answers: a device left at home is
+  exactly the case where nobody may be there to answer.
+
+After that, the device is ignored until it has been away for **Away after**:
+it does not switch the tracker on, not even the next time everybody leaves.
+Switching the tracker on yourself ends that at once; the switch and buttons
+always work. The answer time is **Prompt answer time**.
+The details, the timing and the actions are in
+[docs/AUTOMATIONS.md](docs/AUTOMATIONS.md#the-device-left-behind-actions).
 
 ## Troubleshooting
 
@@ -434,8 +473,7 @@ gone.
 ## FAQ
 
 **Does the other person have to install anything?**
-No. Nothing runs on their side. The integration stores, per tracker, whether it
-is on and since when, plus an open question if there is one.
+No. Nothing runs on their side.
 
 **Can a person have both a virtual tracker and a real one?**
 Yes. The virtual tracker reports as a `router`-type tracker (home or away, no

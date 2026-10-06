@@ -55,3 +55,32 @@ open_reminder:
     entity:
       integration: virtual_presence_tracker
       domain: switch
+
+answer_left_behind:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch
+  fields:
+    answer:
+      required: true
+      example: "yes"
+      selector:
+        select:
+          translation_key: left_behind_answer
+          options:
+            - "yes"
+            - "no"
+    answered_by:
+      required: false
+      example: person.dabo53ck
+      selector:
+        entity:
+          filter:
+            - domain: person
+
+open_left_behind:
+  target:
+    entity:
+      integration: virtual_presence_tracker
+      domain: switch
