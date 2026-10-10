@@ -8,7 +8,7 @@
           "persons": "Echte Personen"
         },
         "data_description": {
-          "persons": "Mindestens eine Person wird gebraucht. Vorgeschlagen werden die Personen, die aktuell einen Device-Tracker haben – wer keinen hat, ist meist genau die Person, für die ein virtueller Tracker gedacht ist."
+          "persons": "Mindestens eine Person wird gebraucht. Vorgeschlagen werden die Personen, die aktuell einen Device-Tracker haben; wer keinen hat, ist meist genau die Person, für die ein virtueller Tracker gedacht ist."
         }
       },
       "reconfigure": {
@@ -24,7 +24,7 @@
     },
     "error": {
       "no_persons": "Wähle mindestens eine echte Person aus.",
-      "person_has_virtual_tracker": "An {persons} hängt ein virtueller Tracker dieser Integration. Diesen Tracker einzuschalten sähe wie eine echte Heimkehr aus und würde alle virtuellen Tracker zurücksetzen – wähle jemand anderen aus."
+      "person_has_virtual_tracker": "An {persons} hängt ein virtueller Tracker dieser Integration. Diesen Tracker einzuschalten sähe wie eine echte Heimkehr aus und würde alle virtuellen Tracker zurücksetzen. Wähle jemand anderen aus."
     },
     "abort": {
       "single_instance_allowed": "Bereits konfiguriert. Es ist nur eine einzige Konfiguration möglich.",
@@ -41,40 +41,116 @@
       "step": {
         "user": {
           "title": "Virtuellen Tracker hinzufügen",
-          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Er braucht eine eigene Person – die legt die Integration unten für dich an – und diese Person gilt als zu Hause, solange der Tracker eingeschaltet ist.",
+          "description": "Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast. Er braucht eine eigene Person (die legt die Integration unten für dich an), und diese Person gilt als zu Hause, solange der Tracker eingeschaltet ist.",
           "data": {
             "name": "Name",
             "notify_persons": "Wer wird gefragt?",
-            "create_person": "Person für diesen Tracker anlegen",
-            "button_sources": "Tasten",
-            "presence_sources": "Anwesenheitsquellen",
-            "ble_sources": "Bluetooth-Geräte"
+            "create_person": "Person für diesen Tracker anlegen"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“, „Nicht stören umgehen für Nachfragen“, „Weg nach“, „Nachfragen bei zurückgelassenem Gerät“ und „Nicht stören umgehen für zurückgelassene Geräte“.",
-            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu – der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest.",
-            "button_sources": "Optional. Event-Entitäten von Tasten – aus jeder Integration, zum Beispiel ein Shelly-, Zigbee- oder Hue-Taster –, die diesen Tracker ein- oder ausschalten. Welcher Tastendruck was bedeutet, legst du im nächsten Schritt fest; jeder andere wird ignoriert und bleibt frei für deine eigenen Automationen.",
-            "presence_sources": "Optional. WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an, ein zu Hause liegendes Tablet also auch dann, wenn alle weg sind. Device Tracker (anwesend = zu Hause) und Binärsensoren (anwesend = an) aus jeder Integration – zum Beispiel ein Bluetooth-Tag über iBeacon Tracker, Private BLE Device oder Bermuda, oder ein Gerät in deinem WLAN über die Integration deines Routers. Der Tracker gilt als anwesend, solange irgendeine Quelle es ist: Er wird eingeschaltet, wenn sie anwesend werden, und ausgeschaltet, sobald alle für „Weg nach“ abwesend waren. Schaltest du dazwischen von Hand, bleibt das bis zum nächsten solchen Wechsel so. Geht die letzte echte Person, während eine Quelle anwesend ist, wird der Tracker eingeschaltet statt nachzufragen, und „Zurücksetzen bei Rückkehr“ gilt für einen Tracker mit Quellen nicht.",
-            "ble_sources": "Optional. WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen; schon eine anwesende Quelle hält den Tracker an. Bluetooth-Geräte, die Home Assistant empfängt, das stärkste Signal zuerst – jeder Tag oder Taster, der mit fester Adresse sendet, egal welche Integration ihn kennt, auch keine. Ein Gerät gilt als anwesend, solange es innerhalb von „Weg nach“ empfangen wurde. Nicht in der Liste, weil es gerade außer Reichweite ist? Gib seine Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys und andere Geräte, die ihre Adresse laufend wechseln, lassen sich so nicht verfolgen – nimm dafür oben einen Device Tracker ihrer eigenen Integration."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nDie Schalter des Trackers liegen auf seiner Geräteseite, so können Automationen sie schalten.",
+            "create_person": "Legt eine Person ohne Login an, die so heißt wie der Tracker, und weist ihr den Tracker zu: der Schritt, durch den überhaupt jemand als zu Hause zählt. Abwählen, wenn du schon eine Person für diesen Tracker hast und sie selbst unter Einstellungen > Personen zuweisen möchtest."
+          },
+          "sections": {
+            "questions": {
+              "name": "Fragen",
+              "description": "Geht die letzte echte Person und ist der Tracker aus, werden die Handys unter „Wer wird gefragt?“ gefragt, ob die Person zu Hause ist. Ob überhaupt gefragt wird, legt der Schalter „Nachfragen bei leerem Haus“ auf der Geräteseite des Trackers fest.",
+              "data": {
+                "answer_timeout": "Antwortzeit",
+                "prompt_delay": "Verzögerung",
+                "notify_on_expiry": "Info bei Ablauf"
+              },
+              "data_description": {
+                "answer_timeout": "Wie lange eine Nachfrage offen bleibt, 1 bis 120 Minuten. Gilt auch für die Frage nach einem zurückgelassenen Gerät.",
+                "prompt_delay": "Wie lange nach dem Gehen der letzten Person gewartet wird, bevor gefragt wird, 0 bis 600 Sekunden. Halte sie kürzer als die Verzögerungen deiner eigenen „Niemand zu Hause“-Automationen.",
+                "notify_on_expiry": "Schickt eine kurze Info, wenn eine Frage nicht rechtzeitig beantwortet wird: die Nachfrage, die Erinnerung oder die Frage nach einem zurückgelassenen Gerät."
+              }
+            },
+            "reminder": {
+              "name": "Erinnerung",
+              "description": "Fragt nach, ob die Person noch zu Hause ist, wenn der Tracker lange eingeschaltet ist.",
+              "data": {
+                "remind_after": "Erinnern nach",
+                "reminder_timeout": "Antwortzeit"
+              },
+              "data_description": {
+                "remind_after": "Nach wie vielen Stunden Eingeschaltetsein gefragt wird, 0 bis 168. 0 heißt nie.",
+                "reminder_timeout": "Wie lange eine Erinnerung offen bleibt, 1 bis 360 Minuten. Ohne Antwort ändert sich nichts."
+              }
+            },
+            "sources": {
+              "name": "Quellen (optional)",
+              "description": "Tasten und Anwesenheitsquellen schalten den Tracker selbst; der Schalter, Automationen und Fragen funktionieren weiter.",
+              "data": {
+                "button_sources": "Tasten",
+                "presence_sources": "Anwesenheitsquellen",
+                "ble_sources": "Bluetooth-Geräte",
+                "away_after": "Weg nach"
+              },
+              "data_description": {
+                "button_sources": "Event-Entitäten von Tasten aus jeder Integration. Welcher Tastendruck zu Hause oder weg bedeutet, legst du im nächsten Schritt fest; jeder andere bleibt frei für deine Automationen.",
+                "presence_sources": "WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an. Wähle Device-Tracker (Zustand zu Hause) oder Binärsensoren (Zustand an) aus jeder Integration, zum Beispiel ein Bluetooth-Tag oder ein Gerät in deinem WLAN. Der Tracker geht an, wenn eine Quelle anwesend wird, und aus, wenn alle so lange weg waren, wie „Weg nach“ angibt.",
+                "ble_sources": "WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen. Bluetooth-Tags und -Taster mit fester Adresse, das stärkste Signal zuerst; anwesend, solange sie innerhalb von „Weg nach“ empfangen wurden. Nicht in der Liste? Gib die Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys wechseln ihre Adresse: Nimm dafür oben einen Device-Tracker.",
+                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird."
+              }
+            }
           }
         },
         "reconfigure": {
           "title": "Virtuellen Tracker bearbeiten",
-          "description": "Benenne den Tracker um, ändere, wer zu ihm gefragt wird, oder ändere seine Tasten und Anwesenheitsquellen. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
+          "description": "Benenne den Tracker um, ändere, wer zu ihm gefragt wird, seine Zeiten oder seine Tasten und Anwesenheitsquellen. Umbenennen ist unkritisch: Die Entitäten des Trackers behalten ihre Identität.",
           "data": {
             "name": "Name",
-            "notify_persons": "Wer wird gefragt?",
-            "button_sources": "Tasten",
-            "presence_sources": "Anwesenheitsquellen",
-            "ble_sources": "Bluetooth-Geräte"
+            "notify_persons": "Wer wird gefragt?"
           },
           "data_description": {
             "name": "Wird für die Entitäten dieses Trackers verwendet, zum Beispiel der Name des Kindes oder Gastes, für den er steht.",
-            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nAlles Weitere stellst du auf der Geräteseite des Trackers ein: „Nachfragen bei leerem Haus“ (ob er überhaupt fragt, wenn die letzte echte Person geht), „Nachfrage-Antwortzeit“, „Nachfrage-Verzögerung“, „Zurücksetzen bei Rückkehr“, „Info bei Ablauf“, „Erinnerung nach“, „Erinnerung-Antwortzeit“, „Nicht stören umgehen für Nachfragen“, „Weg nach“, „Nachfragen bei zurückgelassenem Gerät“ und „Nicht stören umgehen für zurückgelassene Geräte“.",
-            "button_sources": "Optional. Event-Entitäten von Tasten – aus jeder Integration, zum Beispiel ein Shelly-, Zigbee- oder Hue-Taster –, die diesen Tracker ein- oder ausschalten. Welcher Tastendruck was bedeutet, legst du im nächsten Schritt fest; jeder andere wird ignoriert und bleibt frei für deine eigenen Automationen.",
-            "presence_sources": "Optional. WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an, ein zu Hause liegendes Tablet also auch dann, wenn alle weg sind. Device Tracker (anwesend = zu Hause) und Binärsensoren (anwesend = an) aus jeder Integration – zum Beispiel ein Bluetooth-Tag über iBeacon Tracker, Private BLE Device oder Bermuda, oder ein Gerät in deinem WLAN über die Integration deines Routers. Der Tracker gilt als anwesend, solange irgendeine Quelle es ist: Er wird eingeschaltet, wenn sie anwesend werden, und ausgeschaltet, sobald alle für „Weg nach“ abwesend waren. Schaltest du dazwischen von Hand, bleibt das bis zum nächsten solchen Wechsel so. Geht die letzte echte Person, während eine Quelle anwesend ist, wird der Tracker eingeschaltet statt nachzufragen, und „Zurücksetzen bei Rückkehr“ gilt für einen Tracker mit Quellen nicht.",
-            "ble_sources": "Optional. WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen; schon eine anwesende Quelle hält den Tracker an. Bluetooth-Geräte, die Home Assistant empfängt, das stärkste Signal zuerst – jeder Tag oder Taster, der mit fester Adresse sendet, egal welche Integration ihn kennt, auch keine. Ein Gerät gilt als anwesend, solange es innerhalb von „Weg nach“ empfangen wurde. Nicht in der Liste, weil es gerade außer Reichweite ist? Gib seine Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys und andere Geräte, die ihre Adresse laufend wechseln, lassen sich so nicht verfolgen – nimm dafür oben einen Device Tracker ihrer eigenen Integration."
+            "notify_persons": "Die echten Personen, deren Home Assistant Companion App die Fragen zu diesem Tracker mit Ja- und Nein-Button bekommt. Wer gefragt wird, braucht die App, angemeldet mit dem eigenen Benutzerkonto; die erste Antwort zählt. Leer lassen heißt: Es wird gar nichts verschickt und du lieferst die Fragen mit einer eigenen Automation aus.\n\nDie Schalter des Trackers liegen auf seiner Geräteseite, so können Automationen sie schalten."
+          },
+          "sections": {
+            "questions": {
+              "name": "Fragen",
+              "description": "Geht die letzte echte Person und ist der Tracker aus, werden die Handys unter „Wer wird gefragt?“ gefragt, ob die Person zu Hause ist. Ob überhaupt gefragt wird, legt der Schalter „Nachfragen bei leerem Haus“ auf der Geräteseite des Trackers fest.",
+              "data": {
+                "answer_timeout": "Antwortzeit",
+                "prompt_delay": "Verzögerung",
+                "notify_on_expiry": "Info bei Ablauf"
+              },
+              "data_description": {
+                "answer_timeout": "Wie lange eine Nachfrage offen bleibt, 1 bis 120 Minuten. Gilt auch für die Frage nach einem zurückgelassenen Gerät.",
+                "prompt_delay": "Wie lange nach dem Gehen der letzten Person gewartet wird, bevor gefragt wird, 0 bis 600 Sekunden. Halte sie kürzer als die Verzögerungen deiner eigenen „Niemand zu Hause“-Automationen.",
+                "notify_on_expiry": "Schickt eine kurze Info, wenn eine Frage nicht rechtzeitig beantwortet wird: die Nachfrage, die Erinnerung oder die Frage nach einem zurückgelassenen Gerät."
+              }
+            },
+            "reminder": {
+              "name": "Erinnerung",
+              "description": "Fragt nach, ob die Person noch zu Hause ist, wenn der Tracker lange eingeschaltet ist.",
+              "data": {
+                "remind_after": "Erinnern nach",
+                "reminder_timeout": "Antwortzeit"
+              },
+              "data_description": {
+                "remind_after": "Nach wie vielen Stunden Eingeschaltetsein gefragt wird, 0 bis 168. 0 heißt nie.",
+                "reminder_timeout": "Wie lange eine Erinnerung offen bleibt, 1 bis 360 Minuten. Ohne Antwort ändert sich nichts."
+              }
+            },
+            "sources": {
+              "name": "Quellen (optional)",
+              "description": "Tasten und Anwesenheitsquellen schalten den Tracker selbst; der Schalter, Automationen und Fragen funktionieren weiter.",
+              "data": {
+                "button_sources": "Tasten",
+                "presence_sources": "Anwesenheitsquellen",
+                "ble_sources": "Bluetooth-Geräte",
+                "away_after": "Weg nach"
+              },
+              "data_description": {
+                "button_sources": "Event-Entitäten von Tasten aus jeder Integration. Welcher Tastendruck zu Hause oder weg bedeutet, legst du im nächsten Schritt fest; jeder andere bleibt frei für deine Automationen.",
+                "presence_sources": "WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an. Wähle Device-Tracker (Zustand zu Hause) oder Binärsensoren (Zustand an) aus jeder Integration, zum Beispiel ein Bluetooth-Tag oder ein Gerät in deinem WLAN. Der Tracker geht an, wenn eine Quelle anwesend wird, und aus, wenn alle so lange weg waren, wie „Weg nach“ angibt.",
+                "ble_sources": "WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen. Bluetooth-Tags und -Taster mit fester Adresse, das stärkste Signal zuerst; anwesend, solange sie innerhalb von „Weg nach“ empfangen wurden. Nicht in der Liste? Gib die Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys wechseln ihre Adresse: Nimm dafür oben einen Device-Tracker.",
+                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird."
+              }
+            }
           }
         },
         "buttons": {
@@ -95,7 +171,7 @@
         "name_exists": "Ein Tracker mit diesem Namen existiert bereits.",
         "person_not_real": "{persons} gehört nicht zu den echten Personen dieses Haushalts und kann deshalb nicht gefragt werden. Nimm die Person hier heraus, oder füge sie über „Neu konfigurieren“ auf der Seite der Integration zu den echten Personen hinzu.",
         "button_types_overlap": "{types} kann nicht gleichzeitig zu Hause und weg bedeuten. Nimm das Häkchen in einer der beiden Listen heraus.",
-        "button_types_missing": "Wähle mindestens ein Ereignis, das zu Hause oder weg bedeutet – eine Taste, die nichts schaltet, bewirkt nichts.",
+        "button_types_missing": "Wähle mindestens ein Ereignis, das zu Hause oder weg bedeutet. Eine Taste, die nichts schaltet, bewirkt nichts.",
         "invalid_ble_address": "{addresses} ist keine Bluetooth-Adresse. Gib sie als sechs Paare aus Hexadezimalziffern mit Doppelpunkten ein, zum Beispiel AA:BB:CC:DD:EE:FF."
       },
       "abort": {
@@ -106,7 +182,7 @@
   "entity": {
     "binary_sensor": {
       "only_virtual_home": {
-        "name": "Nur virtuelle Tracker zuhause"
+        "name": "Nur virtuelle Tracker zu Hause"
       }
     },
     "event": {
@@ -135,23 +211,6 @@
         }
       }
     },
-    "number": {
-      "answer_timeout": {
-        "name": "Nachfrage-Antwortzeit"
-      },
-      "away_after": {
-        "name": "Weg nach"
-      },
-      "prompt_delay": {
-        "name": "Nachfrage-Verzögerung"
-      },
-      "remind_after": {
-        "name": "Erinnerung nach"
-      },
-      "reminder_timeout": {
-        "name": "Erinnerung-Antwortzeit"
-      }
-    },
     "switch": {
       "ask_left_behind": {
         "name": "Nachfragen bei zurückgelassenem Gerät"
@@ -160,13 +219,10 @@
         "name": "Nachfragen bei leerem Haus"
       },
       "at_home": {
-        "name": "Zuhause"
+        "name": "Zu Hause"
       },
       "left_behind_override_dnd": {
         "name": "Nicht stören umgehen für zurückgelassene Geräte"
-      },
-      "notify_on_expiry": {
-        "name": "Info bei Ablauf"
       },
       "override_dnd": {
         "name": "Nicht stören umgehen für Nachfragen"
@@ -193,7 +249,7 @@
       "message": "{entity_id} hat keine Anwesenheitsquelle, es kann also kein Gerät zurückgelassen worden sein."
     },
     "not_a_tracker_switch": {
-      "message": "{entity_id} ist eine Einstellung des Trackers, nicht sein Zuhause-Schalter. Nimm stattdessen den Schalter „Zuhause“ des Trackers oder sein Gerät als Ziel."
+      "message": "{entity_id} ist eine Einstellung des Trackers, nicht sein Schalter „Zu Hause“. Nimm stattdessen diesen Schalter oder das Gerät des Trackers als Ziel."
     },
     "prompt_already_open": {
       "message": "Für {entity_id} ist bereits eine Nachfrage offen, es gibt also nichts erneut zu fragen."
@@ -205,13 +261,13 @@
       "message": "{entity_id} ist bereits eingeschaltet, es gibt also niemanden, nach dem zu fragen wäre."
     },
     "tracker_not_home": {
-      "message": "{entity_id} ist ausgeschaltet, es gibt also niemanden, an den zu erinnern wäre."
+      "message": "{entity_id} ist ausgeschaltet, es gibt also niemanden, nach dem zu fragen wäre."
     }
   },
   "issues": {
     "no_tracker": {
       "title": "Es wurde noch kein virtueller Tracker angelegt",
-      "description": "Virtual Presence Tracker ist eingerichtet, es gibt aber noch keinen virtuellen Tracker – es passiert also nichts. Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast.\n\nLege einen an unter Einstellungen > Geräte & Dienste > Integrationen > Virtual Presence Tracker > „Virtuellen Tracker hinzufügen“. Weise ihn anschließend einer eigenen Person zu, damit diese Person als zu Hause gilt, solange der Tracker eingeschaltet ist."
+      "description": "Virtual Presence Tracker ist eingerichtet, es gibt aber noch keinen virtuellen Tracker, es passiert also nichts. Ein virtueller Tracker steht für ein Haushaltsmitglied ohne Handy, zum Beispiel ein Kind, ein Großelternteil oder einen Gast.\n\nLege einen an unter Einstellungen > Geräte & Dienste > Integrationen > Virtual Presence Tracker > „Virtuellen Tracker hinzufügen“. Lass „Person für diesen Tracker anlegen“ angehakt, dann wird die nötige Person für dich angelegt."
     },
     "tracker_not_assigned": {
       "title": "Der virtuelle Tracker {name} ist keiner Person zugewiesen",
@@ -219,7 +275,7 @@
     },
     "real_person_has_virtual_tracker": {
       "title": "Die echte Person {person} hat einen virtuellen Tracker",
-      "description": "{person} ist eine der echten Personen von Virtual Presence Tracker, und der virtuelle Tracker `{tracker}` hängt an dieser Person. Diesen Tracker einzuschalten sieht damit wie eine echte Heimkehr aus – und schaltet alle virtuellen Tracker wieder aus.\n\nZwei Wege: Entferne `{tracker}` unter Einstellungen > Personen bei {person}, oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren aus den echten Personen heraus."
+      "description": "{person} ist eine der echten Personen von Virtual Presence Tracker, und der virtuelle Tracker `{tracker}` hängt an dieser Person. Diesen Tracker einzuschalten sieht damit wie eine echte Heimkehr aus und schaltet alle virtuellen Tracker wieder aus.\n\nZwei Wege: Entferne `{tracker}` unter Einstellungen > Personen bei {person}, oder nimm {person} unter Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren aus den echten Personen heraus."
     },
     "recipient_without_phone": {
       "title": "{person} hat kein Handy, auf dem gefragt werden könnte",
@@ -227,7 +283,7 @@
     },
     "real_person_missing": {
       "title": "Die echte Person {person} gibt es nicht mehr",
-      "description": "{person} ist als echte Person von Virtual Presence Tracker eingetragen, aber diese Entität existiert nicht mehr – gelöscht oder umbenannt. Ihre Anwesenheit zählt damit nicht mehr mit, und virtuelle Tracker werden womöglich nicht mehr zurückgesetzt, wenn jemand heimkommt.\n\nWähle deine echten Personen neu aus: Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren."
+      "description": "{person} ist als echte Person von Virtual Presence Tracker eingetragen, aber diese Entität existiert nicht mehr (gelöscht oder umbenannt). Ihre Anwesenheit zählt damit nicht mehr mit, und virtuelle Tracker werden womöglich nicht mehr zurückgesetzt, wenn jemand heimkommt.\n\nWähle deine echten Personen neu aus: Einstellungen > Geräte & Dienste > Virtual Presence Tracker > Neu konfigurieren."
     }
   },
   "selector": {
@@ -253,7 +309,7 @@
   "services": {
     "answer_left_behind": {
       "name": "Frage zum zurückgelassenen Gerät beantworten",
-      "description": "Beantwortet die offene Frage eines virtuellen Trackers zu einem zurückgelassenen Gerät. „Ja“ ändert nichts, „Nein“ schaltet den Tracker aus und verhindert, dass seine Anwesenheitsquellen ihn wieder einschalten, bis sie „Weg nach“ lang weg waren.",
+      "description": "Beantwortet die offene Frage eines virtuellen Trackers zu einem zurückgelassenen Gerät. „Ja“ ändert nichts, „Nein“ schaltet den Tracker aus und verhindert, dass seine Anwesenheitsquellen ihn wieder einschalten, bis sie so lange weg waren, wie „Weg nach“ angibt.",
       "fields": {
         "answer": {
           "name": "Antwort",
@@ -295,15 +351,15 @@
     },
     "open_left_behind": {
       "name": "Nach zurückgelassenem Gerät fragen",
-      "description": "Fragt sofort, ob die Person, für die ein virtueller Tracker steht, wirklich zu Hause ist, ohne darauf zu warten, dass das Haus „Weg nach“ lang leer ist. Der Tracker muss eingeschaltet sein und eine Anwesenheitsquelle haben; alles Weitere läuft wie bei jeder solchen Frage, inklusive Benachrichtigung, „Nachfrage-Antwortzeit“ und Ausschalten ohne Antwort."
+      "description": "Fragt sofort, ob die Person, für die ein virtueller Tracker steht, wirklich zu Hause ist, ohne darauf zu warten, dass das Haus so lange leer ist, wie „Weg nach“ angibt. Der Tracker muss eingeschaltet sein und eine Anwesenheitsquelle haben; alles Weitere läuft wie bei jeder solchen Frage, inklusive Benachrichtigung, „Antwortzeit“ unter „Fragen“ und Ausschalten ohne Antwort."
     },
     "open_prompt": {
       "name": "Nachfrage öffnen",
-      "description": "Öffnet die Nachfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen bei leerem Haus“ und die „Nachfrage-Verzögerung“ werden dabei ignoriert; alles Weitere läuft wie bei jeder Nachfrage, inklusive Benachrichtigung und Antwortzeit."
+      "description": "Öffnet die Nachfrage eines virtuellen Trackers sofort, ohne auf den Weggang der letzten echten Person zu warten. Wer zu Hause ist, der Schalter „Nachfragen bei leerem Haus“ und die „Verzögerung“ unter „Fragen“ werden dabei ignoriert; alles Weitere läuft wie bei jeder Nachfrage, inklusive Benachrichtigung und Antwortzeit."
     },
     "open_reminder": {
       "name": "Erinnerung öffnen",
-      "description": "Fragt sofort nach, ob die Person, für die ein virtueller Tracker steht, noch zu Hause ist – ohne auf „Erinnerung nach“ zu warten. Der Tracker muss eingeschaltet sein; alles Weitere läuft wie bei jeder Erinnerung, inklusive Benachrichtigung und Antwortzeit."
+      "description": "Fragt sofort nach, ob die Person, für die ein virtueller Tracker steht, noch zu Hause ist, ohne auf „Erinnern nach“ zu warten. Der Tracker muss eingeschaltet sein; alles Weitere läuft wie bei jeder Erinnerung, inklusive Benachrichtigung und Antwortzeit."
     }
   }
 }

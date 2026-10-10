@@ -1,16 +1,36 @@
-"""Tests for the clean-up of the legacy household device."""
+"""Tests for the registry clean-ups of older installs.
+
+The household device of M1f, and the option entities that moved into the
+tracker's form in M3g.
+"""
 
 from __future__ import annotations
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.virtual_presence_tracker.const import DOMAIN
+from custom_components.virtual_presence_tracker.const import (
+    CONF_ANSWER_TIMEOUT,
+    CONF_ASK_ON_DEPARTURE,
+    CONF_AWAY_AFTER,
+    CONF_NOTIFY_ON_EXPIRY,
+    CONF_PROMPT_DELAY,
+    CONF_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT,
+    DOMAIN,
+)
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR_DOMAIN
 from homeassistant.const import ATTR_FRIENDLY_NAME, STATE_NOT_HOME, STATE_OFF
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, make_entry, make_subentry
+from .conftest import (
+    ENTRY_ID,
+    PERSON_A,
+    TRACKER_A,
+    TRACKER_B,
+    make_entry,
+    make_subentry,
+)
 
 UNIQUE_ID = f"{ENTRY_ID}_only_virtual_home"
 # The entity ID an install from before the change ended up with: the device
@@ -141,3 +161,100 @@ async def test_fresh_install_has_no_household_device(hass: HomeAssistant) -> Non
         )
         is None
     )
+
+
+# The six option entities M3g moved into the tracker's form, with the entity
+# IDs an English install of M3f gave them.
+MOVED_OPTIONS = {
+    ("number", CONF_ANSWER_TIMEOUT): "prompt_answer_time",
+    ("number", CONF_PROMPT_DELAY): "prompt_delay",
+    ("number", CONF_REMIND_AFTER): "remind_after",
+    ("number", CONF_REMINDER_TIMEOUT): "reminder_answer_time",
+    ("number", CONF_AWAY_AFTER): "away_after",
+    ("switch", CONF_NOTIFY_ON_EXPIRY): "notice_if_unanswered",
+}
+
+
+def add_moved_option_entities(
+    hass: HomeAssistant, entry: MockConfigEntry, subentry_id: str, name: str
+) -> list[str]:
+    """Register the six option entities of one tracker as M3f left them."""
+    registry = er.async_get(hass)
+    entity_ids = []
+    for (domain, key), suffix in MOVED_OPTIONS.items():
+        entity = registry.async_get_or_create(
+            domain,
+            DOMAIN,
+            f"{subentry_id}_{key}",
+            config_entry=entry,
+            config_subentry_id=subentry_id,
+            suggested_object_id=f"{name}_{suffix}",
+            translation_key=key,
+        )
+        assert entity.entity_id == f"{domain}.{name}_{suffix}"
+        entity_ids.append(entity.entity_id)
+    return entity_ids
+
+
+async def test_setup_removes_the_option_entities_that_moved_into_the_form(
+    hass: HomeAssistant,
+) -> None:
+    """The six entities go for every tracker; nothing else is touched."""
+    entry = make_entry(
+        make_subentry(TRACKER_A, "Kid"), make_subentry(TRACKER_B, "Granny")
+    )
+    entry.add_to_hass(hass)
+    moved = add_moved_option_entities(hass, entry, TRACKER_A, "kid")
+    moved += add_moved_option_entities(hass, entry, TRACKER_B, "granny")
+    registry = er.async_get(hass)
+    # A switch that stays, registered before the setup: it keeps its ID.
+    ask = registry.async_get_or_create(
+        "switch",
+        DOMAIN,
+        f"{TRACKER_A}_{CONF_ASK_ON_DEPARTURE}",
+        config_entry=entry,
+        config_subentry_id=TRACKER_A,
+        suggested_object_id="kid_ask_when_empty",
+    )
+    # Another integration's entity that happens to carry the same unique ID.
+    foreign = registry.async_get_or_create(
+        "number", "other_integration", f"{TRACKER_A}_{CONF_ANSWER_TIMEOUT}"
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    for entity_id in moved:
+        assert registry.async_get(entity_id) is None, entity_id
+        assert hass.states.get(entity_id) is None, entity_id
+    assert registry.async_get(ask.entity_id) is not None
+    assert hass.states.get(ask.entity_id) is not None
+    assert registry.async_get(foreign.entity_id) is not None
+
+
+async def test_the_option_clean_up_is_harmless_on_every_setup(
+    hass: HomeAssistant,
+) -> None:
+    """A reload after the clean-up finds nothing and changes nothing."""
+    entry = make_entry(make_subentry(TRACKER_A, "Kid"))
+    entry.add_to_hass(hass)
+    moved = add_moved_option_entities(hass, entry, TRACKER_A, "kid")
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    before = {
+        entity.entity_id
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    after = {
+        entity.entity_id
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+    assert after == before
+    assert not set(moved) & after
+    assert "switch.kid_at_home" in after

@@ -960,11 +960,11 @@ class HouseholdManager:
         self._async_unlock(subentry_id)
 
     def option(self, subentry_id: str, key: str) -> Any:
-        """Return one of the options a tracker has an entity for.
+        """Return one of the options of a tracker.
 
         The subentry data is the single source of truth and is read every time:
-        the entities of these options are views on it, exactly as the switch is
-        a view on the tracker state.
+        the option switches are views on it, exactly as the tracker's switch is
+        a view on the tracker state, and the form writes into it directly.
         """
         return self._option(subentry_id, key, OPTION_DEFAULTS[key])
 

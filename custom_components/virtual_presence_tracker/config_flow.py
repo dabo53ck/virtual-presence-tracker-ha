@@ -23,13 +23,17 @@ from homeassistant.config_entries import (
     SubentryFlowContext,
     SubentryFlowResult,
 )
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import SectionConfig, section
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -74,9 +78,22 @@ from .const import (
     DEVICE_TRACKER_DOMAIN,
     DOMAIN,
     EVENT_DOMAIN,
+    FORM_OPTION_SECTIONS,
+    MAX_ANSWER_TIMEOUT,
+    MAX_AWAY_AFTER,
+    MAX_PROMPT_DELAY,
+    MAX_REMIND_AFTER,
+    MAX_REMINDER_TIMEOUT,
+    MIN_ANSWER_TIMEOUT,
+    MIN_AWAY_AFTER,
+    MIN_PROMPT_DELAY,
+    MIN_REMIND_AFTER,
+    MIN_REMINDER_TIMEOUT,
     NEW_TRACKER_ASK_ON_DEPARTURE,
     NEW_TRACKER_REMIND_AFTER,
+    OPTION_DEFAULTS,
     PERSON_DOMAIN,
+    SECTION_SOURCES,
     SUBENTRY_TYPE_TRACKER,
     SUGGESTED_BUTTON_AWAY_TYPE,
     SUGGESTED_BUTTON_HOME_TYPE,
@@ -99,19 +116,101 @@ PERSONS_SCHEMA = vol.Schema(
 )
 
 
+# What a new tracker is written with: every option spelled out, so that the
+# switches on the tracker's device page have something to show from the start
+# - and a new tracker asks and reminds (the default of a *missing* key stays
+# "no" and "never", which is what every tracker from before the prompt and the
+# reminder relies on).
+NEW_TRACKER_OPTIONS: dict[str, bool | int] = {
+    CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
+    CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
+    CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
+    CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+    CONF_REMIND_AFTER: NEW_TRACKER_REMIND_AFTER,
+    CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
+    CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+    CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
+    CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+    CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
+    CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
+}
+
+# The timings of the form (M3g): range and unit of each.
+NUMBER_OPTIONS: dict[str, tuple[int, int, str]] = {
+    CONF_ANSWER_TIMEOUT: (MIN_ANSWER_TIMEOUT, MAX_ANSWER_TIMEOUT, UnitOfTime.MINUTES),
+    CONF_PROMPT_DELAY: (MIN_PROMPT_DELAY, MAX_PROMPT_DELAY, UnitOfTime.SECONDS),
+    CONF_REMIND_AFTER: (MIN_REMIND_AFTER, MAX_REMIND_AFTER, UnitOfTime.HOURS),
+    CONF_REMINDER_TIMEOUT: (
+        MIN_REMINDER_TIMEOUT,
+        MAX_REMINDER_TIMEOUT,
+        UnitOfTime.MINUTES,
+    ),
+    CONF_AWAY_AFTER: (MIN_AWAY_AFTER, MAX_AWAY_AFTER, UnitOfTime.MINUTES),
+}
+
+SOURCE_KEYS = (CONF_BUTTON_SOURCES, CONF_PRESENCE_SOURCES, CONF_BLE_SOURCES)
+
+
+def _option_selector(key: str) -> BooleanSelector | NumberSelector:
+    """Return the field of one option of the form."""
+    if key not in NUMBER_OPTIONS:
+        return BooleanSelector()
+    minimum, maximum, unit = NUMBER_OPTIONS[key]
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=minimum,
+            max=maximum,
+            step=1,
+            mode=NumberSelectorMode.BOX,
+            unit_of_measurement=unit,
+        )
+    )
+
+
+def _option_value(key: str, value: Any) -> bool | int:
+    """Return an option of the form the way it is stored.
+
+    The number selector hands back a float; the options have always been
+    stored as whole numbers.
+    """
+    return int(value) if key in NUMBER_OPTIONS else bool(value)
+
+
+@callback
+def _applied_options(subentry: ConfigSubentry | None) -> dict[str, Any]:
+    """Return the values the options of the form have right now.
+
+    For a new tracker the values it will be written with; for an existing one
+    what it has stored - and for a key it does not carry, the value that
+    applies while the key is missing (a tracker from before the reminder shows
+    "never", which is what it does), not the one a new tracker would get.
+    """
+    keys = [key for keys in FORM_OPTION_SECTIONS.values() for key in keys]
+    if subentry is None:
+        return {key: NEW_TRACKER_OPTIONS[key] for key in keys}
+    return {key: subentry.data.get(key, OPTION_DEFAULTS[key]) for key in keys}
+
+
+@callback
+def _has_sources(subentry: ConfigSubentry | None) -> bool:
+    """Return whether an existing tracker has any button or presence source."""
+    return subentry is not None and any(subentry.data.get(key) for key in SOURCE_KEYS)
+
+
 def _tracker_schema(
     entry: ConfigEntry,
     subentry: ConfigSubentry | None,
     own_events: list[str],
     own_presence: list[str],
     ble_options: list[SelectOptionDict] | None,
+    sources_expanded: bool,
 ) -> vol.Schema:
-    """Return the form of one virtual tracker: its name and who is asked.
+    """Return the form of one virtual tracker.
 
-    Everything else a tracker can be set to has an entity of its own on the
-    tracker's device page (M2f), so the form only holds what has nowhere else
-    to go: the name, which is the subentry title, and the recipients, which are
-    a list of persons rather than a value.
+    At the top, always visible: the name, who is asked and - for a *new*
+    tracker only - the offer to create the person it needs (M2g). An existing
+    one either has its person by now, or the user said no once and is not
+    asked again.
 
     Only the real persons of this household can be asked, so they are what the
     person selector offers. What the tracker already has stored is offered too,
@@ -119,24 +218,27 @@ def _tracker_schema(
     impossible to submit unchanged, and the stale recipient is reported with an
     error of our own instead of a voluptuous failure.
 
-    A *new* tracker is additionally offered the person it needs to be of any
-    use (M2g). An existing one is not: it either has its person by now, or the
-    user said no once and is not asked again.
+    Then three collapsible sections (M3g) with what is set once: the timings
+    of the questions and the expiry notice, the reminder, and the optional
+    sources - buttons (M3d), whose meaning is asked in a second step, presence
+    sources (M3e) and, only while Bluetooth is set up (``ble_options`` is not
+    None), Bluetooth devices, plus "Away after". The integration's own event
+    entities (``own_events``) and its own device trackers and sensor
+    (``own_presence``) are not offered. What is switched depending on the
+    situation is a switch on the tracker's device page instead.
 
-    The button sources (M3d) come next and are optional: what their events
-    mean depends on the entities chosen, so that is asked in a second step.
-    The integration's own event entities (``own_events``) are not offered.
-
-    The presence sources (M3e) come last, optional as well: device trackers
-    and binary sensors - but none of the integration's own (``own_presence``)
-    - and, only while Bluetooth is set up (``ble_options`` is not None), the
-    Bluetooth devices to listen for.
+    Two rules of Home Assistant's sections shape this. A section key never
+    gets a default: the frontend would take that empty default as the
+    section's data and drop the defaults and suggestions of the fields inside.
+    And an error of a field inside a section has to be reported under the
+    section's key, the only place the frontend shows it.
     """
     real_persons: list[str] = list(entry.data.get(CONF_PERSONS, []))
     stored: list[str] = list(
         subentry.data.get(CONF_NOTIFY_PERSONS, ()) if subentry is not None else ()
     )
     candidates = list(dict.fromkeys(real_persons + stored))
+    applied = _applied_options(subentry)
     schema: dict[Any, Any] = {
         vol.Required(CONF_NAME): TextSelector(),
         # An empty selection is a valid answer: it means that the integration
@@ -151,12 +253,26 @@ def _tracker_schema(
         schema[vol.Required(CONF_CREATE_PERSON, default=DEFAULT_CREATE_PERSON)] = (
             BooleanSelector()
         )
+    for section_key, keys in FORM_OPTION_SECTIONS.items():
+        if section_key == SECTION_SOURCES:
+            continue
+        schema[vol.Optional(section_key)] = section(
+            vol.Schema(
+                {
+                    vol.Required(key, default=applied[key]): _option_selector(key)
+                    for key in keys
+                }
+            ),
+            SectionConfig(collapsed=True),
+        )
+
+    sources: dict[Any, Any] = {}
     selector_config = EntitySelectorConfig(domain=EVENT_DOMAIN, multiple=True)
     if own_events:
         # The questions entities of the trackers are event entities too, but
         # no buttons.
         selector_config["exclude_entities"] = own_events
-    schema[vol.Optional(CONF_BUTTON_SOURCES, default=list)] = EntitySelector(
+    sources[vol.Optional(CONF_BUTTON_SOURCES, default=list)] = EntitySelector(
         selector_config
     )
     presence_config = EntitySelectorConfig(
@@ -166,11 +282,11 @@ def _tracker_schema(
         # A virtual tracker following a virtual tracker - or the household
         # sensor, which follows all of them - would be a loop.
         presence_config["exclude_entities"] = own_presence
-    schema[vol.Optional(CONF_PRESENCE_SOURCES, default=list)] = EntitySelector(
+    sources[vol.Optional(CONF_PRESENCE_SOURCES, default=list)] = EntitySelector(
         presence_config
     )
     if ble_options is not None:
-        schema[vol.Optional(CONF_BLE_SOURCES, default=list)] = SelectSelector(
+        sources[vol.Optional(CONF_BLE_SOURCES, default=list)] = SelectSelector(
             SelectSelectorConfig(
                 options=ble_options,
                 multiple=True,
@@ -180,6 +296,11 @@ def _tracker_schema(
                 mode=SelectSelectorMode.DROPDOWN,
             )
         )
+    for key in FORM_OPTION_SECTIONS[SECTION_SOURCES]:
+        sources[vol.Required(key, default=applied[key])] = _option_selector(key)
+    schema[vol.Optional(SECTION_SOURCES)] = section(
+        vol.Schema(sources), SectionConfig(collapsed=not sources_expanded)
+    )
     return vol.Schema(schema)
 
 
@@ -527,8 +648,11 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Show and handle the tracker form, for a new or an existing tracker.
 
-        With button sources chosen the flow goes on to their event types;
-        without, the tracker is stored right away.
+        The options are stored flat in the subentry data, under the keys they
+        have always had; only the form groups them into sections. A section
+        that was not sent at all leaves its values as they are. With button
+        sources chosen the flow goes on to their event types; without, the
+        tracker is stored right away.
         """
         entry = self._get_entry()
         errors: dict[str, str] = {}
@@ -537,31 +661,18 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
         if user_input is not None:
             name = user_input[CONF_NAME].strip()
             recipients = list(user_input[CONF_NOTIFY_PERSONS])
-            # A new tracker is written with all of its options spelled out, so
-            # that the entities of the tracker's device page have something to
-            # show from the start - and a new tracker asks and reminds (the
-            # code default for a *missing* key stays "no" and "never", which is
-            # what every tracker from before the prompt and the reminder relies
-            # on). An existing tracker keeps whatever its entities have written
-            # since.
-            data = (
-                {
-                    CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
-                    CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
-                    CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
-                    CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
-                    CONF_REMIND_AFTER: NEW_TRACKER_REMIND_AFTER,
-                    CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
-                    CONF_NOTIFY_PERSONS: recipients,
-                    CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
-                    CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
-                    CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
-                    CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
-                    CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
-                }
+            # A new tracker is written with all of its options spelled out; an
+            # existing one keeps whatever its switches have written since.
+            data: dict[str, Any] = (
+                {**NEW_TRACKER_OPTIONS, CONF_NOTIFY_PERSONS: recipients}
                 if subentry is None
                 else {**subentry.data, CONF_NOTIFY_PERSONS: recipients}
             )
+            for section_key, keys in FORM_OPTION_SECTIONS.items():
+                values = user_input.get(section_key) or {}
+                for key in keys:
+                    if key in values:
+                        data[key] = _option_value(key, values[key])
             if subentry is None and user_input.get(CONF_CREATE_PERSON):
                 # Only a marker: the tracker's device tracker entity does not
                 # exist until the entry has been set up with this subentry, so
@@ -573,9 +684,10 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 for person in recipients
                 if person not in entry.data.get(CONF_PERSONS, [])
             ]
+            sources: dict[str, Any] | None = user_input.get(SECTION_SOURCES)
             addresses: list[str] = []
             invalid: list[str] = []
-            for raw in user_input.get(CONF_BLE_SOURCES, []):
+            for raw in (sources or {}).get(CONF_BLE_SOURCES, []):
                 if (address := ble.normalize_address(raw)) is None:
                     invalid.append(raw)
                 else:
@@ -588,26 +700,32 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
                 errors[CONF_NOTIFY_PERSONS] = "person_not_real"
                 placeholders = {"persons": ", ".join(strangers)}
             elif invalid:
-                errors[CONF_BLE_SOURCES] = "invalid_ble_address"
+                # Under the section's key: the frontend shows no error of a
+                # field inside a section, only one of the section itself.
+                errors[SECTION_SOURCES] = "invalid_ble_address"
                 placeholders = {"addresses": ", ".join(invalid)}
             else:
+                self._subentry = subentry
+                self._name = name
+                self._data = data
+                if sources is None:
+                    # The sources were not sent: they stay as they are,
+                    # button event types included.
+                    return self._async_finish()
                 # A tracker without presence sources carries neither key, and
                 # the Bluetooth field is only there while Bluetooth is set up -
                 # without it, the stored addresses are kept as they are.
-                if presence := list(user_input.get(CONF_PRESENCE_SOURCES, [])):
+                if presence := list(sources.get(CONF_PRESENCE_SOURCES, [])):
                     data[CONF_PRESENCE_SOURCES] = presence
                 else:
                     data.pop(CONF_PRESENCE_SOURCES, None)
-                if CONF_BLE_SOURCES in user_input:
+                if CONF_BLE_SOURCES in sources:
                     if addresses:
                         data[CONF_BLE_SOURCES] = list(dict.fromkeys(addresses))
                     else:
                         data.pop(CONF_BLE_SOURCES, None)
-                self._subentry = subentry
-                self._name = name
-                self._data = data
-                if sources := list(user_input.get(CONF_BUTTON_SOURCES, [])):
-                    data[CONF_BUTTON_SOURCES] = sources
+                if buttons := list(sources.get(CONF_BUTTON_SOURCES, [])):
+                    data[CONF_BUTTON_SOURCES] = buttons
                     return await self.async_step_buttons()
                 # No source left: the event types go with the last of them.
                 for key in BUTTON_KEYS:
@@ -619,24 +737,30 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
             # A new tracker comes up with every real person ticked: asking
             # everybody is the answer that needs no thought, and taking
             # somebody out is one click. An existing tracker comes up with
-            # what it has.
+            # what it has, nested the way the form's sections are.
             suggested = (
                 {CONF_NOTIFY_PERSONS: list(entry.data.get(CONF_PERSONS, []))}
                 if subentry is None
-                else {CONF_NAME: subentry.title, **subentry.data}
+                else _stored_suggestions(subentry)
             )
         own_events = sorted(async_own_event_entities(self.hass))
         own_presence = sorted(async_own_presence_entities(self.hass))
-        if CONF_PRESENCE_SOURCES in suggested:
-            # The same for one of our own device trackers or the sensor.
-            suggested = {
-                **suggested,
-                CONF_PRESENCE_SOURCES: [
-                    entity_id
-                    for entity_id in suggested[CONF_PRESENCE_SOURCES]
-                    if entity_id not in own_presence
-                ],
-            }
+        if (sources_suggested := suggested.get(SECTION_SOURCES)) is not None:
+            # One of our own event entities, device trackers or the sensor
+            # that got stored somehow is left out rather than offered: the
+            # selector would refuse it on submit.
+            sources_suggested = dict(sources_suggested)
+            for key, own in (
+                (CONF_BUTTON_SOURCES, own_events),
+                (CONF_PRESENCE_SOURCES, own_presence),
+            ):
+                if key in sources_suggested:
+                    sources_suggested[key] = [
+                        entity_id
+                        for entity_id in sources_suggested[key]
+                        if entity_id not in own
+                    ]
+            suggested = {**suggested, SECTION_SOURCES: sources_suggested}
         ble_options = (
             _ble_options(
                 self.hass,
@@ -647,24 +771,38 @@ class TrackerSubentryFlowHandler(ConfigSubentryFlow):
             if ble.async_bluetooth_loaded(self.hass)
             else None
         )
-        if CONF_BUTTON_SOURCES in suggested:
-            # One of our own event entities that got stored somehow is left out
-            # rather than offered: the selector would refuse it on submit.
-            suggested = {
-                **suggested,
-                CONF_BUTTON_SOURCES: [
-                    entity_id
-                    for entity_id in suggested[CONF_BUTTON_SOURCES]
-                    if entity_id not in own_events
-                ],
-            }
+        # The sources are open where they matter: for a tracker that has some,
+        # and when the form comes back with an error inside them.
+        sources_expanded = _has_sources(subentry) or SECTION_SOURCES in errors
 
         return self.async_show_form(
             step_id=step_id,
             data_schema=self.add_suggested_values_to_schema(
-                _tracker_schema(entry, subentry, own_events, own_presence, ble_options),
+                _tracker_schema(
+                    entry,
+                    subentry,
+                    own_events,
+                    own_presence,
+                    ble_options,
+                    sources_expanded,
+                ),
                 suggested,
             ),
             errors=errors,
             description_placeholders=placeholders,
         )
+
+
+@callback
+def _stored_suggestions(subentry: ConfigSubentry) -> dict[str, Any]:
+    """Return what an existing tracker's form comes up with, section by section."""
+    applied = _applied_options(subentry)
+    suggested: dict[str, Any] = {CONF_NAME: subentry.title}
+    if CONF_NOTIFY_PERSONS in subentry.data:
+        suggested[CONF_NOTIFY_PERSONS] = list(subentry.data[CONF_NOTIFY_PERSONS])
+    for section_key, keys in FORM_OPTION_SECTIONS.items():
+        suggested[section_key] = {key: applied[key] for key in keys}
+    for key in SOURCE_KEYS:
+        if key in subentry.data:
+            suggested[SECTION_SOURCES][key] = list(subentry.data[key])
+    return suggested

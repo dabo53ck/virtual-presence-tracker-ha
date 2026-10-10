@@ -86,27 +86,27 @@ _TEXTS: Final[dict[str, dict[str, str]]] = {
         "left_behind_message": "Es ist niemand sonst zu Hause, aber {devices} "
         "ist noch da. Ist {tracker} zu Hause? Bei Nein oder ohne Antwort "
         "innerhalb von {minutes} wird {tracker} ausgeschaltet und das Gerät "
-        "ignoriert, bis es {away_after} weg war.",
+        "ignoriert, bis es {away_after} lang weg war.",
         "left_behind_message_many": "Es ist niemand sonst zu Hause, aber "
         "{devices} sind noch da. Ist {tracker} zu Hause? Bei Nein oder ohne "
         "Antwort innerhalb von {minutes} wird {tracker} ausgeschaltet, und die "
-        "Geräte werden ignoriert, bis sie {away_after} weg waren.",
+        "Geräte werden ignoriert, bis sie {away_after} lang weg waren.",
         "left_behind_message_generic": "Es ist niemand sonst zu Hause, aber ein "
         "Gerät von {tracker} ist noch da. Ist {tracker} zu Hause? Bei Nein oder "
         "ohne Antwort innerhalb von {minutes} wird {tracker} ausgeschaltet und "
-        "das Gerät ignoriert, bis es {away_after} weg war.",
+        "das Gerät ignoriert, bis es {away_after} lang weg war.",
         "left_behind_and": " und ",
         "left_behind_yes": "Ja, zu Hause",
         "left_behind_no": "Nein, ausschalten",
         "left_behind_expired_message": "Keine Antwort: {tracker} wurde "
-        "ausgeschaltet. {devices} wird ignoriert, bis das Gerät {away_after} weg "
-        "war.",
+        "ausgeschaltet. {devices} wird ignoriert, bis das Gerät {away_after} lang "
+        "weg war.",
         "left_behind_expired_message_many": "Keine Antwort: {tracker} wurde "
-        "ausgeschaltet. {devices} werden ignoriert, bis sie {away_after} weg "
-        "waren.",
+        "ausgeschaltet. {devices} werden ignoriert, bis sie {away_after} lang "
+        "weg waren.",
         "left_behind_expired_message_generic": "Keine Antwort: {tracker} wurde "
         "ausgeschaltet. Ein Gerät von {tracker} wird ignoriert, bis es "
-        "{away_after} weg war.",
+        "{away_after} lang weg war.",
     },
     "fr": {
         "title": "Il n'y a que {tracker} à la maison ?",

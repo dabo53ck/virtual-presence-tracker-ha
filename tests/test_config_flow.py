@@ -38,12 +38,21 @@ from custom_components.virtual_presence_tracker.const import (
     DOMAIN,
     NEW_TRACKER_ASK_ON_DEPARTURE,
     NEW_TRACKER_REMIND_AFTER,
+    SECTION_QUESTIONS,
+    SECTION_REMINDER,
+    SECTION_SOURCES,
     SUBENTRY_TYPE_TRACKER,
 )
 from homeassistant.config_entries import SOURCE_USER, ConfigEntryState, FlowType
-from homeassistant.const import CONF_NAME, STATE_HOME, STATE_NOT_HOME
-from homeassistant.core import CoreState, HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.const import (
+    CONF_NAME,
+    EVENT_STATE_CHANGED,
+    STATE_HOME,
+    STATE_NOT_HOME,
+    UnitOfTime,
+)
+from homeassistant.core import CoreState, Event, HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
 
 PERSON_DABO53CK = "person.dabo53ck"
 PERSON_KING53CK = "person.king53ck"
@@ -120,6 +129,32 @@ def suggested(result: dict[str, Any], key: str) -> Any:
         if marker == key:
             return (marker.description or {}).get("suggested_value")
     raise AssertionError(f"{key} is not part of the form")
+
+
+def sections(result: dict[str, Any]) -> dict[str, section]:
+    """Return the sections of a form by their key (M3g)."""
+    schema: vol.Schema = result["data_schema"]
+    return {
+        str(marker): value
+        for marker, value in schema.schema.items()
+        if isinstance(value, section)
+    }
+
+
+def section_fields(result: dict[str, Any], section_key: str) -> dict[str, Any]:
+    """Return the fields of one section by their key."""
+    return {
+        str(marker): value
+        for marker, value in sections(result)[section_key].schema.schema.items()
+    }
+
+
+def section_suggested(result: dict[str, Any], section_key: str, key: str) -> Any:
+    """Return the value one section suggests for one of its keys."""
+    for marker in sections(result)[section_key].schema.schema:
+        if marker == key:
+            return (marker.description or {}).get("suggested_value")
+    raise AssertionError(f"{key} is not part of the section {section_key}")
 
 
 async def setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> MockConfigEntry:
@@ -381,15 +416,13 @@ async def test_subentry_adds_a_tracker(
     assert config_entry.runtime_data.manager.tracker_ids == [subentries[0].subentry_id]
 
 
-async def test_the_form_asks_for_the_name_and_the_recipients_only(
+async def test_the_form_has_the_general_fields_and_three_sections(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """The four settings that have an entity now are gone from the form.
+    """Name, recipients and person at the top, the rest in sections (M3g).
 
-    What is left is the name, the recipients, the offer to create the person
-    the tracker needs, which is ticked unless the user unticks it, the
-    optional button sources (M3d) and the optional presence sources (M3e) -
-    the Bluetooth field only while Bluetooth is set up, which it is not here.
+    The sections are collapsed for a new tracker, and the Bluetooth field is
+    only there while Bluetooth is set up, which it is not here.
     """
     await setup_entry(hass, config_entry)
 
@@ -402,16 +435,285 @@ async def test_the_form_asks_for_the_name_and_the_recipients_only(
         CONF_NAME,
         CONF_NOTIFY_PERSONS,
         CONF_CREATE_PERSON,
+        SECTION_QUESTIONS,
+        SECTION_REMINDER,
+        SECTION_SOURCES,
+    ]
+    assert list(section_fields(result, SECTION_QUESTIONS)) == [
+        CONF_ANSWER_TIMEOUT,
+        CONF_PROMPT_DELAY,
+        CONF_NOTIFY_ON_EXPIRY,
+    ]
+    assert list(section_fields(result, SECTION_REMINDER)) == [
+        CONF_REMIND_AFTER,
+        CONF_REMINDER_TIMEOUT,
+    ]
+    assert list(section_fields(result, SECTION_SOURCES)) == [
         CONF_BUTTON_SOURCES,
         CONF_PRESENCE_SOURCES,
+        CONF_AWAY_AFTER,
     ]
+    assert all(value.options["collapsed"] for value in sections(result).values())
+    # A section key has no default: the frontend would take an empty default
+    # as the section's data and lose the values of the fields inside.
     assert schema({CONF_NAME: "Kid"}) == {
         CONF_NAME: "Kid",
         CONF_NOTIFY_PERSONS: [],
         CONF_CREATE_PERSON: True,
+    }
+    # The fields inside default to what a new tracker is written with.
+    assert sections(result)[SECTION_QUESTIONS]({}) == {
+        CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
+        CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+        CONF_NOTIFY_ON_EXPIRY: DEFAULT_NOTIFY_ON_EXPIRY,
+    }
+    assert sections(result)[SECTION_REMINDER]({}) == {
+        CONF_REMIND_AFTER: NEW_TRACKER_REMIND_AFTER,
+        CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
+    }
+    assert sections(result)[SECTION_SOURCES]({}) == {
         CONF_BUTTON_SOURCES: [],
         CONF_PRESENCE_SOURCES: [],
+        CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
     }
+
+
+@pytest.mark.parametrize(
+    ("section_key", "key", "minimum", "maximum", "unit"),
+    [
+        (SECTION_QUESTIONS, CONF_ANSWER_TIMEOUT, 1, 120, UnitOfTime.MINUTES),
+        (SECTION_QUESTIONS, CONF_PROMPT_DELAY, 0, 600, UnitOfTime.SECONDS),
+        (SECTION_REMINDER, CONF_REMIND_AFTER, 0, 168, UnitOfTime.HOURS),
+        (SECTION_REMINDER, CONF_REMINDER_TIMEOUT, 1, 360, UnitOfTime.MINUTES),
+        (SECTION_SOURCES, CONF_AWAY_AFTER, 1, 120, UnitOfTime.MINUTES),
+    ],
+)
+async def test_the_timings_keep_their_range_and_unit(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    section_key: str,
+    key: str,
+    minimum: int,
+    maximum: int,
+    unit: str,
+) -> None:
+    """The ranges the number entities had, and a value outside is refused."""
+    await setup_entry(hass, config_entry)
+
+    result = await hass.config_entries.subentries.async_init(
+        (config_entry.entry_id, SUBENTRY_TYPE_TRACKER), context={"source": SOURCE_USER}
+    )
+    config = section_fields(result, section_key)[key].config
+    assert config["min"] == minimum
+    assert config["max"] == maximum
+    assert config["step"] == 1
+    assert config["mode"] == "box"
+    assert config["unit_of_measurement"] == unit
+
+    with pytest.raises(InvalidData):
+        await hass.config_entries.subentries.async_configure(
+            result["flow_id"],
+            {CONF_NAME: "Kid", section_key: {key: maximum + 1}},
+        )
+    assert config_entry.subentries == {}
+
+
+async def test_a_new_tracker_stores_the_sections_flat(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """The values of the sections land under their keys, as whole numbers."""
+    await setup_entry(hass, config_entry)
+
+    result = await add_tracker(
+        hass,
+        config_entry,
+        {
+            CONF_NAME: "Kid",
+            CONF_CREATE_PERSON: False,
+            SECTION_QUESTIONS: {
+                CONF_ANSWER_TIMEOUT: 15.0,
+                CONF_PROMPT_DELAY: 30.0,
+                CONF_NOTIFY_ON_EXPIRY: True,
+            },
+            SECTION_REMINDER: {CONF_REMIND_AFTER: 0.0, CONF_REMINDER_TIMEOUT: 120.0},
+            SECTION_SOURCES: {CONF_AWAY_AFTER: 5.0},
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    data = dict(config_entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)[0].data)
+    assert data == tracker_data(
+        **{
+            CONF_ANSWER_TIMEOUT: 15,
+            CONF_PROMPT_DELAY: 30,
+            CONF_NOTIFY_ON_EXPIRY: True,
+            CONF_REMIND_AFTER: 0,
+            CONF_REMINDER_TIMEOUT: 120,
+            CONF_AWAY_AFTER: 5,
+        }
+    )
+    assert all(
+        type(data[key]) is int
+        for key in (
+            CONF_ANSWER_TIMEOUT,
+            CONF_PROMPT_DELAY,
+            CONF_REMIND_AFTER,
+            CONF_REMINDER_TIMEOUT,
+            CONF_AWAY_AFTER,
+        )
+    )
+    # No section key is ever stored.
+    assert not {SECTION_QUESTIONS, SECTION_REMINDER, SECTION_SOURCES} & data.keys()
+
+
+async def test_the_edit_form_shows_the_stored_values_by_section(
+    hass: HomeAssistant,
+) -> None:
+    """Each section comes up with what the tracker has stored."""
+    stored = tracker_data(
+        **{
+            CONF_ANSWER_TIMEOUT: 25,
+            CONF_PROMPT_DELAY: 45,
+            CONF_NOTIFY_ON_EXPIRY: True,
+            CONF_REMIND_AFTER: 12,
+            CONF_REMINDER_TIMEOUT: 90,
+            CONF_AWAY_AFTER: 15,
+        }
+    )
+    entry = await setup_entry(
+        hass, make_entry(make_subentry(TRACKER_A, "Kid", **stored))
+    )
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+
+    for section_key, key in (
+        (SECTION_QUESTIONS, CONF_ANSWER_TIMEOUT),
+        (SECTION_QUESTIONS, CONF_PROMPT_DELAY),
+        (SECTION_QUESTIONS, CONF_NOTIFY_ON_EXPIRY),
+        (SECTION_REMINDER, CONF_REMIND_AFTER),
+        (SECTION_REMINDER, CONF_REMINDER_TIMEOUT),
+        (SECTION_SOURCES, CONF_AWAY_AFTER),
+    ):
+        assert section_suggested(result, section_key, key) == stored[key], key
+    # Without sources the sources stay closed, like the other two.
+    assert all(value.options["collapsed"] for value in sections(result).values())
+
+
+async def test_the_edit_form_of_an_old_tracker_shows_what_applies(
+    hass: HomeAssistant,
+) -> None:
+    """A missing key shows the value that applies to it, not a new tracker's.
+
+    A tracker from before the reminder never reminds, so it shows 0 - not the
+    24 hours a new tracker gets.
+    """
+    entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+
+    assert section_suggested(result, SECTION_REMINDER, CONF_REMIND_AFTER) == 0
+    assert (
+        section_suggested(result, SECTION_QUESTIONS, CONF_ANSWER_TIMEOUT)
+        == DEFAULT_ANSWER_TIMEOUT
+    )
+    assert section_suggested(result, SECTION_QUESTIONS, CONF_NOTIFY_ON_EXPIRY) is False
+    assert section_suggested(result, SECTION_SOURCES, CONF_AWAY_AFTER) == (
+        DEFAULT_AWAY_AFTER
+    )
+
+    # Saved as shown, the values that applied are now spelled out - and the
+    # tracker still does not remind.
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Kid",
+            SECTION_QUESTIONS: {},
+            SECTION_REMINDER: {},
+            SECTION_SOURCES: {},
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert dict(entry.subentries[TRACKER_A].data) == {
+        CONF_NOTIFY_PERSONS: [],
+        CONF_ANSWER_TIMEOUT: DEFAULT_ANSWER_TIMEOUT,
+        CONF_PROMPT_DELAY: DEFAULT_PROMPT_DELAY,
+        CONF_NOTIFY_ON_EXPIRY: False,
+        CONF_REMIND_AFTER: 0,
+        CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
+        CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+    }
+
+
+async def test_the_sources_are_open_for_a_tracker_that_has_some(
+    hass: HomeAssistant,
+) -> None:
+    """Edit opens "Sources" where they matter; the other sections stay closed."""
+    entry = await setup_entry(
+        hass,
+        make_entry(
+            make_subentry(
+                TRACKER_A, "Kid", **{CONF_PRESENCE_SOURCES: ["device_tracker.tag"]}
+            ),
+            make_subentry(TRACKER_B, "Granny"),
+        ),
+    )
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+
+    assert sections(result)[SECTION_SOURCES].options["collapsed"] is False
+    assert sections(result)[SECTION_QUESTIONS].options["collapsed"] is True
+    assert sections(result)[SECTION_REMINDER].options["collapsed"] is True
+    assert section_suggested(result, SECTION_SOURCES, CONF_PRESENCE_SOURCES) == [
+        "device_tracker.tag"
+    ]
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_B)
+
+    assert sections(result)[SECTION_SOURCES].options["collapsed"] is True
+
+
+async def test_saving_only_the_timings_does_not_reload(hass: HomeAssistant) -> None:
+    """The form writes the timings live, as their entities used to (M3g).
+
+    The device tracker must not go through `unavailable`: an automation that
+    waits for somebody to come home could not tell that from an arrival.
+    """
+    entry = await setup_entry(
+        hass,
+        make_entry(make_subentry(TRACKER_A, "Kid", **tracker_data())),
+    )
+    manager = entry.runtime_data.manager
+    changes: list[str] = []
+
+    def record(event: Event[Any]) -> None:
+        if event.data["entity_id"] == TRACKER_A_ENTITY:
+            changes.append(event.data["new_state"].state)
+
+    hass.bus.async_listen(EVENT_STATE_CHANGED, record)
+
+    result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Kid",
+            CONF_NOTIFY_PERSONS: [],
+            SECTION_QUESTIONS: {CONF_ANSWER_TIMEOUT: 30, CONF_PROMPT_DELAY: 20},
+            SECTION_REMINDER: {CONF_REMIND_AFTER: 6},
+            SECTION_SOURCES: {CONF_AWAY_AFTER: 25},
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert entry.runtime_data.manager is manager
+    assert changes == []
+    assert manager.option(TRACKER_A, CONF_ANSWER_TIMEOUT) == 30
+    assert manager.option(TRACKER_A, CONF_PROMPT_DELAY) == 20
+    assert manager.option(TRACKER_A, CONF_REMIND_AFTER) == 6
+    assert manager.option(TRACKER_A, CONF_AWAY_AFTER) == 25
 
 
 async def test_the_reconfigure_form_does_not_offer_a_person(
@@ -426,8 +728,9 @@ async def test_the_reconfigure_form_does_not_offer_a_person(
     assert [str(key) for key in schema.schema] == [
         CONF_NAME,
         CONF_NOTIFY_PERSONS,
-        CONF_BUTTON_SOURCES,
-        CONF_PRESENCE_SOURCES,
+        SECTION_QUESTIONS,
+        SECTION_REMINDER,
+        SECTION_SOURCES,
     ]
 
 

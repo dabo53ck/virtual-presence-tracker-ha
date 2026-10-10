@@ -41,40 +41,116 @@
       "step": {
         "user": {
           "title": "Ajouter un tracker virtuel",
-          "description": "Un tracker virtuel représente un membre du foyer sans téléphone, par exemple un enfant, un grand-parent ou un invité. Il a besoin de sa propre personne – l'intégration la crée pour vous ci-dessous – et cette personne compte comme étant à la maison tant que le tracker est activé.",
+          "description": "Un tracker virtuel représente un membre du foyer sans téléphone, par exemple un enfant, un grand-parent ou un invité. Il a besoin de sa propre personne (l'intégration la crée pour vous ci-dessous), et cette personne compte comme étant à la maison tant que le tracker est activé.",
           "data": {
             "name": "Nom",
             "notify_persons": "Qui est interrogé ?",
-            "create_person": "Créer une personne pour ce tracker",
-            "button_sources": "Boutons",
-            "presence_sources": "Sources de présence",
-            "ble_sources": "Appareils Bluetooth"
+            "create_person": "Créer une personne pour ce tracker"
           },
           "data_description": {
             "name": "Utilisé pour les entités de ce tracker, par exemple le prénom de l'enfant ou de l'invité qu'il représente.",
-            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nTout le reste se règle sur la page de l'appareil du tracker : « Demander quand la maison est vide » (s'il pose une question quand la dernière personne réelle part), « Délai de réponse à la demande », « Délai avant la demande », « Réinitialiser au retour », « Avis si sans réponse », « Rappel après », « Délai de réponse au rappel », « Ignorer Ne pas déranger pour la demande », « Absent après », « Demander pour un appareil oublié » et « Ignorer Ne pas déranger pour un appareil oublié ».",
-            "create_person": "Crée une personne sans identifiant de connexion, portant le nom du tracker, et lui attribue le tracker – c'est cette étape qui fait que quelqu'un compte comme étant à la maison. Décochez la case si vous avez déjà une personne pour ce tracker et souhaitez l'attribuer vous-même dans Paramètres > Personnes.",
-            "button_sources": "Facultatif. Entités d'événement de boutons – de n'importe quelle intégration, par exemple un bouton Shelly, Zigbee ou Hue – qui activent ou désactivent ce tracker. La signification de chaque appui se choisit à l'étape suivante ; tout autre appui est ignoré et reste libre pour vos propres automatisations.",
-            "presence_sources": "Facultatif. IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé, donc une tablette restée à la maison le garde activé alors que tout le monde est sorti. Trackers d'appareil (présent = à la maison) et capteurs binaires (présent = activé) de n'importe quelle intégration – par exemple une balise Bluetooth via iBeacon Tracker, Private BLE Device ou Bermuda, ou un appareil de votre Wi-Fi via l'intégration de votre routeur. Le tracker compte comme présent tant qu'une source l'est : il est activé quand elles deviennent présentes et désactivé dès qu'elles ont toutes été absentes pendant « Absent après ». Une modification manuelle entre les deux reste valable jusqu'au prochain changement de ce type. Si la dernière personne réelle part alors qu'une source est présente, le tracker est activé au lieu de poser la question, et « Réinitialiser au retour » ne s'applique pas à un tracker avec des sources.",
-            "ble_sources": "Facultatif. IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne ; une seule source présente garde le tracker activé. Appareils Bluetooth que Home Assistant capte, le signal le plus fort en premier – toute balise ou tout bouton qui émet avec une adresse fixe, quelle que soit l'intégration qui le connaît, ou aucune. Un appareil compte comme présent tant qu'il a été capté pendant « Absent après ». Absent de la liste parce qu'il est hors de portée en ce moment ? Saisissez son adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones et autres appareils qui changent sans cesse d'adresse ne peuvent pas être suivis ainsi – utilisez plutôt ci-dessus un tracker d'appareil de leur propre intégration."
+            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nLes interrupteurs du tracker se trouvent sur la page de son appareil, pour que les automatisations puissent les utiliser.",
+            "create_person": "Crée une personne sans identifiant de connexion, portant le nom du tracker, et lui attribue le tracker : c'est cette étape qui fait que quelqu'un compte comme étant à la maison. Décochez la case si vous avez déjà une personne pour ce tracker et souhaitez l'attribuer vous-même dans Paramètres > Personnes."
+          },
+          "sections": {
+            "questions": {
+              "name": "Questions",
+              "description": "Quand la dernière personne réelle part et que le tracker est désactivé, les téléphones de « Qui est interrogé ? » reçoivent la question de savoir si la personne est à la maison. L'interrupteur « Demander quand la maison est vide », sur la page de l'appareil du tracker, décide si la question est posée.",
+              "data": {
+                "answer_timeout": "Délai de réponse",
+                "prompt_delay": "Délai",
+                "notify_on_expiry": "Avis si sans réponse"
+              },
+              "data_description": {
+                "answer_timeout": "Durée pendant laquelle une demande reste ouverte, de 1 à 120 minutes. Vaut aussi pour la question sur un appareil oublié.",
+                "prompt_delay": "Temps d'attente après le dernier départ avant de demander, de 0 à 600 secondes. Gardez-le plus court que les délais de vos propres automatisations « personne à la maison ».",
+                "notify_on_expiry": "Envoie un court avis quand une question reste sans réponse à temps : la demande, le rappel ou la question sur un appareil oublié."
+              }
+            },
+            "reminder": {
+              "name": "Rappel",
+              "description": "Demande si la personne est toujours à la maison quand le tracker est activé depuis longtemps.",
+              "data": {
+                "remind_after": "Rappel après",
+                "reminder_timeout": "Délai de réponse"
+              },
+              "data_description": {
+                "remind_after": "Au bout de combien d'heures d'activation la question est posée, de 0 à 168. 0 signifie jamais.",
+                "reminder_timeout": "Durée pendant laquelle un rappel reste ouvert, de 1 à 360 minutes. Sans réponse, rien ne change."
+              }
+            },
+            "sources": {
+              "name": "Sources (facultatif)",
+              "description": "Les boutons et les sources de présence activent et désactivent le tracker d'eux-mêmes ; l'interrupteur, les automatisations et les questions continuent de fonctionner.",
+              "data": {
+                "button_sources": "Boutons",
+                "presence_sources": "Sources de présence",
+                "ble_sources": "Appareils Bluetooth",
+                "away_after": "Absent après"
+              },
+              "data_description": {
+                "button_sources": "Entités d'événement de boutons de n'importe quelle intégration. L'appui qui signifie présent ou absent se choisit à l'étape suivante ; tout autre appui reste libre pour vos automatisations.",
+                "presence_sources": "IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé. Choisissez des trackers d'appareil (état home) ou des capteurs binaires (état on) de n'importe quelle intégration, par exemple une balise Bluetooth ou un appareil de votre Wi-Fi. Le tracker s'active quand une source devient présente et se désactive quand toutes ont été absentes pendant « Absent après ».",
+                "ble_sources": "IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne. Balises et boutons Bluetooth à adresse fixe, signal le plus fort en premier ; présents tant qu'ils ont été captés pendant « Absent après ». Pas dans la liste ? Saisissez l'adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones changent d'adresse : utilisez plutôt un tracker d'appareil ci-dessus.",
+                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié."
+              }
+            }
           }
         },
         "reconfigure": {
           "title": "Modifier le tracker virtuel",
-          "description": "Renommez le tracker, changez qui est interrogé à son sujet, ou changez ses boutons et ses sources de présence. Le renommer ne pose aucun problème : les entités du tracker conservent leur identité.",
+          "description": "Renommez le tracker, changez qui est interrogé à son sujet, ses délais, ou ses boutons et ses sources de présence. Le renommer ne pose aucun problème : les entités du tracker conservent leur identité.",
           "data": {
             "name": "Nom",
-            "notify_persons": "Qui est interrogé ?",
-            "button_sources": "Boutons",
-            "presence_sources": "Sources de présence",
-            "ble_sources": "Appareils Bluetooth"
+            "notify_persons": "Qui est interrogé ?"
           },
           "data_description": {
             "name": "Utilisé pour les entités de ce tracker, par exemple le prénom de l'enfant ou de l'invité qu'il représente.",
-            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nTout le reste se règle sur la page de l'appareil du tracker : « Demander quand la maison est vide » (s'il pose une question quand la dernière personne réelle part), « Délai de réponse à la demande », « Délai avant la demande », « Réinitialiser au retour », « Avis si sans réponse », « Rappel après », « Délai de réponse au rappel », « Ignorer Ne pas déranger pour la demande », « Absent après », « Demander pour un appareil oublié » et « Ignorer Ne pas déranger pour un appareil oublié ».",
-            "button_sources": "Facultatif. Entités d'événement de boutons – de n'importe quelle intégration, par exemple un bouton Shelly, Zigbee ou Hue – qui activent ou désactivent ce tracker. La signification de chaque appui se choisit à l'étape suivante ; tout autre appui est ignoré et reste libre pour vos propres automatisations.",
-            "presence_sources": "Facultatif. IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé, donc une tablette restée à la maison le garde activé alors que tout le monde est sorti. Trackers d'appareil (présent = à la maison) et capteurs binaires (présent = activé) de n'importe quelle intégration – par exemple une balise Bluetooth via iBeacon Tracker, Private BLE Device ou Bermuda, ou un appareil de votre Wi-Fi via l'intégration de votre routeur. Le tracker compte comme présent tant qu'une source l'est : il est activé quand elles deviennent présentes et désactivé dès qu'elles ont toutes été absentes pendant « Absent après ». Une modification manuelle entre les deux reste valable jusqu'au prochain changement de ce type. Si la dernière personne réelle part alors qu'une source est présente, le tracker est activé au lieu de poser la question, et « Réinitialiser au retour » ne s'applique pas à un tracker avec des sources.",
-            "ble_sources": "Facultatif. IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne ; une seule source présente garde le tracker activé. Appareils Bluetooth que Home Assistant capte, le signal le plus fort en premier – toute balise ou tout bouton qui émet avec une adresse fixe, quelle que soit l'intégration qui le connaît, ou aucune. Un appareil compte comme présent tant qu'il a été capté pendant « Absent après ». Absent de la liste parce qu'il est hors de portée en ce moment ? Saisissez son adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones et autres appareils qui changent sans cesse d'adresse ne peuvent pas être suivis ainsi – utilisez plutôt ci-dessus un tracker d'appareil de leur propre intégration."
+            "notify_persons": "Les personnes réelles dont l'application Home Assistant Companion reçoit les questions sur ce tracker, avec un bouton Oui et un bouton Non. Chaque personne interrogée doit être connectée à l'application avec son propre compte utilisateur ; la première réponse compte. Laissez vide pour ne rien envoyer du tout et transmettre les questions avec votre propre automatisation.\n\nLes interrupteurs du tracker se trouvent sur la page de son appareil, pour que les automatisations puissent les utiliser."
+          },
+          "sections": {
+            "questions": {
+              "name": "Questions",
+              "description": "Quand la dernière personne réelle part et que le tracker est désactivé, les téléphones de « Qui est interrogé ? » reçoivent la question de savoir si la personne est à la maison. L'interrupteur « Demander quand la maison est vide », sur la page de l'appareil du tracker, décide si la question est posée.",
+              "data": {
+                "answer_timeout": "Délai de réponse",
+                "prompt_delay": "Délai",
+                "notify_on_expiry": "Avis si sans réponse"
+              },
+              "data_description": {
+                "answer_timeout": "Durée pendant laquelle une demande reste ouverte, de 1 à 120 minutes. Vaut aussi pour la question sur un appareil oublié.",
+                "prompt_delay": "Temps d'attente après le dernier départ avant de demander, de 0 à 600 secondes. Gardez-le plus court que les délais de vos propres automatisations « personne à la maison ».",
+                "notify_on_expiry": "Envoie un court avis quand une question reste sans réponse à temps : la demande, le rappel ou la question sur un appareil oublié."
+              }
+            },
+            "reminder": {
+              "name": "Rappel",
+              "description": "Demande si la personne est toujours à la maison quand le tracker est activé depuis longtemps.",
+              "data": {
+                "remind_after": "Rappel après",
+                "reminder_timeout": "Délai de réponse"
+              },
+              "data_description": {
+                "remind_after": "Au bout de combien d'heures d'activation la question est posée, de 0 à 168. 0 signifie jamais.",
+                "reminder_timeout": "Durée pendant laquelle un rappel reste ouvert, de 1 à 360 minutes. Sans réponse, rien ne change."
+              }
+            },
+            "sources": {
+              "name": "Sources (facultatif)",
+              "description": "Les boutons et les sources de présence activent et désactivent le tracker d'eux-mêmes ; l'interrupteur, les automatisations et les questions continuent de fonctionner.",
+              "data": {
+                "button_sources": "Boutons",
+                "presence_sources": "Sources de présence",
+                "ble_sources": "Appareils Bluetooth",
+                "away_after": "Absent après"
+              },
+              "data_description": {
+                "button_sources": "Entités d'événement de boutons de n'importe quelle intégration. L'appui qui signifie présent ou absent se choisit à l'étape suivante ; tout autre appui reste libre pour vos automatisations.",
+                "presence_sources": "IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé. Choisissez des trackers d'appareil (état home) ou des capteurs binaires (état on) de n'importe quelle intégration, par exemple une balise Bluetooth ou un appareil de votre Wi-Fi. Le tracker s'active quand une source devient présente et se désactive quand toutes ont été absentes pendant « Absent après ».",
+                "ble_sources": "IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne. Balises et boutons Bluetooth à adresse fixe, signal le plus fort en premier ; présents tant qu'ils ont été captés pendant « Absent après ». Pas dans la liste ? Saisissez l'adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones changent d'adresse : utilisez plutôt un tracker d'appareil ci-dessus.",
+                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié."
+              }
+            }
           }
         },
         "buttons": {
@@ -95,7 +171,7 @@
         "name_exists": "Un tracker portant ce nom existe déjà.",
         "person_not_real": "{persons} ne fait pas partie des personnes réelles de ce foyer, on ne peut donc pas lui poser la question. Retirez la personne ici, ou ajoutez-la aux personnes réelles avec « Reconfigurer » sur la page de l'intégration.",
         "button_types_overlap": "{types} ne peut pas signifier à la fois à la maison et absent. Décochez-le dans l'une des deux listes.",
-        "button_types_missing": "Choisissez au moins un événement qui signifie à la maison ou absent – un bouton qui n'active ni ne désactive rien n'a aucun effet.",
+        "button_types_missing": "Choisissez au moins un événement qui signifie à la maison ou absent. Un bouton qui n'active ni ne désactive rien n'a aucun effet.",
         "invalid_ble_address": "{addresses} n'est pas une adresse Bluetooth. Saisissez-la sous la forme de six paires de chiffres hexadécimaux séparées par des deux-points, par exemple AA:BB:CC:DD:EE:FF."
       },
       "abort": {
@@ -135,23 +211,6 @@
         }
       }
     },
-    "number": {
-      "answer_timeout": {
-        "name": "Délai de réponse à la demande"
-      },
-      "away_after": {
-        "name": "Absent après"
-      },
-      "prompt_delay": {
-        "name": "Délai avant la demande"
-      },
-      "remind_after": {
-        "name": "Rappel après"
-      },
-      "reminder_timeout": {
-        "name": "Délai de réponse au rappel"
-      }
-    },
     "switch": {
       "ask_left_behind": {
         "name": "Demander pour un appareil oublié"
@@ -164,9 +223,6 @@
       },
       "left_behind_override_dnd": {
         "name": "Ignorer Ne pas déranger pour un appareil oublié"
-      },
-      "notify_on_expiry": {
-        "name": "Avis si sans réponse"
       },
       "override_dnd": {
         "name": "Ignorer Ne pas déranger pour la demande"
@@ -205,13 +261,13 @@
       "message": "{entity_id} est déjà activé, il n'y a donc personne sur qui poser la question."
     },
     "tracker_not_home": {
-      "message": "{entity_id} est désactivé, il n'y a donc personne pour qui envoyer un rappel."
+      "message": "{entity_id} est désactivé, il n'y a donc personne sur qui poser la question."
     }
   },
   "issues": {
     "no_tracker": {
       "title": "Aucun tracker virtuel n'a encore été ajouté",
-      "description": "Virtual Presence Tracker est configuré, mais il n'y a encore aucun tracker virtuel, donc rien ne se passe. Un tracker virtuel représente un membre du foyer sans téléphone, par exemple un enfant, un grand-parent ou un invité.\n\nAjoutez-en un dans Paramètres > Appareils et services > Intégrations > Virtual Presence Tracker > « Ajouter un tracker virtuel ». Attribuez-le ensuite à sa propre personne, afin que cette personne compte comme étant à la maison tant que le tracker est activé."
+      "description": "Virtual Presence Tracker est configuré, mais il n'y a encore aucun tracker virtuel, donc rien ne se passe. Un tracker virtuel représente un membre du foyer sans téléphone, par exemple un enfant, un grand-parent ou un invité.\n\nAjoutez-en un dans Paramètres > Appareils et services > Intégrations > Virtual Presence Tracker > « Ajouter un tracker virtuel ». Laissez « Créer une personne pour ce tracker » coché et la personne nécessaire est créée pour vous."
     },
     "tracker_not_assigned": {
       "title": "Le tracker virtuel {name} n'est attribué à aucune personne",
@@ -227,7 +283,7 @@
     },
     "real_person_missing": {
       "title": "La personne réelle {person} n'existe plus",
-      "description": "{person} figure parmi les personnes réelles de Virtual Presence Tracker, mais cette entité a disparu – supprimée ou renommée. Sa présence n'est plus prise en compte, les trackers virtuels risquent donc de ne plus être réinitialisés quand quelqu'un rentre à la maison.\n\nSélectionnez à nouveau vos personnes réelles dans Paramètres > Appareils et services > Virtual Presence Tracker > Reconfigurer."
+      "description": "{person} figure parmi les personnes réelles de Virtual Presence Tracker, mais cette entité a disparu (supprimée ou renommée). Sa présence n'est plus prise en compte, les trackers virtuels risquent donc de ne plus être réinitialisés quand quelqu'un rentre à la maison.\n\nSélectionnez à nouveau vos personnes réelles dans Paramètres > Appareils et services > Virtual Presence Tracker > Reconfigurer."
     }
   },
   "selector": {
@@ -295,11 +351,11 @@
     },
     "open_left_behind": {
       "name": "Poser la question d'appareil oublié",
-      "description": "Demande immédiatement si la personne que représente un tracker virtuel est vraiment à la maison, sans attendre que la maison soit vide pendant « Absent après ». Le tracker doit être activé et avoir une source de présence ; tout le reste se déroule comme d'habitude, y compris la notification, le « Délai de réponse à la demande » et la désactivation sans réponse."
+      "description": "Demande immédiatement si la personne que représente un tracker virtuel est vraiment à la maison, sans attendre que la maison soit vide pendant « Absent après ». Le tracker doit être activé et avoir une source de présence ; tout le reste se déroule comme d'habitude, y compris la notification, le « Délai de réponse » sous « Questions » et la désactivation sans réponse."
     },
     "open_prompt": {
       "name": "Ouvrir la demande",
-      "description": "Ouvre immédiatement la demande d'un tracker virtuel, sans attendre que la dernière personne réelle parte. Cette action ignore qui est à la maison, l'interrupteur « Demander quand la maison est vide » du tracker et le « Délai avant la demande » ; tout le reste se déroule comme pour une demande habituelle, y compris la notification et le délai de réponse."
+      "description": "Ouvre immédiatement la demande d'un tracker virtuel, sans attendre que la dernière personne réelle parte. Cette action ignore qui est à la maison, l'interrupteur « Demander quand la maison est vide » du tracker et le « Délai » sous « Questions » ; tout le reste se déroule comme pour une demande habituelle, y compris la notification et le délai de réponse."
     },
     "open_reminder": {
       "name": "Ouvrir le rappel",

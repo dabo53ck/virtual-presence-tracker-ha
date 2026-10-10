@@ -109,12 +109,11 @@ DEFAULT_ASK_LEFT_BEHIND: Final = False
 CONF_LEFT_BEHIND_OVERRIDE_DND: Final = "left_behind_override_dnd"
 DEFAULT_LEFT_BEHIND_OVERRIDE_DND: Final = False
 
-# The options a tracker carries an entity for (M2f, grown in M3a), with the
-# value that applies while the key is missing. They are the only keys of a
-# subentry that
-# may change without reloading the config entry: a reload would take the
-# trackers and their persons away for a moment, which is not something a
-# switch is allowed to do.
+# Every per-tracker option, with the value that applies while the key is
+# missing. None of them reloads the config entry when it changes: a reload
+# would take the trackers and their persons away for a moment, which neither a
+# switch nor saving the tracker's form is allowed to do. The manager reads all
+# of them where it uses them, whoever wrote them.
 OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
     CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
@@ -129,6 +128,32 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
+
+# The collapsible sections of the tracker's form (M3g) and the options each of
+# them holds: what is set once. What is switched depending on the situation
+# has a switch on the tracker's device page instead (switch.py). The section keys only exist in the form: the values are stored
+# flat in the subentry data, under the keys they have always had. The sources
+# section additionally holds the three source lists.
+SECTION_QUESTIONS: Final = "questions"
+SECTION_REMINDER: Final = "reminder"
+SECTION_SOURCES: Final = "sources"
+FORM_OPTION_SECTIONS: Final[dict[str, tuple[str, ...]]] = {
+    SECTION_QUESTIONS: (CONF_ANSWER_TIMEOUT, CONF_PROMPT_DELAY, CONF_NOTIFY_ON_EXPIRY),
+    SECTION_REMINDER: (CONF_REMIND_AFTER, CONF_REMINDER_TIMEOUT),
+    SECTION_SOURCES: (CONF_AWAY_AFTER,),
+}
+
+# The option entities that M3g removed, as (platform domain, option key): the
+# key is the suffix of their unique ID. Their registry entries are removed on
+# setup, so that no `unavailable` leftover stays behind on an older install.
+REMOVED_OPTION_ENTITIES: Final = (
+    ("number", CONF_ANSWER_TIMEOUT),
+    ("number", CONF_PROMPT_DELAY),
+    ("number", CONF_REMIND_AFTER),
+    ("number", CONF_REMINDER_TIMEOUT),
+    ("number", CONF_AWAY_AFTER),
+    ("switch", CONF_NOTIFY_ON_EXPIRY),
+)
 
 # The person a new tracker asks for (M2g). This is a marker in the subentry
 # data, not an option: the form writes it, the integration acts on it once
@@ -177,7 +202,7 @@ BLUETOOTH_DOMAIN: Final = "bluetooth"
 BLE_POLL_INTERVAL: Final = 30
 
 # Every key of a subentry that may change while the config entry stays loaded:
-# the options an entity writes, the marker above, the button sources and the
+# the options (written by a switch or by the form), the marker above, the button sources and the
 # presence sources, whose listeners the manager moves by itself. A reload
 # would take the trackers and their persons to `unavailable` for a moment, and
 # none of these is allowed to do that (see the reload fingerprint in

@@ -1,9 +1,11 @@
-"""Tests for the entities of the per-tracker options (M2f).
+"""Tests for the per-tracker options (M2f, split in M3g).
 
-The options keep living in the data of the tracker's config subentry; these
-entities are a view on it and a way to write it. Writing one must not reload
-the config entry: a reload takes the device tracker and its person away for a
-moment, which looks like somebody leaving and coming back.
+The options keep living in the data of the tracker's config subentry. Five of
+them have a switch on the tracker's device page; the timings and the expiry
+notice are set in the tracker's form (M3g) and written straight into the
+subentry. Writing one must not reload the config entry either way: a reload
+takes the device tracker and its person away for a moment, which looks like
+somebody leaving and coming back.
 """
 
 from __future__ import annotations
@@ -24,9 +26,11 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_REASON,
     ATTR_USER_ID,
     CONF_ANSWER_TIMEOUT,
+    CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
     CONF_AWAY_AFTER,
     CONF_DEVICE_NAME,
+    CONF_LEFT_BEHIND_OVERRIDE_DND,
     CONF_NOTIFY_ON_EXPIRY,
     CONF_NOTIFY_PERSONS,
     CONF_OVERRIDE_DND,
@@ -52,44 +56,31 @@ from custom_components.virtual_presence_tracker.const import (
     SERVICE_OPEN_REMINDER,
 )
 from homeassistant.components.event import ATTR_EVENT_TYPE
-from homeassistant.components.number import (
-    ATTR_VALUE,
-    DOMAIN as NUMBER_DOMAIN,
-    SERVICE_SET_VALUE,
-)
 from homeassistant.components.switch import (
     DOMAIN as SWITCH_DOMAIN,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
 )
 from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     ATTR_FRIENDLY_NAME,
-    ATTR_UNIT_OF_MEASUREMENT,
     EVENT_STATE_CHANGED,
     STATE_HOME,
     STATE_NOT_HOME,
     STATE_OFF,
     STATE_ON,
     EntityCategory,
-    UnitOfTime,
 )
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .conftest import PERSON_A, TRACKER_A, TRACKER_B, make_entry, make_subentry
 
 ASK_A = "switch.kid_ask_when_empty"
 RESET_A = "switch.kid_reset_on_return"
-EXPIRY_A = "switch.kid_notice_if_unanswered"
 DND_A = "switch.kid_override_do_not_disturb_for_the_prompt"
-TIMEOUT_A = "number.kid_prompt_answer_time"
-DELAY_A = "number.kid_prompt_delay"
-REMIND_A = "number.kid_remind_after"
-REMINDER_TIMEOUT_A = "number.kid_reminder_answer_time"
-AWAY_A = "number.kid_away_after"
+LEFT_BEHIND_A = "switch.kid_ask_about_a_device_left_behind"
+LEFT_BEHIND_DND_A = "switch.kid_override_do_not_disturb_for_a_device_left_behind"
 
 SWITCH_A = "switch.kid_at_home"
 TRACKER_A_ENTITY = "device_tracker.kid"
@@ -148,13 +139,11 @@ async def turn(hass: HomeAssistant, entity_id: str, on: bool) -> None:
     await hass.async_block_till_done()
 
 
-async def set_number(hass: HomeAssistant, entity_id: str, value: float) -> None:
-    """Set one of the timing numbers."""
-    await hass.services.async_call(
-        NUMBER_DOMAIN,
-        SERVICE_SET_VALUE,
-        {ATTR_ENTITY_ID: entity_id, ATTR_VALUE: value},
-        blocking=True,
+async def write(hass: HomeAssistant, entry: MockConfigEntry, **values: Any) -> None:
+    """Write options of the first tracker the way its form does (M3g)."""
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, **values}
     )
     await hass.async_block_till_done()
 
@@ -191,36 +180,49 @@ def add_phone(hass: HomeAssistant) -> list[Any]:
     return async_mock_service(hass, NOTIFY_DOMAIN, PHONE_A)
 
 
-async def test_every_tracker_gets_the_option_entities(
+async def test_every_tracker_gets_the_option_switches(
     hass: HomeAssistant, tracker_entry: MockConfigEntry
 ) -> None:
-    """Nine entities per tracker, on the tracker's own device, all settings."""
+    """Five switches per tracker, on the tracker's own device, all settings.
+
+    The timings and the expiry notice have no entity any more (M3g): they are
+    set in the tracker's form.
+    """
     await setup_entry(hass, tracker_entry)
 
     registry = er.async_get(hass)
     expected = {
-        ASK_A: (CONF_ASK_ON_DEPARTURE, EntityCategory.CONFIG),
-        RESET_A: (CONF_RESET_ON_RETURN, EntityCategory.CONFIG),
-        EXPIRY_A: (CONF_NOTIFY_ON_EXPIRY, EntityCategory.CONFIG),
-        DND_A: (CONF_OVERRIDE_DND, EntityCategory.CONFIG),
-        TIMEOUT_A: (CONF_ANSWER_TIMEOUT, EntityCategory.CONFIG),
-        DELAY_A: (CONF_PROMPT_DELAY, EntityCategory.CONFIG),
-        REMIND_A: (CONF_REMIND_AFTER, EntityCategory.CONFIG),
-        REMINDER_TIMEOUT_A: (CONF_REMINDER_TIMEOUT, EntityCategory.CONFIG),
-        AWAY_A: (CONF_AWAY_AFTER, EntityCategory.CONFIG),
+        ASK_A: CONF_ASK_ON_DEPARTURE,
+        RESET_A: CONF_RESET_ON_RETURN,
+        DND_A: CONF_OVERRIDE_DND,
+        LEFT_BEHIND_A: CONF_ASK_LEFT_BEHIND,
+        LEFT_BEHIND_DND_A: CONF_LEFT_BEHIND_OVERRIDE_DND,
     }
     device = dr.async_get(hass).async_get_device_by_identifier(
         (DOMAIN, TRACKER_A), tracker_entry.entry_id
     )
     assert device is not None
 
-    for entity_id, (key, category) in expected.items():
+    for entity_id, key in expected.items():
         entity_entry = registry.async_get(entity_id)
         assert entity_entry is not None, entity_id
         assert entity_entry.unique_id == f"{TRACKER_A}_{key}"
-        assert entity_entry.entity_category is category
+        assert entity_entry.entity_category is EntityCategory.CONFIG
         assert entity_entry.config_subentry_id == TRACKER_A
         assert entity_entry.device_id == device.id
+
+    # Next to them only the tracker's own switch and its questions entity.
+    on_device = {
+        entity.entity_id for entity in er.async_entries_for_device(registry, device.id)
+    }
+    assert on_device == {*expected, SWITCH_A, EVENT_A}
+    assert not [
+        entity
+        for entity in er.async_entries_for_config_entry(
+            registry, tracker_entry.entry_id
+        )
+        if entity.domain == "number"
+    ]
 
     # The second tracker has its own set, and the tracker's name is in front.
     assert registry.async_get("switch.granny_ask_when_empty") is not None
@@ -237,19 +239,23 @@ async def test_an_old_tracker_shows_the_defaults_of_a_missing_key(
     doing either because it grew an entity.
     """
     await setup_entry(hass, tracker_entry)
+    manager = tracker_entry.runtime_data.manager
 
     assert hass.states.get(ASK_A).state == STATE_OFF
     assert hass.states.get(RESET_A).state == STATE_ON
-    assert hass.states.get(EXPIRY_A).state == STATE_OFF
     # Loud enough to get through a silenced phone is opt-in, never a default.
     assert hass.states.get(DND_A).state == STATE_OFF
-    assert float(hass.states.get(TIMEOUT_A).state) == DEFAULT_ANSWER_TIMEOUT
-    assert float(hass.states.get(DELAY_A).state) == DEFAULT_PROMPT_DELAY
-    assert float(hass.states.get(REMIND_A).state) == DEFAULT_REMIND_AFTER == 0
-    assert float(hass.states.get(REMINDER_TIMEOUT_A).state) == (
+    assert hass.states.get(LEFT_BEHIND_A).state == STATE_OFF
+    assert hass.states.get(LEFT_BEHIND_DND_A).state == STATE_OFF
+    # The options of the form apply their defaults just the same.
+    assert manager.option(TRACKER_A, CONF_NOTIFY_ON_EXPIRY) is False
+    assert manager.option(TRACKER_A, CONF_ANSWER_TIMEOUT) == DEFAULT_ANSWER_TIMEOUT
+    assert manager.option(TRACKER_A, CONF_PROMPT_DELAY) == DEFAULT_PROMPT_DELAY
+    assert manager.option(TRACKER_A, CONF_REMIND_AFTER) == DEFAULT_REMIND_AFTER == 0
+    assert manager.option(TRACKER_A, CONF_REMINDER_TIMEOUT) == (
         DEFAULT_REMINDER_TIMEOUT
     )
-    assert float(hass.states.get(AWAY_A).state) == DEFAULT_AWAY_AFTER == 10
+    assert manager.option(TRACKER_A, CONF_AWAY_AFTER) == DEFAULT_AWAY_AFTER == 10
     # Nothing was written to the subentry by showing it.
     assert dict(tracker_entry.subentries[TRACKER_A].data) == {}
 
@@ -267,13 +273,9 @@ async def test_the_entities_show_what_the_tracker_has_stored(
                 **{
                     CONF_ASK_ON_DEPARTURE: True,
                     CONF_RESET_ON_RETURN: False,
-                    CONF_NOTIFY_ON_EXPIRY: True,
                     CONF_OVERRIDE_DND: True,
-                    CONF_ANSWER_TIMEOUT: 42,
-                    CONF_PROMPT_DELAY: 90,
-                    CONF_REMIND_AFTER: 36,
-                    CONF_REMINDER_TIMEOUT: 240,
-                    CONF_AWAY_AFTER: 25,
+                    CONF_ASK_LEFT_BEHIND: True,
+                    CONF_LEFT_BEHIND_OVERRIDE_DND: True,
                 },
             ),
             make_subentry(TRACKER_B, "Granny"),
@@ -282,66 +284,11 @@ async def test_the_entities_show_what_the_tracker_has_stored(
 
     assert hass.states.get(ASK_A).state == STATE_ON
     assert hass.states.get(RESET_A).state == STATE_OFF
-    assert hass.states.get(EXPIRY_A).state == STATE_ON
     assert hass.states.get(DND_A).state == STATE_ON
-    assert float(hass.states.get(TIMEOUT_A).state) == 42
-    assert float(hass.states.get(DELAY_A).state) == 90
-    assert float(hass.states.get(REMIND_A).state) == 36
-    assert float(hass.states.get(REMINDER_TIMEOUT_A).state) == 240
-    assert float(hass.states.get(AWAY_A).state) == 25
+    assert hass.states.get(LEFT_BEHIND_A).state == STATE_ON
+    assert hass.states.get(LEFT_BEHIND_DND_A).state == STATE_ON
     # The other tracker is untouched by it.
     assert hass.states.get("switch.granny_ask_when_empty").state == STATE_OFF
-    assert float(hass.states.get("number.granny_prompt_answer_time").state) == (
-        DEFAULT_ANSWER_TIMEOUT
-    )
-
-
-async def test_the_numbers_are_durations(
-    hass: HomeAssistant, tracker_entry: MockConfigEntry
-) -> None:
-    """Minutes and seconds, with the range the options have always had."""
-    await setup_entry(hass, tracker_entry)
-
-    timeout = hass.states.get(TIMEOUT_A)
-    assert timeout.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.MINUTES
-    assert timeout.attributes[ATTR_DEVICE_CLASS] == "duration"
-    assert timeout.attributes["min"] == 1
-    assert timeout.attributes["max"] == 120
-    assert timeout.attributes["step"] == 1
-    assert timeout.attributes["mode"] == "box"
-
-    delay = hass.states.get(DELAY_A)
-    assert delay.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.SECONDS
-    assert delay.attributes["min"] == 0
-    assert delay.attributes["max"] == 600
-
-    remind = hass.states.get(REMIND_A)
-    assert remind.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.HOURS
-    assert remind.attributes[ATTR_DEVICE_CLASS] == "duration"
-    assert remind.attributes["min"] == 0
-    assert remind.attributes["max"] == 168
-    assert remind.attributes["step"] == 1
-    assert remind.attributes["mode"] == "box"
-
-    # The reminder's own answer time: minutes like the prompt's, but with a
-    # range of its own - up to six hours, because a reminder may well be
-    # answered long after it arrived.
-    reminder_timeout = hass.states.get(REMINDER_TIMEOUT_A)
-    assert reminder_timeout.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.MINUTES
-    assert reminder_timeout.attributes[ATTR_DEVICE_CLASS] == "duration"
-    assert reminder_timeout.attributes["min"] == 1
-    assert reminder_timeout.attributes["max"] == 360
-    assert reminder_timeout.attributes["step"] == 1
-    assert reminder_timeout.attributes["mode"] == "box"
-
-    # How long the presence sources have to be away (M3e), in minutes.
-    away = hass.states.get(AWAY_A)
-    assert away.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTime.MINUTES
-    assert away.attributes[ATTR_DEVICE_CLASS] == "duration"
-    assert away.attributes["min"] == 1
-    assert away.attributes["max"] == 120
-    assert away.attributes["step"] == 1
-    assert away.attributes["mode"] == "box"
 
 
 @pytest.mark.parametrize(
@@ -349,8 +296,9 @@ async def test_the_numbers_are_durations(
     [
         (ASK_A, CONF_ASK_ON_DEPARTURE),
         (RESET_A, CONF_RESET_ON_RETURN),
-        (EXPIRY_A, CONF_NOTIFY_ON_EXPIRY),
         (DND_A, CONF_OVERRIDE_DND),
+        (LEFT_BEHIND_A, CONF_ASK_LEFT_BEHIND),
+        (LEFT_BEHIND_DND_A, CONF_LEFT_BEHIND_OVERRIDE_DND),
     ],
 )
 async def test_a_switch_writes_its_option(
@@ -389,71 +337,7 @@ async def test_the_new_value_is_there_when_the_action_returns(
 
     assert hass.states.get(ASK_A).state == STATE_ON
 
-    await hass.services.async_call(
-        NUMBER_DOMAIN,
-        SERVICE_SET_VALUE,
-        {ATTR_ENTITY_ID: TIMEOUT_A, ATTR_VALUE: 25},
-        blocking=True,
-    )
-
-    assert float(hass.states.get(TIMEOUT_A).state) == 25
-
     await hass.async_block_till_done()
-
-
-@pytest.mark.parametrize(
-    ("entity_id", "key", "value"),
-    [
-        (TIMEOUT_A, CONF_ANSWER_TIMEOUT, 30),
-        (DELAY_A, CONF_PROMPT_DELAY, 120),
-        (REMIND_A, CONF_REMIND_AFTER, 6),
-        (REMINDER_TIMEOUT_A, CONF_REMINDER_TIMEOUT, 180),
-        (AWAY_A, CONF_AWAY_AFTER, 45),
-    ],
-)
-async def test_a_number_writes_its_option(
-    hass: HomeAssistant,
-    tracker_entry: MockConfigEntry,
-    entity_id: str,
-    key: str,
-    value: int,
-) -> None:
-    """Setting a timing stores a whole number and shows it at once."""
-    await setup_entry(hass, tracker_entry)
-
-    await set_number(hass, entity_id, value)
-
-    stored = tracker_entry.subentries[TRACKER_A].data[key]
-    assert stored == value
-    assert isinstance(stored, int)
-    assert float(hass.states.get(entity_id).state) == value
-
-
-@pytest.mark.parametrize(
-    ("entity_id", "value"),
-    [
-        (TIMEOUT_A, 0),
-        (TIMEOUT_A, 121),
-        (DELAY_A, -1),
-        (DELAY_A, 601),
-        (REMIND_A, -1),
-        (REMIND_A, 169),
-        (REMINDER_TIMEOUT_A, 0),
-        (REMINDER_TIMEOUT_A, 361),
-        (AWAY_A, 0),
-        (AWAY_A, 121),
-    ],
-)
-async def test_the_numbers_keep_their_range(
-    hass: HomeAssistant, tracker_entry: MockConfigEntry, entity_id: str, value: int
-) -> None:
-    """A value outside the range is refused and nothing is stored."""
-    await setup_entry(hass, tracker_entry)
-
-    with pytest.raises(ServiceValidationError):
-        await set_number(hass, entity_id, value)
-
-    assert dict(tracker_entry.subentries[TRACKER_A].data) == {}
 
 
 async def test_changing_an_option_does_not_reload_the_entry(
@@ -470,13 +354,21 @@ async def test_changing_an_option_does_not_reload_the_entry(
     await turn(hass, SWITCH_A, True)
 
     watcher = Watcher(hass, WATCHED)
-    for entity_id in (ASK_A, RESET_A, EXPIRY_A, DND_A):
+    for entity_id in (ASK_A, RESET_A, DND_A, LEFT_BEHIND_A, LEFT_BEHIND_DND_A):
         await turn(hass, entity_id, True)
-    await set_number(hass, TIMEOUT_A, 30)
-    await set_number(hass, DELAY_A, 5)
-    await set_number(hass, REMIND_A, 48)
-    await set_number(hass, REMINDER_TIMEOUT_A, 90)
-    await set_number(hass, AWAY_A, 20)
+    # And the options of the form, written the way the form writes them.
+    await write(
+        hass,
+        tracker_entry,
+        **{
+            CONF_NOTIFY_ON_EXPIRY: True,
+            CONF_ANSWER_TIMEOUT: 30,
+            CONF_PROMPT_DELAY: 5,
+            CONF_REMIND_AFTER: 48,
+            CONF_REMINDER_TIMEOUT: 90,
+            CONF_AWAY_AFTER: 20,
+        },
+    )
 
     assert watcher.changes == []
     # The same manager, so nothing was rebuilt behind the entities either.
@@ -489,7 +381,9 @@ async def test_changing_an_option_does_not_reload_the_entry(
     assert manager.option(TRACKER_A, CONF_REMIND_AFTER) == 48
     assert manager.option(TRACKER_A, CONF_REMINDER_TIMEOUT) == 90
     assert manager.option(TRACKER_A, CONF_AWAY_AFTER) == 20
+    assert manager.option(TRACKER_A, CONF_NOTIFY_ON_EXPIRY) is True
     assert manager.option(TRACKER_A, CONF_OVERRIDE_DND) is True
+    assert manager.option(TRACKER_A, CONF_LEFT_BEHIND_OVERRIDE_DND) is True
 
     await unload(hass, tracker_entry)
 
@@ -629,7 +523,7 @@ async def test_the_new_timeout_is_for_the_next_prompt(hass: HomeAssistant) -> No
     manager = entry.runtime_data.manager
     expires_at = manager.prompt_expires_at(TRACKER_A)
 
-    await set_number(hass, TIMEOUT_A, 60)
+    await write(hass, entry, **{CONF_ANSWER_TIMEOUT: 60})
 
     assert manager.prompt_expires_at(TRACKER_A) == expires_at
 
@@ -673,7 +567,7 @@ async def test_setting_the_reminder_to_zero_takes_an_open_one_back(
     entry = await setup_entry(hass, make_entry(make_subentry(TRACKER_A, "Kid")))
     await set_person(hass, STATE_NOT_HOME)
     await turn(hass, SWITCH_A, True)
-    await set_number(hass, REMIND_A, 2)
+    await write(hass, entry, **{CONF_REMIND_AFTER: 2})
 
     await hass.services.async_call(
         DOMAIN, SERVICE_OPEN_REMINDER, {ATTR_ENTITY_ID: SWITCH_A}, blocking=True
@@ -683,7 +577,7 @@ async def test_setting_the_reminder_to_zero_takes_an_open_one_back(
         EVENT_REMINDER_STARTED
     )
 
-    await set_number(hass, REMIND_A, 0)
+    await write(hass, entry, **{CONF_REMIND_AFTER: 0})
 
     state = hass.states.get(EVENT_A)
     assert state.attributes[ATTR_EVENT_TYPE] == EVENT_REMINDER_CANCELLED

@@ -6,10 +6,12 @@ follows. It also carries the six question actions, as entity services: the
 switch is the entity a prompt, a reminder or a question about a device left
 behind is about, so targeting it is targeting the tracker.
 
-Next to it sit the switches of the tracker's boolean options (M2f, M3c, M3f). They
-write the subentry data the options have always lived in, so that changing one
-is a tap on the tracker's device page instead of a form - and, unlike the form,
-without reloading the entry.
+Next to it sit the switches of the tracker's options that are switched
+depending on the situation (M2f, M3c, M3f): asking when the house empties,
+the reset on return, asking about a device left behind and the two Do Not
+Disturb overrides. They write the subentry data the options have always lived
+in, without reloading the entry. Everything that is set once - the timings and
+the expiry notice - is in the tracker's form instead (M3g).
 """
 
 from __future__ import annotations
@@ -42,7 +44,6 @@ from .const import (
     CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
     CONF_LEFT_BEHIND_OVERRIDE_DND,
-    CONF_NOTIFY_ON_EXPIRY,
     CONF_OVERRIDE_DND,
     CONF_RESET_ON_RETURN,
     DOMAIN,
@@ -103,7 +104,6 @@ async def async_setup_entry(
                 VirtualTrackerSwitch(manager, subentry),
                 AskOnDepartureSwitch(manager, subentry),
                 ResetOnReturnSwitch(manager, subentry),
-                NotifyOnExpirySwitch(manager, subentry),
                 OverrideDndSwitch(manager, subentry),
                 AskLeftBehindSwitch(manager, subentry),
                 LeftBehindOverrideDndSwitch(manager, subentry),
@@ -321,9 +321,9 @@ class VirtualTrackerOptionSwitch(VirtualTrackerOptionEntity, SwitchEntity):
 class AskOnDepartureSwitch(VirtualTrackerOptionSwitch):
     """Whether the tracker asks when the house empties.
 
-    A setting like the other four, and therefore a configuration entity: it
-    belongs with them on the tracker's device page rather than next to the
-    tracker's own switch. Being a configuration entity changes nothing about
+    A setting like the other four switches, and therefore a configuration
+    entity: it belongs with them on the tracker's device page rather than next
+    to the tracker's own switch. Being a configuration entity changes nothing about
     writing it - an automation or a script flips it like any other switch.
     Switching it off while the tracker is being asked about takes the question
     back at once (the manager does that, reason ``option_disabled``).
@@ -338,13 +338,6 @@ class ResetOnReturnSwitch(VirtualTrackerOptionSwitch):
 
     _attr_entity_category = EntityCategory.CONFIG
     _option_key = CONF_RESET_ON_RETURN
-
-
-class NotifyOnExpirySwitch(VirtualTrackerOptionSwitch):
-    """Whether the recipients hear about a prompt nobody answered."""
-
-    _attr_entity_category = EntityCategory.CONFIG
-    _option_key = CONF_NOTIFY_ON_EXPIRY
 
 
 class OverrideDndSwitch(VirtualTrackerOptionSwitch):

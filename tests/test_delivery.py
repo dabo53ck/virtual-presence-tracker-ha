@@ -164,6 +164,14 @@ async def empty_the_house(hass: HomeAssistant) -> None:
     await move_person(hass, PERSON_A, STATE_NOT_HOME, USER_A)
 
 
+def set_notify_on_expiry(hass: HomeAssistant, entry: MockConfigEntry, on: bool) -> None:
+    """Change "Notice if unanswered" of the first tracker, as its form does."""
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_NOTIFY_ON_EXPIRY: on}
+    )
+
+
 async def settle(hass: HomeAssistant) -> None:
     """Wait for the background tasks the delivery sends its messages in."""
     await hass.async_block_till_done(wait_background_tasks=True)
@@ -1291,20 +1299,16 @@ async def test_the_reminder_notice_follows_the_option_live(
 ) -> None:
     """The option is read when the reminder ends, not when it started.
 
-    Switching it writes the subentry without reloading the entry, so the
-    delivery has to look the value up every time it sends something.
+    Saving it in the tracker's form writes the subentry without reloading the
+    entry, so the delivery has to look the value up every time it sends
+    something.
     """
     calls = add_dabo53ck(hass)
     entry = await setup_entry(hass, make_entry(asking=False, reminder_timeout=5))
 
     await switch_on(hass)
     await open_reminder(hass)
-    await hass.services.async_call(
-        SWITCH_DOMAIN,
-        SERVICE_TURN_ON,
-        {"entity_id": "switch.kid_notice_if_unanswered"},
-        blocking=True,
-    )
+    set_notify_on_expiry(hass, entry, True)
     await settle(hass)
 
     await expire_the_reminder(hass, freezer)
@@ -1314,12 +1318,7 @@ async def test_the_reminder_notice_follows_the_option_live(
 
     # And the other way round: switched off while the next one is open.
     await open_reminder(hass)
-    await hass.services.async_call(
-        SWITCH_DOMAIN,
-        SERVICE_TURN_OFF,
-        {"entity_id": "switch.kid_notice_if_unanswered"},
-        blocking=True,
-    )
+    set_notify_on_expiry(hass, entry, False)
     await settle(hass)
 
     await expire_the_reminder(hass, freezer)

@@ -15,7 +15,7 @@ answer_prompt:
             - "no"
     answered_by:
       required: false
-      example: person.dabo53ck
+      example: person.alex
       selector:
         entity:
           filter:
@@ -44,7 +44,7 @@ answer_reminder:
             - "no"
     answered_by:
       required: false
-      example: person.dabo53ck
+      example: person.alex
       selector:
         entity:
           filter:
@@ -73,7 +73,7 @@ answer_left_behind:
             - "no"
     answered_by:
       required: false
-      example: person.dabo53ck
+      example: person.alex
       selector:
         entity:
           filter:

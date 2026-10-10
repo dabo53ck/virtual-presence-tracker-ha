@@ -31,6 +31,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_ASK_ON_DEPARTURE,
     CONF_AWAY_AFTER,
     CONF_BLE_SOURCES,
+    CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
     CONF_DEVICE_NAME,
     CONF_NOTIFY_PERSONS,
@@ -44,6 +45,7 @@ from custom_components.virtual_presence_tracker.const import (
     NOTIFY_DOMAIN,
     REASON_SWITCHED_OFF,
     REASON_SWITCHED_ON,
+    SECTION_SOURCES,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
@@ -62,7 +64,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
 from homeassistant.helpers import device_registry as dr
 
 from .conftest import (
@@ -83,7 +85,6 @@ TRACKER_A_ENTITY = "device_tracker.kid"
 TRACKER_B_ENTITY = "device_tracker.granny"
 EVENT_A = "event.kid_questions"
 SENSOR = "binary_sensor.only_virtual_trackers_home"
-AWAY_A = "number.kid_away_after"
 
 ADDRESS = "7C:C6:B6:00:5D:C6"
 OTHER_ADDRESS = "A4:C1:38:00:00:01"
@@ -117,6 +118,17 @@ async def setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> MockConfig
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry
+
+
+async def set_away_after(
+    hass: HomeAssistant, entry: MockConfigEntry, minutes: int
+) -> None:
+    """Change "Away after" of the first tracker, as saving its form does."""
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_AWAY_AFTER: minutes}
+    )
+    await hass.async_block_till_done()
 
 
 async def unload(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -764,7 +776,7 @@ async def test_removing_the_sources_drops_a_pending_switch_off(
 async def test_a_longer_away_after_moves_a_pending_switch_off(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory
 ) -> None:
-    """The number writes without a reload, and the timer follows it."""
+    """Saving it in the form needs no reload, and the timer follows it."""
     hass.states.async_set(TAG, STATE_HOME)
     entry = await setup_entry(hass, presence_entry())
     manager = entry.runtime_data.manager
@@ -772,10 +784,7 @@ async def test_a_longer_away_after_moves_a_pending_switch_off(
     await set_state(hass, TAG, STATE_NOT_HOME)
 
     watcher = Watcher(hass, TRACKER_A_ENTITY, SWITCH_A)
-    await hass.services.async_call(
-        "number", "set_value", {"entity_id": AWAY_A, "value": 30}, blocking=True
-    )
-    await hass.async_block_till_done()
+    await set_away_after(hass, entry, 30)
     assert watcher.changes == []
     assert entry.runtime_data.manager is manager
     assert entry.subentries[TRACKER_A].data[CONF_AWAY_AFTER] == 30
@@ -799,10 +808,7 @@ async def test_a_shorter_away_after_can_switch_off_at_once(
     await set_state(hass, TAG, STATE_NOT_HOME)
     await tick(hass, freezer, 5 * MINUTE)
 
-    await hass.services.async_call(
-        "number", "set_value", {"entity_id": AWAY_A, "value": 2}, blocking=True
-    )
-    await hass.async_block_till_done()
+    await set_away_after(hass, entry, 2)
 
     assert manager.is_home(TRACKER_A) is False
 
@@ -1051,24 +1057,31 @@ async def test_without_bluetooth_an_address_is_never_known(
 # --- The form ------------------------------------------------------------------
 
 
-def field(result: dict[str, Any], key: str) -> Any:
-    """Return the selector of one field of a form."""
+def sources_section(result: dict[str, Any]) -> section:
+    """Return the "Sources" section of the tracker form (M3g)."""
     schema: vol.Schema = result["data_schema"]
+    return next(
+        value for marker, value in schema.schema.items() if marker == SECTION_SOURCES
+    )
+
+
+def field(result: dict[str, Any], key: str) -> Any:
+    """Return the selector of one field of the "Sources" section."""
+    schema: vol.Schema = sources_section(result).schema
     return next(value for marker, value in schema.schema.items() if marker == key)
 
 
 def keys(result: dict[str, Any]) -> list[str]:
-    """Return the fields of a form, in order."""
-    return [str(marker) for marker in result["data_schema"].schema]
+    """Return the fields of the "Sources" section, in order."""
+    return [str(marker) for marker in sources_section(result).schema.schema]
 
 
 def suggested(result: dict[str, Any], key: str) -> Any:
-    """Return the value a form suggests for one of its keys."""
-    schema: vol.Schema = result["data_schema"]
-    for marker in schema.schema:
+    """Return the value the "Sources" section suggests for one of its keys."""
+    for marker in sources_section(result).schema.schema:
         if marker == key:
             return (marker.description or {}).get("suggested_value")
-    raise AssertionError(f"{key} is not part of the form")
+    raise AssertionError(f"{key} is not part of the section")
 
 
 async def start_form(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, Any]:
@@ -1092,7 +1105,11 @@ async def test_the_form_takes_presence_sources(hass: HomeAssistant) -> None:
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {CONF_NAME: "Kid", CONF_CREATE_PERSON: False, CONF_PRESENCE_SOURCES: [TAG]},
+        {
+            CONF_NAME: "Kid",
+            CONF_CREATE_PERSON: False,
+            SECTION_SOURCES: {CONF_PRESENCE_SOURCES: [TAG]},
+        },
     )
     await hass.async_block_till_done()
 
@@ -1135,7 +1152,7 @@ async def test_the_form_leaves_out_the_own_entities(hass: HomeAssistant) -> None
             {
                 CONF_NAME: "Kid",
                 CONF_NOTIFY_PERSONS: [],
-                CONF_PRESENCE_SOURCES: [TRACKER_B_ENTITY],
+                SECTION_SOURCES: {CONF_PRESENCE_SOURCES: [TRACKER_B_ENTITY]},
             },
         )
 
@@ -1160,14 +1177,18 @@ async def test_removing_every_source_clears_the_keys(
         {
             CONF_NAME: "Kid",
             CONF_NOTIFY_PERSONS: [],
-            CONF_PRESENCE_SOURCES: [],
-            CONF_BLE_SOURCES: [],
+            SECTION_SOURCES: {CONF_PRESENCE_SOURCES: [], CONF_BLE_SOURCES: []},
         },
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
-    assert dict(entry.subentries[TRACKER_A].data) == {CONF_NOTIFY_PERSONS: []}
+    # The section also carried "Away after", which the form wrote with the
+    # value that applied.
+    assert dict(entry.subentries[TRACKER_A].data) == {
+        CONF_NOTIFY_PERSONS: [],
+        CONF_AWAY_AFTER: 10,
+    }
     assert entry.runtime_data.manager is manager
 
     await unload(hass, entry)
@@ -1210,7 +1231,12 @@ async def test_the_bluetooth_devices_are_named_and_sorted(
 
     result = await start_form(hass, entry)
 
-    assert keys(result)[-2:] == [CONF_PRESENCE_SOURCES, CONF_BLE_SOURCES]
+    assert keys(result) == [
+        CONF_BUTTON_SOURCES,
+        CONF_PRESENCE_SOURCES,
+        CONF_BLE_SOURCES,
+        CONF_AWAY_AFTER,
+    ]
     config = field(result, CONF_BLE_SOURCES).config
     assert config["options"] == [
         {"value": ADDRESS, "label": f"Shelly BLU Button1 5DC6 ({ADDRESS})"},
@@ -1253,7 +1279,7 @@ async def test_a_typed_address_is_normalized(
         {
             CONF_NAME: "Kid",
             CONF_CREATE_PERSON: False,
-            CONF_BLE_SOURCES: [" 7c-c6-b6-00-5d-c6 ", ADDRESS],
+            SECTION_SOURCES: {CONF_BLE_SOURCES: [" 7c-c6-b6-00-5d-c6 ", ADDRESS]},
         },
     )
     await hass.async_block_till_done()
@@ -1278,12 +1304,16 @@ async def test_an_invalid_address_is_refused(
         {
             CONF_NAME: "Kid",
             CONF_CREATE_PERSON: False,
-            CONF_BLE_SOURCES: [ADDRESS, "kid's tag"],
+            SECTION_SOURCES: {CONF_BLE_SOURCES: [ADDRESS, "kid's tag"]},
         },
     )
 
     assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {CONF_BLE_SOURCES: "invalid_ble_address"}
+    # Under the section's key, the only place the frontend shows it, and the
+    # section comes back open, because the field to fix is inside it.
+    assert result["errors"] == {SECTION_SOURCES: "invalid_ble_address"}
+    assert sources_section(result).options["collapsed"] is False
+    assert suggested(result, CONF_BLE_SOURCES) == [ADDRESS, "kid's tag"]
     assert result["description_placeholders"] == {"addresses": "kid's tag"}
     assert entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER) == []
 

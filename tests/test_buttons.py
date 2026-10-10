@@ -18,15 +18,18 @@ import voluptuous as vol
 
 from custom_components.virtual_presence_tracker.const import (
     ATTR_REASON,
+    CONF_AWAY_AFTER,
     CONF_BUTTON_AWAY_TYPES,
     CONF_BUTTON_HOME_TYPES,
     CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
     CONF_NOTIFY_PERSONS,
+    DEFAULT_AWAY_AFTER,
     EVENT_CANCELLED,
     EVENT_REMINDER_CANCELLED,
     REASON_SWITCHED_OFF,
     REASON_SWITCHED_ON,
+    SECTION_SOURCES,
     SUBENTRY_TYPE_TRACKER,
 )
 from custom_components.virtual_presence_tracker.manager import OpenPromptResult
@@ -42,7 +45,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.data_entry_flow import FlowResultType, InvalidData, section
 from homeassistant.helpers import entity_registry as er
 
 from .conftest import TRACKER_A, TRACKER_B, make_entry, make_subentry
@@ -422,16 +425,26 @@ async def test_unloading_stops_following_the_buttons(hass: HomeAssistant) -> Non
 # --- The form ---------------------------------------------------------------
 
 
+def fields(result: dict[str, Any]) -> dict[Any, Any]:
+    """Return every field of a form, the fields of its sections included."""
+    schema: vol.Schema = result["data_schema"]
+    found: dict[Any, Any] = {}
+    for marker, value in schema.schema.items():
+        if isinstance(value, section):
+            found.update(value.schema.schema)
+        else:
+            found[marker] = value
+    return found
+
+
 def field(result: dict[str, Any], key: str) -> Any:
     """Return the selector of one field of a form."""
-    schema: vol.Schema = result["data_schema"]
-    return next(value for marker, value in schema.schema.items() if marker == key)
+    return next(value for marker, value in fields(result).items() if marker == key)
 
 
 def suggested(result: dict[str, Any], key: str) -> Any:
     """Return the value a form suggests for one of its keys."""
-    schema: vol.Schema = result["data_schema"]
-    for marker in schema.schema:
+    for marker in fields(result):
         if marker == key:
             return (marker.description or {}).get("suggested_value")
     raise AssertionError(f"{key} is not part of the form")
@@ -446,7 +459,11 @@ async def start_new_tracker(
     )
     return await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {CONF_NAME: "Kid", CONF_CREATE_PERSON: False, CONF_BUTTON_SOURCES: sources},
+        {
+            CONF_NAME: "Kid",
+            CONF_CREATE_PERSON: False,
+            SECTION_SOURCES: {CONF_BUTTON_SOURCES: sources},
+        },
     )
 
 
@@ -619,7 +636,11 @@ async def test_reconfigure_keeps_and_shows_the_buttons(hass: HomeAssistant) -> N
 
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: [], CONF_BUTTON_SOURCES: [BUTTON]},
+        {
+            CONF_NAME: "Kid",
+            CONF_NOTIFY_PERSONS: [],
+            SECTION_SOURCES: {CONF_BUTTON_SOURCES: [BUTTON]},
+        },
     )
     assert result["step_id"] == "buttons"
     # The stored mapping, not the suggestion for a new tracker.
@@ -649,12 +670,20 @@ async def test_removing_every_button_clears_the_types(hass: HomeAssistant) -> No
     result = await entry.start_subentry_reconfigure_flow(hass, TRACKER_A)
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
-        {CONF_NAME: "Kid", CONF_NOTIFY_PERSONS: [], CONF_BUTTON_SOURCES: []},
+        {
+            CONF_NAME: "Kid",
+            CONF_NOTIFY_PERSONS: [],
+            SECTION_SOURCES: {CONF_BUTTON_SOURCES: []},
+        },
     )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
-    assert dict(entry.subentries[TRACKER_A].data) == {CONF_NOTIFY_PERSONS: []}
+    # "Away after" sits in the same section and was written with its value.
+    assert dict(entry.subentries[TRACKER_A].data) == {
+        CONF_NOTIFY_PERSONS: [],
+        CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+    }
     assert entry.runtime_data.manager is manager
 
     await press(hass, "press")
@@ -680,7 +709,7 @@ async def test_the_own_questions_entities_are_not_offered(hass: HomeAssistant) -
             {
                 CONF_NAME: "Granny",
                 CONF_CREATE_PERSON: False,
-                CONF_BUTTON_SOURCES: [EVENT_A],
+                SECTION_SOURCES: {CONF_BUTTON_SOURCES: [EVENT_A]},
             },
         )
 

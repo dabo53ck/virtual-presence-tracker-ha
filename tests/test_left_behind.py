@@ -1543,7 +1543,7 @@ async def test_the_question_is_sent_in_german(
     assert calls[0].data["message"] == (
         "Es ist niemand sonst zu Hause, aber Xiaomi Tablet ist noch da. Ist Kid "
         "zu Hause? Bei Nein oder ohne Antwort innerhalb von 10 Minuten wird Kid "
-        "ausgeschaltet und das Gerät ignoriert, bis es 10 Minuten weg war."
+        "ausgeschaltet und das Gerät ignoriert, bis es 10 Minuten lang weg war."
     )
 
     await answer(hass, ANSWER_YES)
@@ -1562,7 +1562,7 @@ async def test_the_notice_is_sent_in_german(
     assert calls[-1].data["title"] == "Keine Antwort"
     assert calls[-1].data["message"] == (
         "Keine Antwort: Kid wurde ausgeschaltet. Xiaomi Tablet wird ignoriert, "
-        "bis das Gerät 10 Minuten weg war."
+        "bis das Gerät 10 Minuten lang weg war."
     )
 
 
@@ -1619,10 +1619,10 @@ def test_the_message_in_english_and_german() -> None:
     assert async_left_behind_message(hass, "Kid", ["A", "B", "C"], 5, 10) == (
         "Es ist niemand sonst zu Hause, aber A, B und C sind noch da. Ist Kid zu "
         "Hause? Bei Nein oder ohne Antwort innerhalb von 5 Minuten wird Kid "
-        "ausgeschaltet, und die Geräte werden ignoriert, bis sie 10 Minuten weg "
-        "waren."
+        "ausgeschaltet, und die Geräte werden ignoriert, bis sie 10 Minuten lang "
+        "weg waren."
     )
     assert async_left_behind_expired_message(hass, "Kid", [], 1) == (
         "Keine Antwort: Kid wurde ausgeschaltet. Ein Gerät von Kid wird "
-        "ignoriert, bis es 1 Minute weg war."
+        "ignoriert, bis es 1 Minute lang weg war."
     )

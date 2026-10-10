@@ -18,22 +18,25 @@ from .const import NO_RELOAD_KEYS
 from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
-from .migration import async_remove_legacy_household_device
+from .migration import (
+    async_remove_legacy_household_device,
+    async_remove_moved_option_entities,
+)
 from .persons import TrackerPersons
 
 PLATFORMS = [
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
-    Platform.NUMBER,
     Platform.BINARY_SENSOR,
     Platform.EVENT,
 ]
 
-# Everything about an entry that a reload is needed for. The five options of a
-# tracker are deliberately left out of it: they have entities of their own now,
-# and reloading the entry because somebody flipped a switch would take the
-# device trackers and their persons to `unavailable` for a moment - long enough
-# for the user's own "somebody came home" automations to fire. The marker of a
+# Everything about an entry that a reload is needed for. The options of a
+# tracker are deliberately left out of it: reloading the entry because somebody
+# flipped one of their switches, or saved the tracker's form with nothing but
+# a new timing, would take the device trackers and their persons to
+# `unavailable` for a moment - long enough for the user's own "somebody came
+# home" automations to fire. The marker of a
 # tracker that asked for a person is left out for the same reason: it is taken
 # off as soon as the person exists. So are the button sources (M3d) and the
 # presence sources (M3e): the manager moves its listeners to the new ones
@@ -105,6 +108,9 @@ async def async_setup_entry(
     # added to a registry entry that no longer points at a device, instead of
     # being attached to one for the moment it takes to clean up.
     async_remove_legacy_household_device(hass, entry)
+    # The option entities that moved into the tracker's form (M3g) would stay
+    # behind as `unavailable` otherwise.
+    async_remove_moved_option_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Before resuming the prompts: a prompt that ends in the catch-up leaves a
     # message on the phones of a previous run, and this is what clears it.
@@ -138,7 +144,7 @@ async def _async_entry_updated(
 ) -> None:
     """Reload the entry after its persons or trackers changed.
 
-    A change of nothing but the options an entity writes, the button sources
+    A change of nothing but the options of a tracker, the button sources
     or the presence sources is the one case that does *not* reload: the
     manager reads them where it uses them, moves its listeners, and the
     entities are told to write their new state. Anything else - the real

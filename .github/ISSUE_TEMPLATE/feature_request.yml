@@ -12,6 +12,8 @@ body:
         - The prompt when the house empties
         - The reminder for a tracker that has been on too long
         - The notification on the phone (Companion App)
+        - Buttons and presence sources
+        - The question about a device left behind
         - Events and actions (the automation contract)
         - Documentation
         - Not sure
