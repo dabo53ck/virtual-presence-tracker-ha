@@ -10,6 +10,8 @@ child without a phone, grandparents, a babysitter, or any guest.**
 
 [![Release][release-badge]][release-url] &nbsp; [![HACS][hacs-badge]][hacs-url] &nbsp; [![Validate][validate-badge]][validate-url] &nbsp; [![Tests][tests-badge]][tests-url]
 
+[How it works](#how-it-works) · [Who it is for](#who-it-is-for) · [What it does not do](#what-it-does-not-do) · [Requirements](#requirements) · [Installation](#installation) · [Setup](#setup) · [Everyday use](#everyday-use) · [Questions on the phone](#the-questions-on-the-phone) · [Settings](#settings) · [Buttons and sources](#optional-buttons-and-presence-sources) · [Troubleshooting](#troubleshooting) · [FAQ](#faq) · [Help](#help-translations-and-license)
+
 </div>
 
 A Home Assistant custom integration for people who are at home without a
@@ -20,6 +22,10 @@ button or a presence source you already have in Home Assistant.
 
 It does not simulate presence in an empty house; it is for people who really
 are at home.
+
+> [!NOTE]
+> This integration was written with [Claude](https://claude.ai) (AI-assisted)
+> and is reviewed and tested by the maintainer on a live Home Assistant instance.
 
 ## How it works
 
