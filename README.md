@@ -96,8 +96,7 @@ Nothing has to be installed on the other person's side.
 
 ## Requirements
 
-- Home Assistant **2026.6.0** or newer (the trackers are built on
-  `BaseScannerEntity`, which first shipped with that release).
+- Home Assistant **2026.6.0** or newer.
 - At least one real person with a device tracker of their own.
 - For the question on the phone: the Home Assistant Companion App on the phones
   of the people who are asked, signed in with **that person's own user
@@ -373,8 +372,8 @@ values also takes effect without a reload.
 [Optional: buttons and presence sources](#optional-buttons-and-presence-sources).
 
 A tracker from an older version that never stored a value behaves as it did:
-**Ask when empty** off and **Remind after** 0. Before 0.1.0 the six values in
-the form were entities on the device page; see the
+**Ask when empty** off and **Remind after** 0. Before 0.1.0 these values were
+entities on the device page; see the
 [release notes](https://github.com/dabo53ck/virtual-presence-tracker-ha/releases).
 
 ### Rules at a glance
@@ -404,9 +403,9 @@ virtual tracker**), shown under [In the form](#in-the-form). Examples are in
 
 A button can be any `event` entity, from any integration. After you pick one,
 the step **Button events** asks which of its event types mean home and which
-mean away; for a button that offers `press` it suggests `press` and
-`long_press`. Every other event type is ignored and stays free for your own
-automations.
+mean away; for a button that offers `press` it suggests `press` for home
+and, if the button offers it, `long_press` for away. Every other event type
+is ignored and stays free for your own automations.
 
 ![The Button events step: press ticked under "Means home (switch on)", long_press ticked under "Means away (switch off)", every other event type unticked](images/button-events.png)
 
@@ -442,8 +441,9 @@ If a source is present when the last real person leaves, the tracker switches
 on instead of asking, also with **Ask when empty** off, but not while its
 sources are being ignored after [a device left behind](#a-device-left-behind).
 
-Timing, polling and what a restart does are in
-[docs/AUTOMATIONS.md](docs/AUTOMATIONS.md#buttons-and-presence-sources).
+Timing and polling are in
+[docs/AUTOMATIONS.md](docs/AUTOMATIONS.md#buttons-and-presence-sources), what
+a restart does in [After a restart](docs/AUTOMATIONS.md#after-a-restart).
 
 ### A device left behind
 
@@ -451,15 +451,18 @@ If a source stays at home anyway, such as a tablet on the sofa, the tracker
 stays on while everybody is out. With **Ask about a device left behind** on
 (off by default), the people under **Who is asked?** get one question **Away
 after** minutes after the last real person left, if a source still reports
-present then:
+present then. With **Override Do Not Disturb for a device left behind** on, it
+comes as a critical alert:
 
 ![A critical alert on an iPhone lock screen: "Device left behind? Nobody else is home, but Noah's smartwatch is. Is Noah home? If you answer No, or nobody answers within 10 minutes, Noah is switched off and the device is ignored until it has been away for 10 minutes.", with the buttons "Yes, home" and "No, switch off"](images/left-behind.png)
 
 **Yes, home** changes nothing. **No, switch off** and **no answer** both switch
 the tracker off, the one exception to "no answer changes nothing"; the device is
 then ignored until it has been away for **Away after**. The switch and buttons
-always work. Timing, the lock on the sources and restarts:
-[docs/AUTOMATIONS.md](docs/AUTOMATIONS.md#the-device-left-behind-actions).
+always work. More in docs/AUTOMATIONS.md:
+[timing](docs/AUTOMATIONS.md#when-the-question-about-a-device-left-behind-comes),
+[the lock and the actions](docs/AUTOMATIONS.md#the-device-left-behind-actions)
+and [restarts](docs/AUTOMATIONS.md#after-a-restart).
 
 ## Troubleshooting
 
