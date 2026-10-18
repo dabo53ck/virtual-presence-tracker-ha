@@ -3,9 +3,10 @@
 One event entity per virtual tracker. It is how the questions about that
 tracker reach the outside world: an automation triggers on it, decides how to
 ask - a phone notification, a TTS announcement, a dashboard button - and sends
-the answer back through the `answer_prompt` / `answer_reminder` action. Both
-the prompt (M2a) and the reminder (M3a) are published here, with event types of
-their own; the types and their data are a public contract.
+the answer back through the `answer_prompt` / `answer_reminder` /
+`answer_left_behind` action. The prompt (M2a), the reminder (M3a) and the
+question about a device left behind (M3f) are published here, with event types
+of their own; the types and their data are a public contract.
 """
 
 from __future__ import annotations
@@ -42,9 +43,9 @@ async def async_setup_entry(
 class VirtualTrackerPromptEvent(VirtualTrackerEntity, EventEntity):
     """Announce what happens to the questions about one virtual tracker.
 
-    One entity for the prompt and the reminder: they are two questions about
-    the same tracker, never open at the same time, and an automation that wants
-    both would otherwise have to listen twice. The unique ID and the
+    One entity for every question about the tracker - the prompt, the
+    reminder and the question about a device left behind - so that an
+    automation that wants them all does not have to listen three times. The unique ID and the
     translation key stay what they were in M2a - renaming either would give
     every existing installation a new entity.
     """
@@ -60,7 +61,7 @@ class VirtualTrackerPromptEvent(VirtualTrackerEntity, EventEntity):
         self._attr_device_info = tracker_device_info(subentry)
 
     async def async_added_to_hass(self) -> None:
-        """Follow both questions of this tracker while the entity exists."""
+        """Follow every question about this tracker while the entity exists."""
         await super().async_added_to_hass()
         self.async_on_remove(
             self._manager.async_add_prompt_listener(
@@ -72,9 +73,14 @@ class VirtualTrackerPromptEvent(VirtualTrackerEntity, EventEntity):
                 self._subentry_id, self._async_prompt_event
             )
         )
+        self.async_on_remove(
+            self._manager.async_add_left_behind_listener(
+                self._subentry_id, self._async_prompt_event
+            )
+        )
 
     @callback
     def _async_prompt_event(self, event_type: str, data: dict[str, Any]) -> None:
-        """Publish one prompt or reminder event."""
+        """Publish one event of one of the questions."""
         self._trigger_event(event_type, data)
         self.async_write_ha_state()

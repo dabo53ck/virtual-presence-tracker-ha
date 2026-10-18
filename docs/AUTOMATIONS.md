@@ -1,27 +1,28 @@
 # Automations and actions
 
 Full reference for the event entity and the actions of Virtual Presence Tracker.
-Read this if you want to deliver the prompt or the reminder somewhere other than
-a phone — a speaker, Telegram, a dashboard button — or react to them in your own
-automations. For the everyday behavior, see the [README](../README.md).
+Read this if you want to deliver the prompt, the reminder or the question about
+a device left behind somewhere other than a phone (a speaker, Telegram, a
+dashboard button) or react to them in your own automations. For the everyday
+behaviour, see the [README](../README.md).
 
 The examples use a tracker named *Kid* on an English instance, so its switch is
-`switch.kid_at_home` and its event entity `event.kid_questions`. Entity IDs
-follow the language of your Home Assistant; look yours up under **Settings →
-Devices & services → Entities** (see
-[Add a virtual tracker](../README.md#2-add-a-virtual-tracker)).
+`switch.kid_at_home` and its event entity `event.kid_questions`; yours follow
+the language of your Home Assistant (see
+[The entities you get](../README.md#3-the-entities-you-get)).
 
 Leave **Who is asked?** empty on a tracker and the integration sends nothing to
-any phone. The prompt and the reminder still open, the event entity still
-announces them and the actions still answer them, so your own automation is in
-charge. Both ways combine: the event entity fires whether or not the built-in
-notification goes out, so an extra announcement on a speaker is just another
-automation.
+any phone. The prompt, the reminder and the question about a device left behind
+still open, the event entity still announces them and the actions still answer
+them, so your own automation is in charge. Both ways combine: the event entity
+fires whether or not the built-in notification goes out, so an extra
+announcement on a speaker is just another automation.
 
 ## The event entity
 
-`event.kid_questions` publishes everything that happens to the prompt and to the
-reminder of that tracker. Its `event_type` is one of:
+`event.kid_questions` publishes everything that happens to the prompt, the
+reminder and the question about a device left behind of that tracker. Its
+`event_type` is one of:
 
 | `event_type` | Meaning |
 |---|---|
@@ -35,17 +36,31 @@ reminder of that tracker. Its `event_type` is one of:
 | `reminder_answered_no` | Somebody answered "switch off"; the tracker is now off. |
 | `reminder_expired` | Nobody answered in time; nothing changed. |
 | `reminder_cancelled` | The reminder was taken back. `reason` says why: `switched_off` or `option_disabled`. |
+| `left_behind_started` | The question about a device left behind is open. `expires_at` says until when, `sources` lists the presence sources that were still present (entity IDs and Bluetooth addresses). |
+| `left_behind_answered_yes` | Somebody answered "home"; nothing changed. |
+| `left_behind_answered_no` | Somebody answered "switch off"; the tracker is now off. |
+| `left_behind_expired` | Nobody answered in time; the tracker is now off. |
+| `left_behind_cancelled` | The question was taken back. `reason` says why: `person_home`, `switched_off` or `option_disabled`. |
 
 Every prompt event also carries `prompt_id` (identifies this one prompt from
 start to finish) and `tracker` (the tracker's name); every reminder event
-carries `reminder_id` and `tracker`. The two IDs never mix: a reminder event
-has no `prompt_id`, and a prompt event has no `reminder_id`. The four
-`answered` events carry `answered_by` — the person who answered, or nothing if
-the caller did not say.
+carries `reminder_id` and `tracker`; every `left_behind_` event carries
+`left_behind_id` and `tracker`. The IDs never mix: each event carries the ID of
+its own question only. The six `answered` events carry `answered_by`: the
+person who answered, or nothing if the caller did not say.
 
-The switch has four matching attributes, so a dashboard or a template can see
+The switch has six matching attributes, so a dashboard or a template can see
 the same thing without listening for events: `prompt_open`,
-`prompt_expires_at`, `reminder_open` and `reminder_expires_at`.
+`prompt_expires_at`, `reminder_open`, `reminder_expires_at`,
+`left_behind_open` and `left_behind_expires_at`.
+
+A button or a presence source switches the tracker the same way its switch
+does. Switching on that way takes back an open prompt with `cancelled`, reason
+`switched_on`; switching off takes back an open reminder with
+`reminder_cancelled` and an open question about a device left behind with
+`left_behind_cancelled`, both with reason `switched_off`. The switching itself
+is not announced on the event entity; watch the state of the switch if you need
+it.
 
 ## The answer action
 
@@ -55,13 +70,13 @@ target:
   entity_id: switch.kid_at_home
 data:
   answer: "yes"          # or "no"
-  answered_by: person.dabo53ck   # optional
+  answered_by: person.alex   # optional
 ```
 
 Target the tracker's **At home** switch (or its device). The tracker's settings
 switches are not valid targets: pick one by hand and the action tells you so
 instead of doing anything. If that tracker has no open prompt, the action fails
-with "there is no open prompt" — an answer that arrives too late does not
+with "there is no open prompt", so an answer that arrives too late does not
 switch anything on by accident.
 
 ## The open action
@@ -73,15 +88,15 @@ target:
 ```
 
 Opens the prompt of that tracker **right now**, without waiting for anybody to
-leave. It has no options: the tracker's own **Prompt answer time** applies, the
-question goes to the phones under **Who is asked?**, the event entity announces
-it, and every way of ending it works as usual.
+leave. It has no options: the tracker's own **Answer time** under **Questions**
+applies, the question goes to the phones under **Who is asked?**, the event
+entity announces it, and every way of ending it works as usual.
 
 It ignores everything that decides whether to ask *by itself*: who is at home,
-the **Ask when empty** switch — a tracker with that switch off can still be
-asked about this way — and **Prompt delay**, because "now" means now. If a prompt
-of that tracker was still waiting for its delay, it opens immediately instead,
-as that same prompt.
+the **Ask when empty** switch (a tracker with that switch off can still be
+asked about this way) and the **Delay** under **Questions**, because "now"
+means now. If a prompt of that tracker was still waiting for its delay, it
+opens immediately instead, as that same prompt.
 
 Two cases it refuses, without changing anything: the tracker is **already
 switched on** (there is nobody to ask about), or a prompt for it is **already
@@ -102,7 +117,7 @@ target:
   entity_id: switch.kid_at_home
 data:
   answer: "yes"          # or "no", which switches the tracker off
-  answered_by: person.dabo53ck   # optional
+  answered_by: person.alex   # optional
 ```
 
 ```yaml
@@ -115,21 +130,59 @@ Target the tracker's **At home** switch (or its device), as with the prompt;
 the settings switches are not valid targets and say so.
 
 **Open reminder** asks right now, without waiting for **Remind after** to
-pass — it even works for a tracker whose interval is 0. It refuses, without
+pass; it even works for a tracker whose interval is 0. It refuses, without
 changing anything, if the tracker is **switched off** (there is nobody to
 remind you about) or if a reminder for it is **already open**. **Answer
 reminder** fails with "there is no open reminder" if nothing is waiting, so a
 late answer cannot switch anything off by accident.
 
+## The device-left-behind actions
+
+The question about a device left behind has the same pair:
+
+```yaml
+action: virtual_presence_tracker.answer_left_behind
+target:
+  entity_id: switch.kid_at_home
+data:
+  answer: "no"           # or "yes", which changes nothing
+  answered_by: person.alex   # optional
+```
+
+```yaml
+action: virtual_presence_tracker.open_left_behind
+target:
+  entity_id: switch.kid_at_home
+```
+
+**Ask about device left behind** asks right now, without waiting for anybody to
+leave and whether or not **Ask about a device left behind** is on. It refuses,
+without changing anything, if the tracker is **switched off**, if it has **no
+presence source**, or if the question is **already open**. The message always
+says "Nobody else is home", as the prompt's does; make your automation's own
+conditions the thing that makes it true. **Answer device left behind** fails if
+nothing is waiting.
+
+After a "no" or an unanswered question, the tracker's presence sources are
+ignored: they do not switch it on again until they have been away for **Away
+after**, the tracker is switched on in another way, **Ask about a device left
+behind** is switched off or the tracker's sources are changed. A real person
+coming home does not end this, because it says nothing about the device that
+was left behind. Buttons, the switch and the actions are never held back. If
+the last real person leaves while a tracker is still held back this way, a
+present source does not switch it on: it is asked about with the prompt if
+**Ask when empty** is on, and stays off otherwise. The question and the note of
+**Notice if unanswered** both say this on the phone.
+
 ## Example: ask somewhere else
 
-You do not need this to ask a phone — that is what **Who is asked?** does. It is
+You do not need this to ask a phone; that is what **Who is asked?** does. It is
 the pattern for every *other* channel, and it is what a Telegram message, a TTS
 announcement or a dashboard button looks like. Two automations: one turns the
 prompt into an actionable notification, the other turns the tapped button back
 into an answer. Replace `notify.mobile_app_<your_phone>` with your own notify
-action, and use a tag and action names of your own — the ones starting with
-`VPT_` belong to the built-in delivery.
+action, and use a tag and action names of your own: the ones starting with
+`VPT_` or `vpt_` belong to the built-in delivery.
 
 ```yaml
 automation:
@@ -147,11 +200,11 @@ automation:
           title: Nobody at home?
           message: Is Kid at home?
           data:
-            tag: vpt_kid_prompt
+            tag: kid_prompt
             actions:
-              - action: VPT_KID_YES
+              - action: KID_PROMPT_YES
                 title: "Yes"
-              - action: VPT_KID_NO
+              - action: KID_PROMPT_NO
                 title: "No"
 
   - alias: Answer the Kid prompt
@@ -160,48 +213,83 @@ automation:
         event_type: mobile_app_notification_action
     conditions:
       - condition: template
-        value_template: "{{ trigger.event.data.action in ['VPT_KID_YES', 'VPT_KID_NO'] }}"
+        value_template: "{{ trigger.event.data.action in ['KID_PROMPT_YES', 'KID_PROMPT_NO'] }}"
     actions:
       - action: virtual_presence_tracker.answer_prompt
         target:
           entity_id: switch.kid_at_home
         data:
-          answer: "{{ 'yes' if trigger.event.data.action == 'VPT_KID_YES' else 'no' }}"
-          answered_by: person.dabo53ck
+          answer: "{{ 'yes' if trigger.event.data.action == 'KID_PROMPT_YES' else 'no' }}"
+          answered_by: person.alex
 ```
 
 A plain state trigger on the event entity plus a condition on `event_type` works
-on every supported Home Assistant version. Recent versions also offer a dedicated
-**Event received** trigger for event entities in the automation editor, which does
-the same thing in one step.
+on every supported Home Assistant version. Recent versions also offer a
+dedicated **Event received** trigger for event entities in the automation
+editor, which does the same thing in one step.
 
 `not_from` is there because the event entity keeps its last event over a restart
 of Home Assistant and a reload of the integration: it comes back from
 `unavailable`, and with a prompt still open that looks exactly like a fresh
 `prompt_started` to a plain state trigger, so you would be asked a second time.
-The built-in notification is not affected — it follows the prompt itself, not the
+The built-in notification is not affected: it follows the prompt itself, not the
 state of the entity.
 
 Buttons in a notification only work through the classic `notify.mobile_app_*`
 actions; the notify *entities* of the companion app carry only a title and a
 message. The built-in delivery uses the classic actions for the same reason.
 
-The same pattern works for the reminder: trigger on `reminder_started` and answer
-with `answer_reminder`.
+The same pattern works for the reminder (trigger on `reminder_started`, answer
+with `answer_reminder`) and for the question about a device left behind (trigger
+on `left_behind_started`, answer with `answer_left_behind`).
 
 ## How the timing works
 
 The prompt does not hold anything back. The moment the last real person leaves,
-`zone.home` is empty and your own "nobody home" automations run — if one of them
+`zone.home` is empty and your own "nobody home" automations run. If one of them
 has a short `for:` (a minute, say), it fires **before** the answer arrives.
 Answering yes afterwards switches the tracker on and makes the person `home`
 again, but whatever already happened has happened.
 
-Two ways around it, and they combine: keep **Prompt delay** shorter than the
-delay of your own automations, and make those automations check
+Two ways around it, and they combine: keep the **Delay** (under **Questions**
+in the tracker's form) shorter than the delay of your own automations, and make
+those automations check
 `binary_sensor.only_virtual_trackers_home` or the `prompt_open` attribute of the
 switch before they act. Or skip the waiting altogether and switch the tracker on
 before you leave.
+
+### Buttons and presence sources
+
+- A **button** switches as soon as its event entity reports the event.
+- A **device tracker** or **binary sensor** source switches the tracker on as
+  soon as it becomes present. The tracker goes off once all sources have been
+  away for **Away after**, counted from when the last of them went away.
+- A **Bluetooth device** counts as present while it was heard within **Away
+  after**. The integration looks about every 30 seconds, so the tracker goes on
+  up to 30 seconds after the device is heard again, and off up to 30 seconds
+  after **Away after** has passed since it was last heard.
+- Changing **Away after** moves a pending switch-off at once; if the sources
+  have already been away for longer than the new value, the tracker goes off
+  right away.
+- At the last departure, a present source switches the tracker on after
+  the **Delay** when the tracker asks, so the advice above applies there
+  too. A tracker that does not ask is switched on at the departure itself.
+
+## When the question about a device left behind comes
+
+It is decided once per absence of the real persons: **Away after** minutes after
+the last of them left, if **Ask about a device left behind** is on, the tracker
+has presence sources, is on, and a source still reports present right then.
+The sources are looked at at that moment, so a Bluetooth tag that left with the
+person is no longer counted. If the tracker is off or its sources are away at
+that moment, nothing is asked until a real person has been home and everybody
+has left again. Switching the option on while the house is empty asks straight
+away if the time has already passed. Changing **Away after** moves the moment.
+
+While it is open, a source that goes away does not take it back: if the sources
+stay away for **Away after**, they switch the tracker off and the question ends
+with `left_behind_cancelled`, reason `switched_off`. It can be open at the same
+time as a reminder.
 
 ## When the reminder comes
 
@@ -209,7 +297,7 @@ The counting starts when the tracker is switched on, and it starts again every
 time somebody answers "still home" or lets a reminder run out. Switching the
 tracker off ends it; switching it on starts it over. If you raise **Remind
 after** the next reminder moves further away, and if you lower it below the time
-the tracker has already been on, you are asked straight away — which is the
+the tracker has already been on, you are asked straight away, which is the
 point of a safety net.
 
 ## After a restart
@@ -224,18 +312,49 @@ integration. When it comes back:
 
 A prompt you opened yourself with **Open prompt** is an exception to the first
 case: it was never about an empty house, so neither a person being at home nor
-the switch being off withdraws it after a restart. It still expires on time.
+**Ask when empty** being off withdraws it after a restart. It still expires on
+time.
 
-A prompt that was still waiting for its **Prompt delay** is forgotten instead:
+A prompt that was still waiting for its **Delay** is forgotten instead:
 it had not been announced yet, so there is nothing to take back. Switching **Ask
 when empty** off withdraws an open or waiting prompt with the reason
-`option_disabled` — at once, not at the next restart, and again with the
+`option_disabled`: at once, not at the next restart, and again with the
 exception of a prompt you opened yourself. A message that is still on a phone is
 taken off it in every one of these cases, including the ones that happen while
-Home Assistant starts up again.
+Home Assistant starts up again; a question that expired is replaced by the note
+instead when **Notice if unanswered** is on.
 
 A reminder survives a restart too: it keeps the time it has left, or reports
 `reminder_expired` if its time ran out while Home Assistant was off, or is
 withdrawn (`reminder_cancelled`, reason `switched_off`) if the tracker was
 switched off meanwhile. A tracker whose interval passed while Home Assistant was
 down is asked about shortly after the start.
+
+A restart does not count as a change of a button or a presence source:
+
+- A button's event entity shows its last event again after a restart, or after
+  coming back from `unavailable`. That is not a press and is ignored. The very
+  first press of a new button (out of `unknown`) does count.
+- Nothing about the presence sources themselves is stored. At the start their
+  state is only a starting point: a source that is present does not switch the
+  tracker on. A source that is away switches a tracker that is on off after
+  **Away after**, counted from the start, never from earlier. A Bluetooth
+  device that has not been heard since the start counts as not known, not as
+  away, until the integration has listened for **Away after**.
+- Changing a tracker's sources in its form starts from such a starting point
+  too. Changing only **Away after** does not.
+
+An open question about a device left behind survives a restart. When it comes
+back, it is first checked whether it has to be withdrawn
+(`left_behind_cancelled`): because the tracker was switched off meanwhile
+(`switched_off`) or, unless you opened it yourself, because one of your real
+persons is at home (`person_home`) or **Ask about a device left behind** is off
+(`option_disabled`). This holds even if its time ran out while Home Assistant
+was off. Only a question that is not withdrawn and whose time ran out reports
+`left_behind_expired`, switches the tracker off and holds its presence sources
+back, as it would have, with the note if **Notice if unanswered** is on.
+Otherwise it continues with the time it has left. If the house was empty and
+the question not yet decided when Home Assistant stopped, it is decided **Away
+after** minutes after the start at the earliest, so that the sources are known
+again. The hold on the
+presence sources after a "no" survives a restart too.

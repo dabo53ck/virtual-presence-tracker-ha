@@ -18,24 +18,29 @@ from .const import NO_RELOAD_KEYS
 from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
-from .migration import async_remove_legacy_household_device
+from .migration import (
+    async_remove_legacy_household_device,
+    async_remove_moved_option_entities,
+)
 from .persons import TrackerPersons
 
 PLATFORMS = [
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
-    Platform.NUMBER,
     Platform.BINARY_SENSOR,
     Platform.EVENT,
 ]
 
-# Everything about an entry that a reload is needed for. The five options of a
-# tracker are deliberately left out of it: they have entities of their own now,
-# and reloading the entry because somebody flipped a switch would take the
-# device trackers and their persons to `unavailable` for a moment - long enough
-# for the user's own "somebody came home" automations to fire. The marker of a
+# Everything about an entry that a reload is needed for. The options of a
+# tracker are deliberately left out of it: reloading the entry because somebody
+# flipped one of their switches, or saved the tracker's form with nothing but
+# a new timing, would take the device trackers and their persons to
+# `unavailable` for a moment - long enough for the user's own "somebody came
+# home" automations to fire. The marker of a
 # tracker that asked for a person is left out for the same reason: it is taken
-# off as soon as the person exists.
+# off as soon as the person exists. So are the button sources (M3d) and the
+# presence sources (M3e): the manager moves its listeners to the new ones
+# instead.
 type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 
@@ -103,6 +108,9 @@ async def async_setup_entry(
     # added to a registry entry that no longer points at a device, instead of
     # being attached to one for the moment it takes to clean up.
     async_remove_legacy_household_device(hass, entry)
+    # The option entities that moved into the tracker's form (M3g) would stay
+    # behind as `unavailable` otherwise.
+    async_remove_moved_option_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Before resuming the prompts: a prompt that ends in the catch-up leaves a
     # message on the phones of a previous run, and this is what clears it.
@@ -113,6 +121,9 @@ async def async_setup_entry(
     # lost. Forwarding the platforms waits for the entities to be added.
     manager.async_resume_prompts()
     manager.async_resume_reminders()
+    # After the reminders: an unanswered question about a device left behind
+    # switches its tracker off, which withdraws a reminder that is open.
+    manager.async_resume_left_behind()
     # After the platforms: the repair issues look the tracker entities up in
     # the entity registry, which only knows them once they are added. Stopping
     # on unload clears the issues of this entry, and setting the entry up again
@@ -133,8 +144,9 @@ async def _async_entry_updated(
 ) -> None:
     """Reload the entry after its persons or trackers changed.
 
-    A change of nothing but the options an entity writes is the one case that
-    does *not* reload: the manager reads them where it uses them, and the
+    A change of nothing but the options of a tracker, the button sources
+    or the presence sources is the one case that does *not* reload: the
+    manager reads them where it uses them, moves its listeners, and the
     entities are told to write their new state. Anything else - the real
     persons, a renamed tracker, its recipients, a tracker that was added or
     removed - needs the manager, the delivery and the platforms to be built

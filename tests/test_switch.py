@@ -158,7 +158,8 @@ async def test_one_switch_per_subentry(
     assert device is not None
     assert device.identifiers == {(DOMAIN, TRACKER_A)}
     assert device.name == "Kid"
-    assert device.config_entries_subentries[tracker_entry.entry_id] == {TRACKER_A}
+    assert device.config_entry_id == tracker_entry.entry_id
+    assert device.config_subentry_id == TRACKER_A
 
     state = hass.states.get(SWITCH_A)
     assert state is not None
@@ -492,7 +493,7 @@ async def test_opening_a_reminder_that_is_already_open(
     [
         "switch.kid_ask_when_empty",
         "switch.kid_reset_on_return",
-        "switch.kid_notice_if_unanswered",
+        "switch.kid_override_do_not_disturb_for_the_prompt",
     ],
 )
 @pytest.mark.parametrize(

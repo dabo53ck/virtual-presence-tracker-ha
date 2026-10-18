@@ -41,7 +41,7 @@
       "step": {
         "user": {
           "title": "Add a virtual tracker",
-          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. It needs a person of its own - the integration creates one for you below - and that person counts as being at home for as long as the tracker is switched on.",
+          "description": "A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest. It needs a person of its own (the integration creates one for you below), and that person counts as being at home for as long as the tracker is switched on.",
           "data": {
             "name": "Name",
             "notify_persons": "Who is asked?",
@@ -49,27 +49,130 @@
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\".",
-            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it - the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nThe tracker's switches are on its device page, so automations can use them.",
+            "create_person": "Creates a person without a login, named like the tracker, and assigns the tracker to it: the step that makes somebody count as being at home. Untick it if you already have a person for this tracker and want to assign it yourself under Settings > People."
+          },
+          "sections": {
+            "questions": {
+              "name": "Questions",
+              "description": "When the last real person leaves and the tracker is off, the phones under \"Who is asked?\" are asked whether the person is at home. Whether it asks at all is the \"Ask when empty\" switch on the tracker's device page.",
+              "data": {
+                "answer_timeout": "Answer time",
+                "prompt_delay": "Delay",
+                "notify_on_expiry": "Notice if unanswered"
+              },
+              "data_description": {
+                "answer_timeout": "How long a prompt stays open, 1 to 120 minutes. Also the answer time of the question about a device left behind.",
+                "prompt_delay": "How long to wait after the last departure before asking, 0 to 600 seconds. Keep it shorter than the delays of your own \"nobody home\" automations.",
+                "notify_on_expiry": "Sends a short note when a question is not answered in time: the prompt, the reminder or the question about a device left behind."
+              }
+            },
+            "reminder": {
+              "name": "Reminder",
+              "description": "Asks whether the person is still at home once the tracker has been on for a long time.",
+              "data": {
+                "remind_after": "Remind after",
+                "reminder_timeout": "Answer time"
+              },
+              "data_description": {
+                "remind_after": "After how many hours on the tracker asks, 0 to 168. 0 means never.",
+                "reminder_timeout": "How long a reminder stays open, 1 to 360 minutes. No answer changes nothing."
+              }
+            },
+            "sources": {
+              "name": "Sources (optional)",
+              "description": "Buttons and presence sources switch the tracker by themselves; the switch, automations and questions keep working.",
+              "data": {
+                "button_sources": "Buttons",
+                "presence_sources": "Presence sources",
+                "ble_sources": "Bluetooth devices",
+                "away_after": "Away after"
+              },
+              "data_description": {
+                "button_sources": "Event entities of buttons from any integration. Which press means home or away is chosen in the next step; every other press stays free for your automations.",
+                "presence_sources": "IMPORTANT: pick only sources that leave the house with the person. One present source keeps the tracker on. Pick device trackers (state home) or binary sensors (state on) of any integration, for example a Bluetooth tag or a device in your Wi-Fi. The tracker goes on when a source becomes present and off once all of them have been away for \"Away after\".",
+                "ble_sources": "IMPORTANT: pick only devices that leave the house with the person. Bluetooth tags and buttons with a fixed address, strongest signal first; present while heard within \"Away after\". Not in the list? Type the address, for example AA:BB:CC:DD:EE:FF. Phones change their address: use a device tracker above instead.",
+                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about."
+              }
+            }
           }
         },
         "reconfigure": {
           "title": "Edit the virtual tracker",
-          "description": "Rename the tracker or change who is asked about it. Renaming is safe: the entities of the tracker keep their identity.",
+          "description": "Rename the tracker, change who is asked about it, its timings, or its buttons and presence sources. Renaming is safe: the entities of the tracker keep their identity.",
           "data": {
             "name": "Name",
             "notify_persons": "Who is asked?"
           },
           "data_description": {
             "name": "Used for the entities of this tracker, for example the name of the child or guest it stands for.",
-            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nEverything else is set on the tracker's device page: \"Ask when empty\" (whether it asks at all when the last real person leaves), \"Prompt answer time\", \"Prompt delay\", \"Reset on return\", \"Notice if unanswered\", \"Remind after\", \"Reminder answer time\" and \"Override Do Not Disturb for the prompt\"."
+            "notify_persons": "The real persons whose Home Assistant Companion App receives the questions about this tracker, with a Yes and a No button. Everyone who is asked needs the app signed in with their own user account; the first answer counts. Leave empty to send nothing at all and deliver the questions with an automation of your own.\n\nThe tracker's switches are on its device page, so automations can use them."
+          },
+          "sections": {
+            "questions": {
+              "name": "Questions",
+              "description": "When the last real person leaves and the tracker is off, the phones under \"Who is asked?\" are asked whether the person is at home. Whether it asks at all is the \"Ask when empty\" switch on the tracker's device page.",
+              "data": {
+                "answer_timeout": "Answer time",
+                "prompt_delay": "Delay",
+                "notify_on_expiry": "Notice if unanswered"
+              },
+              "data_description": {
+                "answer_timeout": "How long a prompt stays open, 1 to 120 minutes. Also the answer time of the question about a device left behind.",
+                "prompt_delay": "How long to wait after the last departure before asking, 0 to 600 seconds. Keep it shorter than the delays of your own \"nobody home\" automations.",
+                "notify_on_expiry": "Sends a short note when a question is not answered in time: the prompt, the reminder or the question about a device left behind."
+              }
+            },
+            "reminder": {
+              "name": "Reminder",
+              "description": "Asks whether the person is still at home once the tracker has been on for a long time.",
+              "data": {
+                "remind_after": "Remind after",
+                "reminder_timeout": "Answer time"
+              },
+              "data_description": {
+                "remind_after": "After how many hours on the tracker asks, 0 to 168. 0 means never.",
+                "reminder_timeout": "How long a reminder stays open, 1 to 360 minutes. No answer changes nothing."
+              }
+            },
+            "sources": {
+              "name": "Sources (optional)",
+              "description": "Buttons and presence sources switch the tracker by themselves; the switch, automations and questions keep working.",
+              "data": {
+                "button_sources": "Buttons",
+                "presence_sources": "Presence sources",
+                "ble_sources": "Bluetooth devices",
+                "away_after": "Away after"
+              },
+              "data_description": {
+                "button_sources": "Event entities of buttons from any integration. Which press means home or away is chosen in the next step; every other press stays free for your automations.",
+                "presence_sources": "IMPORTANT: pick only sources that leave the house with the person. One present source keeps the tracker on. Pick device trackers (state home) or binary sensors (state on) of any integration, for example a Bluetooth tag or a device in your Wi-Fi. The tracker goes on when a source becomes present and off once all of them have been away for \"Away after\".",
+                "ble_sources": "IMPORTANT: pick only devices that leave the house with the person. Bluetooth tags and buttons with a fixed address, strongest signal first; present while heard within \"Away after\". Not in the list? Type the address, for example AA:BB:CC:DD:EE:FF. Phones change their address: use a device tracker above instead.",
+                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about."
+              }
+            }
+          }
+        },
+        "buttons": {
+          "title": "Button events",
+          "description": "Choose which events of the selected buttons switch {name} on (home) and which switch it off (away). An event can mean only one of the two; every event left unticked is ignored and stays free for your own automations.",
+          "data": {
+            "button_home_types": "Means home (switch on)",
+            "button_away_types": "Means away (switch off)"
+          },
+          "data_description": {
+            "button_home_types": "Switching on works like the tracker's own switch: an open prompt is withdrawn. Pressing while the tracker is already on changes nothing.",
+            "button_away_types": "Switching off works like the tracker's own switch: an open reminder is withdrawn. Pressing while the tracker is already off changes nothing."
           }
         }
       },
       "error": {
         "name_required": "Enter a name for the tracker.",
         "name_exists": "A tracker with this name already exists.",
-        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page."
+        "person_not_real": "{persons} is not one of the real persons of this household and cannot be asked. Remove the person here, or add them to the real persons with \"Reconfigure\" on the integration's page.",
+        "button_types_overlap": "{types} cannot mean both home and away. Untick it in one of the two lists.",
+        "button_types_missing": "Choose at least one event that means home or away. A button that switches nothing has no effect.",
+        "invalid_ble_address": "{addresses} is not a Bluetooth address. Enter it as six pairs of hexadecimal digits separated by colons, for example AA:BB:CC:DD:EE:FF."
       },
       "abort": {
         "reconfigure_successful": "The tracker was updated."
@@ -97,35 +200,29 @@
               "reminder_answered_yes": "Reminder answered yes",
               "reminder_answered_no": "Reminder answered no",
               "reminder_expired": "Reminder not answered",
-              "reminder_cancelled": "Reminder withdrawn"
+              "reminder_cancelled": "Reminder withdrawn",
+              "left_behind_started": "Device left behind: asked",
+              "left_behind_answered_yes": "Device left behind: answered yes",
+              "left_behind_answered_no": "Device left behind: answered no",
+              "left_behind_expired": "Device left behind: not answered",
+              "left_behind_cancelled": "Device left behind: withdrawn"
             }
           }
         }
       }
     },
-    "number": {
-      "answer_timeout": {
-        "name": "Prompt answer time"
-      },
-      "prompt_delay": {
-        "name": "Prompt delay"
-      },
-      "remind_after": {
-        "name": "Remind after"
-      },
-      "reminder_timeout": {
-        "name": "Reminder answer time"
-      }
-    },
     "switch": {
+      "ask_left_behind": {
+        "name": "Ask about a device left behind"
+      },
       "ask_on_departure": {
         "name": "Ask when empty"
       },
       "at_home": {
         "name": "At home"
       },
-      "notify_on_expiry": {
-        "name": "Notice if unanswered"
+      "left_behind_override_dnd": {
+        "name": "Override Do Not Disturb for a device left behind"
       },
       "override_dnd": {
         "name": "Override Do Not Disturb for the prompt"
@@ -136,11 +233,20 @@
     }
   },
   "exceptions": {
+    "left_behind_already_open": {
+      "message": "There is already an open question about a device left behind for {entity_id}, so there is nothing to ask again."
+    },
+    "no_open_left_behind": {
+      "message": "There is no open question about a device left behind for {entity_id}, so there is nothing to answer."
+    },
     "no_open_prompt": {
       "message": "There is no open prompt for {entity_id}, so there is nothing to answer."
     },
     "no_open_reminder": {
       "message": "There is no open reminder for {entity_id}, so there is nothing to answer."
+    },
+    "no_presence_sources": {
+      "message": "{entity_id} has no presence source, so no device can have been left behind."
     },
     "not_a_tracker_switch": {
       "message": "{entity_id} is a setting of the tracker, not its at-home switch. Target the tracker's \"At home\" switch or its device instead."
@@ -155,13 +261,13 @@
       "message": "{entity_id} is already switched on, so there is nobody to ask about."
     },
     "tracker_not_home": {
-      "message": "{entity_id} is switched off, so there is nobody to remind you about."
+      "message": "{entity_id} is switched off, so there is nobody to ask about."
     }
   },
   "issues": {
     "no_tracker": {
       "title": "No virtual tracker has been added yet",
-      "description": "Virtual Presence Tracker is set up, but there is no virtual tracker yet, so nothing happens. A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest.\n\nAdd one under Settings > Devices & services > Integrations > Virtual Presence Tracker > \"Add virtual tracker\". Afterwards assign it to a person of its own, so that person counts as being at home while the tracker is switched on."
+      "description": "Virtual Presence Tracker is set up, but there is no virtual tracker yet, so nothing happens. A virtual tracker stands in for a household member without a phone, for example a child, a grandparent or a guest.\n\nAdd one under Settings > Devices & services > Integrations > Virtual Presence Tracker > \"Add virtual tracker\". Leave \"Create a person for this tracker\" ticked and the person it needs is created for you."
     },
     "tracker_not_assigned": {
       "title": "The virtual tracker {name} is not assigned to a person",
@@ -173,11 +279,11 @@
     },
     "recipient_without_phone": {
       "title": "{person} has no phone to be asked on",
-      "description": "{person} is set to be asked about {tracker}, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The questions themselves still work: they are announced by the tracker's event entity and can be answered with the actions \"Answer prompt\" and \"Answer reminder\"."
+      "description": "{person} is set to be asked about {tracker}, but Home Assistant has no phone to send the question to: no Home Assistant Companion App is registered for the user account of {person}.\n\nInstall the Companion App on that person's phone and sign in with their own user account (Settings > People shows which user a person belongs to), or take {person} out of \"Who is asked?\" under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker. The questions themselves still work: they are announced by the tracker's event entity and can be answered with the actions \"Answer prompt\", \"Answer reminder\" and \"Answer device left behind\"."
     },
     "real_person_missing": {
       "title": "The real person {person} no longer exists",
-      "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone - deleted or renamed. Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+      "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone (deleted or renamed). Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
     }
   },
   "selector": {
@@ -192,9 +298,29 @@
         "yes": "Yes, still at home",
         "no": "No, switch the tracker off"
       }
+    },
+    "left_behind_answer": {
+      "options": {
+        "yes": "Yes, they are at home",
+        "no": "No, switch the tracker off"
+      }
     }
   },
   "services": {
+    "answer_left_behind": {
+      "name": "Answer device left behind",
+      "description": "Answers the open question about a device left behind of a virtual tracker. \"Yes\" changes nothing, \"no\" switches the tracker off and keeps its presence sources from switching it back on until they have been away for \"Away after\".",
+      "fields": {
+        "answer": {
+          "name": "Answer",
+          "description": "Whether the person the tracker stands for is at home."
+        },
+        "answered_by": {
+          "name": "Answered by",
+          "description": "The person who gave the answer. Only passed on to the tracker's event entity, for automations that want to know who replied."
+        }
+      }
+    },
     "answer_prompt": {
       "name": "Answer prompt",
       "description": "Answers the open prompt of a virtual tracker. \"Yes\" switches the tracker on, \"no\" leaves everything as it is.",
@@ -223,9 +349,13 @@
         }
       }
     },
+    "open_left_behind": {
+      "name": "Ask about device left behind",
+      "description": "Asks right now whether the person a virtual tracker stands for is really at home, without waiting for the house to be empty for \"Away after\". The tracker has to be switched on and have a presence source; everything after that is the usual question, including the notification, the \"Answer time\" under \"Questions\" and the switch-off when nobody answers."
+    },
     "open_prompt": {
       "name": "Open prompt",
-      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when empty\" switch and the \"Prompt delay\"; everything after that is the usual prompt, including the notification and the answer time."
+      "description": "Opens the prompt of a virtual tracker right now, without waiting for the last real person to leave. It ignores who is at home, the tracker's \"Ask when empty\" switch and the \"Delay\" under \"Questions\"; everything after that is the usual prompt, including the notification and the answer time."
     },
     "open_reminder": {
       "name": "Open reminder",

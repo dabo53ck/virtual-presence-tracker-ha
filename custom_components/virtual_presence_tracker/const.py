@@ -86,12 +86,34 @@ DEFAULT_NOTIFY_ON_EXPIRY: Final = False
 CONF_OVERRIDE_DND: Final = "override_dnd"
 DEFAULT_OVERRIDE_DND: Final = False
 
-# The options a tracker carries an entity for (M2f, grown in M3a), with the
-# value that applies while the key is missing. They are the only keys of a
-# subentry that
-# may change without reloading the config entry: a reload would take the
-# trackers and their persons away for a moment, which is not something a
-# switch is allowed to do.
+# How long the presence sources of a tracker (M3e) have to be absent before the
+# tracker is switched off, in minutes - the guard against a missed Bluetooth
+# advertisement or a Wi-Fi drop flipping the house to "empty". For a Bluetooth
+# source it is also the window an advertisement counts in. A tracker without
+# the key uses the default, like every other missing option.
+CONF_AWAY_AFTER: Final = "away_after"
+DEFAULT_AWAY_AFTER: Final = 10
+MIN_AWAY_AFTER: Final = 1
+MAX_AWAY_AFTER: Final = 120
+
+# The question about a device left behind (M3f): a tracker that a presence
+# source keeps on while the house is empty is asked about once, `away_after`
+# after the last real person left - and switched off when nobody answers. Off
+# by default, for a new tracker and for one without the key. It has a Do Not
+# Disturb override of its own, separate from the prompt's: a loud prompt and a
+# quiet question about a device, or the other way round, are both reasonable.
+# Its answer time is the prompt's `answer_timeout`, its waiting time is
+# `away_after`.
+CONF_ASK_LEFT_BEHIND: Final = "ask_left_behind"
+DEFAULT_ASK_LEFT_BEHIND: Final = False
+CONF_LEFT_BEHIND_OVERRIDE_DND: Final = "left_behind_override_dnd"
+DEFAULT_LEFT_BEHIND_OVERRIDE_DND: Final = False
+
+# Every per-tracker option, with the value that applies while the key is
+# missing. None of them reloads the config entry when it changes: a reload
+# would take the trackers and their persons away for a moment, which neither a
+# switch nor saving the tracker's form is allowed to do. The manager reads all
+# of them where it uses them, whoever wrote them.
 OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_ASK_ON_DEPARTURE: DEFAULT_ASK_ON_DEPARTURE,
     CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
@@ -101,8 +123,37 @@ OPTION_DEFAULTS: Final[dict[str, bool | int]] = {
     CONF_REMIND_AFTER: DEFAULT_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
     CONF_OVERRIDE_DND: DEFAULT_OVERRIDE_DND,
+    CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+    CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
+    CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
 }
 LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
+
+# The collapsible sections of the tracker's form (M3g) and the options each of
+# them holds: what is set once. What is switched depending on the situation
+# has a switch on the tracker's device page instead (switch.py). The section keys only exist in the form: the values are stored
+# flat in the subentry data, under the keys they have always had. The sources
+# section additionally holds the three source lists.
+SECTION_QUESTIONS: Final = "questions"
+SECTION_REMINDER: Final = "reminder"
+SECTION_SOURCES: Final = "sources"
+FORM_OPTION_SECTIONS: Final[dict[str, tuple[str, ...]]] = {
+    SECTION_QUESTIONS: (CONF_ANSWER_TIMEOUT, CONF_PROMPT_DELAY, CONF_NOTIFY_ON_EXPIRY),
+    SECTION_REMINDER: (CONF_REMIND_AFTER, CONF_REMINDER_TIMEOUT),
+    SECTION_SOURCES: (CONF_AWAY_AFTER,),
+}
+
+# The option entities that M3g removed, as (platform domain, option key): the
+# key is the suffix of their unique ID. Their registry entries are removed on
+# setup, so that no `unavailable` leftover stays behind on an older install.
+REMOVED_OPTION_ENTITIES: Final = (
+    ("number", CONF_ANSWER_TIMEOUT),
+    ("number", CONF_PROMPT_DELAY),
+    ("number", CONF_REMIND_AFTER),
+    ("number", CONF_REMINDER_TIMEOUT),
+    ("number", CONF_AWAY_AFTER),
+    ("switch", CONF_NOTIFY_ON_EXPIRY),
+)
 
 # The person a new tracker asks for (M2g). This is a marker in the subentry
 # data, not an option: the form writes it, the integration acts on it once
@@ -112,12 +163,53 @@ LIVE_OPTION_KEYS: Final = frozenset(OPTION_DEFAULTS)
 CONF_CREATE_PERSON: Final = "create_person"
 DEFAULT_CREATE_PERSON: Final = True
 
+# Button sources (M3d): `event` entities of any integration whose events switch
+# a tracker - a set of event types that means "home" (on) and a set that means
+# "away" (off); every other type is left alone. All three keys are absent from
+# a tracker without button sources, which is what every tracker from before
+# M3d looks like, and the form takes all three off again when the last source
+# is removed. Nothing about them is vendor-specific.
+CONF_BUTTON_SOURCES: Final = "button_sources"
+CONF_BUTTON_HOME_TYPES: Final = "button_home_types"
+CONF_BUTTON_AWAY_TYPES: Final = "button_away_types"
+BUTTON_KEYS: Final = frozenset(
+    {CONF_BUTTON_SOURCES, CONF_BUTTON_HOME_TYPES, CONF_BUTTON_AWAY_TYPES}
+)
+# What the form suggests for a source that offers them: a short press says
+# "home", a long press says "away". Only suggested when "press" is offered.
+SUGGESTED_BUTTON_HOME_TYPE: Final = "press"
+SUGGESTED_BUTTON_AWAY_TYPE: Final = "long_press"
+EVENT_DOMAIN: Final = "event"
+
+# Presence sources (M3e): entities whose state says whether the person is at
+# home - a `device_tracker` (present = `home`) or a `binary_sensor` (present =
+# `on`) of any integration - and Bluetooth devices by address, heard through
+# Home Assistant's own Bluetooth manager. A tracker counts as present while any
+# of them is. Both keys are absent from a tracker without such sources, which
+# is what every tracker from before M3e looks like, and the form takes a key
+# off again when its last source is removed.
+CONF_PRESENCE_SOURCES: Final = "presence_sources"
+CONF_BLE_SOURCES: Final = "ble_sources"
+PRESENCE_KEYS: Final = frozenset({CONF_PRESENCE_SOURCES, CONF_BLE_SOURCES})
+DEVICE_TRACKER_DOMAIN: Final = "device_tracker"
+BINARY_SENSOR_DOMAIN: Final = "binary_sensor"
+# Spelled out rather than imported: the integration has to load on an instance
+# without Bluetooth, so only a configured Bluetooth source ever imports it.
+BLUETOOTH_DOMAIN: Final = "bluetooth"
+# How often the last advertisement of a Bluetooth source is looked at, in
+# seconds. Home Assistant's own unavailable tracking runs every five minutes
+# and waits up to fifteen, which is far coarser than `away_after`.
+BLE_POLL_INTERVAL: Final = 30
+
 # Every key of a subentry that may change while the config entry stays loaded:
-# the options an entity writes, plus the marker above. A reload would take the
-# trackers and their persons to `unavailable` for a moment, and neither a
-# switch nor a marker that has served its purpose is allowed to do that (see
-# the reload fingerprint in __init__.py).
-NO_RELOAD_KEYS: Final = LIVE_OPTION_KEYS | {CONF_CREATE_PERSON}
+# the options (written by a switch or by the form), the marker above, the button sources and the
+# presence sources, whose listeners the manager moves by itself. A reload
+# would take the trackers and their persons to `unavailable` for a moment, and
+# none of these is allowed to do that (see the reload fingerprint in
+# __init__.py).
+NO_RELOAD_KEYS: Final = (
+    LIVE_OPTION_KEYS | {CONF_CREATE_PERSON} | BUTTON_KEYS | PRESENCE_KEYS
+)
 
 # State attributes of the integration's own entities.
 ATTR_SINCE: Final = "since"
@@ -127,6 +219,8 @@ ATTR_PROMPT_OPEN: Final = "prompt_open"
 ATTR_PROMPT_EXPIRES_AT: Final = "prompt_expires_at"
 ATTR_REMINDER_OPEN: Final = "reminder_open"
 ATTR_REMINDER_EXPIRES_AT: Final = "reminder_expires_at"
+ATTR_LEFT_BEHIND_OPEN: Final = "left_behind_open"
+ATTR_LEFT_BEHIND_EXPIRES_AT: Final = "left_behind_expires_at"
 
 # Public contract of the prompt. The event types of the
 # per-tracker event entity, the keys of their data and the reasons a prompt can
@@ -163,11 +257,33 @@ REMINDER_EVENT_TYPES: Final = [
     EVENT_REMINDER_CANCELLED,
 ]
 
+# The question about a device left behind (M3f) follows the reminder's pattern:
+# a stem and the same five endings, on the same event entity, named by an ID of
+# its own (`left_behind_id`) and never by either of the other two.
+EVENT_LEFT_BEHIND_STARTED: Final = "left_behind_started"
+EVENT_LEFT_BEHIND_ANSWERED_YES: Final = "left_behind_answered_yes"
+EVENT_LEFT_BEHIND_ANSWERED_NO: Final = "left_behind_answered_no"
+EVENT_LEFT_BEHIND_EXPIRED: Final = "left_behind_expired"
+EVENT_LEFT_BEHIND_CANCELLED: Final = "left_behind_cancelled"
+LEFT_BEHIND_EVENT_TYPES: Final = [
+    EVENT_LEFT_BEHIND_STARTED,
+    EVENT_LEFT_BEHIND_ANSWERED_YES,
+    EVENT_LEFT_BEHIND_ANSWERED_NO,
+    EVENT_LEFT_BEHIND_EXPIRED,
+    EVENT_LEFT_BEHIND_CANCELLED,
+]
+
 # Everything one tracker's event entity can publish.
-TRACKER_EVENT_TYPES: Final = PROMPT_EVENT_TYPES + REMINDER_EVENT_TYPES
+TRACKER_EVENT_TYPES: Final = (
+    PROMPT_EVENT_TYPES + REMINDER_EVENT_TYPES + LEFT_BEHIND_EVENT_TYPES
+)
 
 ATTR_PROMPT_ID: Final = "prompt_id"
 ATTR_REMINDER_ID: Final = "reminder_id"
+ATTR_LEFT_BEHIND_ID: Final = "left_behind_id"
+# The presence sources that were still present when a question about a device
+# left behind opened: entity IDs and Bluetooth addresses.
+ATTR_SOURCES: Final = "sources"
 ATTR_TRACKER: Final = "tracker"
 ATTR_EXPIRES_AT: Final = "expires_at"
 ATTR_ANSWERED_BY: Final = "answered_by"
@@ -183,17 +299,21 @@ REASON_OPTION_DISABLED: Final = "option_disabled"
 # clearing may name a prompt that a previous Home Assistant run started.
 EVENT_NOTIFICATION_ACTION: Final = "mobile_app_notification_action"
 NOTIFICATION_TAG_PREFIX: Final = "vpt_"
-NOTIFICATION_INFO_TAG_PREFIX: Final = "vpt_info_"
 NOTIFICATION_REMINDER_TAG_PREFIX: Final = "vpt_reminder_"
+NOTIFICATION_LEFT_BEHIND_TAG_PREFIX: Final = "vpt_left_behind_"
 ACTION_YES_PREFIX: Final = "VPT_YES_"
 ACTION_NO_PREFIX: Final = "VPT_NO_"
 # The reminder buttons (M3a). Neither of these is a prefix of a prompt action
 # and no prompt action is a prefix of one of these - `VPT_REMIND_YES_x` does
 # not start with `VPT_YES_`, and `VPT_YES_x` does not start with
 # `VPT_REMIND_YES_` - so the same startswith() test tells the four apart in
-# either order. Whoever adds a sixth prefix has to keep that true.
+# either order. Whoever adds another prefix has to keep that true.
 ACTION_REMIND_YES_PREFIX: Final = "VPT_REMIND_YES_"
 ACTION_REMIND_NO_PREFIX: Final = "VPT_REMIND_NO_"
+# The buttons of the question about a device left behind (M3f), under the same
+# rule: none of the six prefixes starts with another one.
+ACTION_LEFT_BEHIND_YES_PREFIX: Final = "VPT_LEFT_BEHIND_YES_"
+ACTION_LEFT_BEHIND_NO_PREFIX: Final = "VPT_LEFT_BEHIND_NO_"
 CLEAR_NOTIFICATION: Final = "clear_notification"
 
 # The icon of the prompt message: the integration's own icon, out of the
@@ -222,6 +342,8 @@ SERVICE_ANSWER_PROMPT: Final = "answer_prompt"
 SERVICE_OPEN_PROMPT: Final = "open_prompt"
 SERVICE_ANSWER_REMINDER: Final = "answer_reminder"
 SERVICE_OPEN_REMINDER: Final = "open_reminder"
+SERVICE_ANSWER_LEFT_BEHIND: Final = "answer_left_behind"
+SERVICE_OPEN_LEFT_BEHIND: Final = "open_left_behind"
 ATTR_ANSWER: Final = "answer"
 ANSWER_YES: Final = "yes"
 ANSWER_NO: Final = "no"

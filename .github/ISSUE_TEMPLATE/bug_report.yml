@@ -12,6 +12,9 @@ body:
         - The prompt when the house empties
         - The reminder for a tracker that has been on too long
         - The notification on the phone (Companion App)
+        - Buttons and presence sources
+        - The question about a device left behind
+        - Events and actions (the automation contract)
         - Repair issues
         - Documentation
         - Not sure
@@ -46,7 +49,7 @@ body:
     id: integration_version
     attributes:
       label: Integration version
-      description: The `version` in `custom_components/virtual_presence_tracker/manifest.json`.
+      description: Shown in HACS, or `version` in `custom_components/virtual_presence_tracker/manifest.json`.
     validations:
       required: true
   - type: input
