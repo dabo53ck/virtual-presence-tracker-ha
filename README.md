@@ -115,11 +115,8 @@ on a tablet.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dabo53ck&repository=virtual-presence-tracker-ha&category=integration)
 
-1. Click the button above (or open HACS → **⋮** menu, top right → **Custom
-   repositories**, and add
-   `https://github.com/dabo53ck/virtual-presence-tracker-ha` with the type
-   **Integration**).
-2. Install **Virtual Presence Tracker** and restart Home Assistant.
+1. Click the button above, or search for **Virtual Presence Tracker** in HACS.
+2. Download it and restart Home Assistant.
 
 ### Manual
 
@@ -505,9 +502,9 @@ To add a language, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 License: [MIT](LICENSE)
 
-[release-badge]: https://img.shields.io/github/v/release/dabo53ck/virtual-presence-tracker-ha?include_prereleases&label=release
+[release-badge]: https://img.shields.io/github/v/release/dabo53ck/virtual-presence-tracker-ha?label=release
 [release-url]: https://github.com/dabo53ck/virtual-presence-tracker-ha/releases
-[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-badge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
 [hacs-url]: https://github.com/hacs/integration
 [validate-badge]: https://github.com/dabo53ck/virtual-presence-tracker-ha/actions/workflows/validate.yml/badge.svg
 [validate-url]: https://github.com/dabo53ck/virtual-presence-tracker-ha/actions/workflows/validate.yml
