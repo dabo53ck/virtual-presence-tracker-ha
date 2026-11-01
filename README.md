@@ -474,6 +474,7 @@ gone.
 | **The real person … has a virtual tracker attached** | Remove the tracker from that person, or the person from the real persons. |
 | **… has no phone to be asked on** | Sign in to the Companion App with their own user, or remove them from **Who is asked?**. |
 | **The real person … no longer exists** | Pick your real persons again with **Reconfigure**. |
+| **The virtual tracker … follows sources that no longer exist** | A button or presence source was deleted or renamed; remove or replace it with **Edit virtual tracker**. |
 
 ## FAQ
 
@@ -498,6 +499,9 @@ displayed name does.
 
 Questions and bug reports:
 [GitHub issues](https://github.com/dabo53ck/virtual-presence-tracker-ha/issues).
+For a bug, attach the diagnostics: **Settings → Devices & services → Virtual
+Presence Tracker**, three-dot menu, **Download diagnostics**. Names, devices and
+addresses in it are replaced by labels such as `tracker_1`.
 To add a language, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 License: [MIT](LICENSE)

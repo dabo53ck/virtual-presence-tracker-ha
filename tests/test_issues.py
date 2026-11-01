@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_mock_service,
@@ -13,8 +14,11 @@ from custom_components.virtual_presence_tracker.const import (
     ATTR_DEVICE_TRACKERS,
     ATTR_USER_ID,
     CONF_ASK_ON_DEPARTURE,
+    CONF_BLE_SOURCES,
+    CONF_BUTTON_SOURCES,
     CONF_DEVICE_NAME,
     CONF_NOTIFY_PERSONS,
+    CONF_PRESENCE_SOURCES,
     CONF_REMIND_AFTER,
     CONF_USER_ID,
     DOMAIN,
@@ -27,12 +31,22 @@ from custom_components.virtual_presence_tracker.issues import (
     ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER,
     ISSUE_REAL_PERSON_MISSING,
     ISSUE_RECIPIENT_WITHOUT_PHONE,
+    ISSUE_SOURCE_MISSING,
     ISSUE_TRACKER_NOT_ASSIGNED,
+    person_key,
 )
 from homeassistant.config_entries import ConfigSubentry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, STATE_HOME, STATE_NOT_HOME
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_STARTED,
+    STATE_HOME,
+    STATE_NOT_HOME,
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import CoreState, HomeAssistant
-from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers import entity_registry as er, issue_registry as ir
 
 from .conftest import (
     ENTRY_ID,
@@ -45,6 +59,7 @@ from .conftest import (
 )
 
 TRACKER_A_ENTITY = "device_tracker.kid"
+TRACKER_B_ENTITY = "device_tracker.granny"
 
 PERSON_KID = "person.kid"
 DABO53CK_PHONE = "device_tracker.dabo53ck_phone"
@@ -237,7 +252,9 @@ async def test_a_real_person_with_a_virtual_tracker_is_reported(
 
     await set_person(hass, PERSON_A, [DABO53CK_PHONE, TRACKER_A_ENTITY])
 
-    hazard = issue_id(ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, PERSON_A, TRACKER_A_ENTITY)
+    hazard = issue_id(
+        ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, person_key(PERSON_A), TRACKER_A
+    )
     current = issues(hass)
     assert hazard in current
     assert current[hazard].translation_placeholders == {
@@ -261,7 +278,7 @@ async def test_a_missing_real_person_is_reported(
     """A configured real person without an entity is reported."""
     await setup_entry(hass, tracker_entry)
 
-    missing = issue_id(ISSUE_REAL_PERSON_MISSING, PERSON_A)
+    missing = issue_id(ISSUE_REAL_PERSON_MISSING, person_key(PERSON_A))
     current = issues(hass)
     assert missing in current
     assert current[missing].translation_placeholders == {"person": PERSON_A}
@@ -318,7 +335,7 @@ async def test_a_recipient_without_a_phone_is_reported(hass: HomeAssistant) -> N
     await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
     await setup_entry(hass, asking_entry(PERSON_A))
 
-    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A)
+    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(PERSON_A))
     current = issues(hass)
     assert reported in current
     issue = current[reported]
@@ -371,7 +388,7 @@ async def test_a_recipient_of_a_tracker_that_only_reminds_is_reported(
 
     await setup_entry(hass, asking_entry(PERSON_A, asking=False, remind_after=24))
 
-    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A)
+    reported = issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(PERSON_A))
     current = issues(hass)
     assert reported in current
     assert current[reported].translation_key == ISSUE_RECIPIENT_WITHOUT_PHONE
@@ -392,7 +409,7 @@ async def test_turning_the_reminder_off_clears_the_issue(hass: HomeAssistant) ->
     await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
     entry = asking_entry(PERSON_A, asking=False, remind_after=24)
     await setup_entry(hass, entry)
-    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A) in issues(hass)
+    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(PERSON_A)) in issues(hass)
 
     loaded = entry.runtime_data
     subentry = entry.subentries[TRACKER_A]
@@ -413,7 +430,7 @@ async def test_turning_the_prompt_off_clears_the_issue(hass: HomeAssistant) -> N
     await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
     entry = asking_entry(PERSON_A)
     await setup_entry(hass, entry)
-    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A) in issues(hass)
+    assert issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(PERSON_A)) in issues(hass)
 
     loaded = entry.runtime_data
     subentry = entry.subentries[TRACKER_A]
@@ -454,3 +471,308 @@ async def test_removing_a_tracker_clears_its_issue(
     await hass.async_block_till_done()
 
     assert set(issues(hass)) == {issue_id(ISSUE_TRACKER_NOT_ASSIGNED, TRACKER_A)}
+
+
+# --- Sources that no longer exist --------------------------------------------
+
+BUTTON = "event.kid_button"
+TAG = "device_tracker.kid_tag"
+WIFI = "binary_sensor.kid_tablet_wifi"
+ADDRESS = "AA:BB:CC:11:22:33"
+
+
+def source_entry(**data: object) -> MockConfigEntry:
+    """Return an entry whose first tracker follows the given sources."""
+    return make_entry(make_subentry(TRACKER_A, "Kid", **data))
+
+
+async def quiet_household(hass: HomeAssistant) -> None:
+    """Set up the persons so that no other issue is raised."""
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE])
+    await set_person(hass, PERSON_KID, [TRACKER_A_ENTITY])
+
+
+def register(hass: HomeAssistant, entity_id: str) -> None:
+    """Add an entity of another integration to the entity registry."""
+    domain, object_id = entity_id.split(".")
+    er.async_get(hass).async_get_or_create(
+        domain, "test", object_id, suggested_object_id=object_id
+    )
+
+
+async def test_a_deleted_button_source_is_reported(hass: HomeAssistant) -> None:
+    """A button whose entity is deleted is named in an issue of its tracker."""
+    await quiet_household(hass)
+    register(hass, BUTTON)
+    hass.states.async_set(BUTTON, STATE_UNKNOWN)
+    await setup_entry(hass, source_entry(**{CONF_BUTTON_SOURCES: [BUTTON]}))
+    assert issues(hass) == {}
+
+    er.async_get(hass).async_remove(BUTTON)
+    hass.states.async_remove(BUTTON)
+    await hass.async_block_till_done()
+
+    reported = issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)
+    current = issues(hass)
+    assert set(current) == {reported}
+    issue = current[reported]
+    assert issue.translation_key == ISSUE_SOURCE_MISSING
+    assert issue.translation_placeholders == {"name": "Kid", "sources": BUTTON}
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert issue.is_fixable is False
+    assert issue.is_persistent is False
+
+
+async def test_a_renamed_presence_source_is_reported(hass: HomeAssistant) -> None:
+    """Renaming leaves nothing under the old entity ID, in state or registry."""
+    await quiet_household(hass)
+    register(hass, TAG)
+    hass.states.async_set(TAG, STATE_HOME)
+    await setup_entry(hass, source_entry(**{CONF_PRESENCE_SOURCES: [TAG]}))
+
+    # The state goes first; the registry entry alone still keeps it existing.
+    hass.states.async_remove(TAG)
+    await hass.async_block_till_done()
+    assert issues(hass) == {}
+
+    er.async_get(hass).async_update_entity(TAG, new_entity_id="device_tracker.tag")
+    await hass.async_block_till_done()
+
+    reported = issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)
+    current = issues(hass)
+    assert set(current) == {reported}
+    assert current[reported].translation_placeholders["sources"] == TAG
+
+
+async def test_a_source_without_a_registry_entry_is_reported(
+    hass: HomeAssistant,
+) -> None:
+    """An entity without a unique ID only has a state, and it can go too."""
+    await quiet_household(hass)
+    hass.states.async_set(WIFI, STATE_ON)
+    await setup_entry(hass, source_entry(**{CONF_PRESENCE_SOURCES: [WIFI]}))
+    assert issues(hass) == {}
+
+    hass.states.async_remove(WIFI)
+    await hass.async_block_till_done()
+
+    assert set(issues(hass)) == {issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)}
+
+    # Back again: the issue goes with it.
+    hass.states.async_set(WIFI, STATE_OFF)
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+
+
+@pytest.mark.parametrize("state", [STATE_UNAVAILABLE, STATE_UNKNOWN, None])
+async def test_a_source_that_still_exists_is_not_reported(
+    hass: HomeAssistant, state: str | None
+) -> None:
+    """Unavailable, unknown or registered without a state is not missing."""
+    await quiet_household(hass)
+    register(hass, TAG)
+    if state is not None:
+        hass.states.async_set(TAG, state)
+
+    await setup_entry(hass, source_entry(**{CONF_PRESENCE_SOURCES: [TAG]}))
+
+    assert issues(hass) == {}
+
+
+async def test_a_bluetooth_source_is_never_reported(hass: HomeAssistant) -> None:
+    """An address that is never heard is away, not missing."""
+    await quiet_household(hass)
+
+    await setup_entry(hass, source_entry(**{CONF_BLE_SOURCES: [ADDRESS]}))
+
+    assert issues(hass) == {}
+
+
+async def test_one_issue_names_every_missing_source_of_a_tracker(
+    hass: HomeAssistant,
+) -> None:
+    """Buttons first, then presence sources, in the order of the form."""
+    await quiet_household(hass)
+    await set_person(hass, "person.granny", [TRACKER_B_ENTITY])
+    hass.states.async_set(TAG, STATE_HOME)
+    entry = make_entry(
+        make_subentry(
+            TRACKER_A,
+            "Kid",
+            **{
+                CONF_BUTTON_SOURCES: [BUTTON],
+                CONF_PRESENCE_SOURCES: [WIFI, TAG],
+                CONF_BLE_SOURCES: [ADDRESS],
+            },
+        ),
+        make_subentry(TRACKER_B, "Granny", **{CONF_PRESENCE_SOURCES: [WIFI]}),
+    )
+
+    await setup_entry(hass, entry)
+
+    kid = issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)
+    granny = issue_id(ISSUE_SOURCE_MISSING, TRACKER_B)
+    current = issues(hass)
+    assert set(current) == {kid, granny}
+    assert current[kid].translation_placeholders == {
+        "name": "Kid",
+        "sources": f"{BUTTON}, {WIFI}",
+    }
+    assert current[granny].translation_placeholders == {
+        "name": "Granny",
+        "sources": WIFI,
+    }
+
+
+async def test_removing_the_source_in_the_form_clears_the_issue(
+    hass: HomeAssistant,
+) -> None:
+    """Saving the form re-checks - without reloading the entry."""
+    await quiet_household(hass)
+    entry = source_entry(**{CONF_BUTTON_SOURCES: [BUTTON]})
+    await setup_entry(hass, entry)
+    assert set(issues(hass)) == {issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)}
+
+    loaded = entry.runtime_data
+    subentry = entry.subentries[TRACKER_A]
+    data = {
+        key: value for key, value in subentry.data.items() if key != CONF_BUTTON_SOURCES
+    }
+    hass.config_entries.async_update_subentry(entry, subentry, data=data)
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+    assert entry.runtime_data is loaded
+
+
+async def test_adding_a_missing_source_in_the_form_is_reported(
+    hass: HomeAssistant,
+) -> None:
+    """A source picked in the form is checked as soon as it is saved."""
+    await quiet_household(hass)
+    entry = source_entry()
+    await setup_entry(hass, entry)
+    assert issues(hass) == {}
+
+    subentry = entry.subentries[TRACKER_A]
+    hass.config_entries.async_update_subentry(
+        entry, subentry, data={**subentry.data, CONF_PRESENCE_SOURCES: [TAG]}
+    )
+    await hass.async_block_till_done()
+
+    assert set(issues(hass)) == {issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)}
+
+
+async def test_a_source_that_is_registered_again_clears_the_issue(
+    hass: HomeAssistant,
+) -> None:
+    """A registry entry under the old entity ID is enough to exist again."""
+    await quiet_household(hass)
+    await setup_entry(hass, source_entry(**{CONF_BUTTON_SOURCES: [BUTTON]}))
+    assert set(issues(hass)) == {issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)}
+
+    register(hass, BUTTON)
+    await hass.async_block_till_done()
+
+    assert issues(hass) == {}
+
+
+async def test_a_missing_source_is_not_reported_before_the_start(
+    hass: HomeAssistant,
+) -> None:
+    """The integration of a source may simply not be set up yet."""
+    hass.set_state(CoreState.not_running)
+    await setup_entry(hass, source_entry(**{CONF_PRESENCE_SOURCES: [TAG]}))
+    await quiet_household(hass)
+
+    assert issues(hass) == {}
+
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    await hass.async_block_till_done()
+
+    assert set(issues(hass)) == {issue_id(ISSUE_SOURCE_MISSING, TRACKER_A)}
+
+
+# --- Issue IDs ----------------------------------------------------------------
+
+
+async def test_no_issue_id_carries_an_entity_id(hass: HomeAssistant) -> None:
+    """Persons are hashed and trackers named by subentry, in every issue ID.
+
+    Home Assistant puts the issue IDs into every diagnostics download, and an
+    entity ID is usually a name. The placeholders still name both.
+    """
+    await set_person(hass, PERSON_A, [DABO53CK_PHONE, TRACKER_A_ENTITY])
+    entry = make_entry(
+        make_subentry(
+            TRACKER_A,
+            "Kid",
+            **{
+                CONF_ASK_ON_DEPARTURE: True,
+                CONF_NOTIFY_PERSONS: [PERSON_A],
+                CONF_BUTTON_SOURCES: ["event.kid_button"],
+            },
+        ),
+        make_subentry(TRACKER_B, "Granny"),
+        persons=[PERSON_A, PERSON_B],
+    )
+
+    await setup_entry(hass, entry)
+
+    current = issues(hass)
+    assert set(current) == {
+        issue_id(
+            ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, person_key(PERSON_A), TRACKER_A
+        ),
+        issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(PERSON_A)),
+        issue_id(ISSUE_REAL_PERSON_MISSING, person_key(PERSON_B)),
+        issue_id(ISSUE_TRACKER_NOT_ASSIGNED, TRACKER_B),
+        issue_id(ISSUE_SOURCE_MISSING, TRACKER_A),
+    }
+    for reported in current:
+        for forbidden in ("person.", "device_tracker.", "event.", "kid", "granny"):
+            assert forbidden not in reported.lower(), reported
+    assert person_key(PERSON_A) == person_key(PERSON_A.upper())
+    assert len(person_key(PERSON_A)) == 10
+    assert person_key(PERSON_A) != person_key(PERSON_B)
+    hazard = current[
+        issue_id(ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, person_key(PERSON_A), TRACKER_A)
+    ]
+    assert hazard.translation_placeholders == {
+        "person": PERSON_A,
+        "tracker": TRACKER_A_ENTITY,
+    }
+
+
+async def test_an_issue_id_of_the_old_format_is_cleaned_up(
+    hass: HomeAssistant, tracker_entry: MockConfigEntry
+) -> None:
+    """An issue of an older version, with an entity ID in its ID, goes away.
+
+    Home Assistant keeps the issues of a previous run in its registry, so the
+    first check after the update finds them under their old IDs.
+    """
+    old = [
+        issue_id(ISSUE_REAL_PERSON_MISSING, PERSON_A),
+        issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, PERSON_A),
+        issue_id(ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, PERSON_A, TRACKER_A_ENTITY),
+    ]
+    for reported in old:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            reported,
+            is_fixable=False,
+            is_persistent=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_REAL_PERSON_MISSING,
+            translation_placeholders={"person": PERSON_A},
+        )
+
+    await setup_entry(hass, tracker_entry)
+
+    current = issues(hass)
+    assert not set(old) & set(current)
+    assert issue_id(ISSUE_REAL_PERSON_MISSING, person_key(PERSON_A)) in current

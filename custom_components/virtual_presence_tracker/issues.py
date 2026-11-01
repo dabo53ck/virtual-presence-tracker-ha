@@ -5,7 +5,8 @@ A virtual tracker does nothing until its `device_tracker` is attached to a
 configured real person: switching that tracker on would look like a real
 arrival and reset every tracker at once. Neither is visible from the
 integration's page, so both are reported as repair issues - together with a
-configured real person whose entity is gone. The config flow refuses the
+configured real person whose entity is gone, and with a button or presence
+source of a tracker whose entity is gone. The config flow refuses the
 dangerous assignment up front, the issues cover the case where it happens
 afterwards.
 """
@@ -13,6 +14,7 @@ afterwards.
 from __future__ import annotations
 
 from collections.abc import Iterable
+import hashlib
 from typing import TYPE_CHECKING
 
 from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN
@@ -30,20 +32,29 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
-from homeassistant.helpers.event import TrackStates, async_track_state_change_filtered
+from homeassistant.helpers.event import (
+    TrackStates,
+    async_track_state_added_domain,
+    async_track_state_change_filtered,
+    async_track_state_removed_domain,
+)
 from homeassistant.helpers.start import async_at_started
 
 from .const import (
     ATTR_DEVICE_TRACKERS,
+    BINARY_SENSOR_DOMAIN,
     CONF_ASK_LEFT_BEHIND,
     CONF_ASK_ON_DEPARTURE,
+    CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
     CONF_PERSONS,
+    CONF_PRESENCE_SOURCES,
     CONF_REMIND_AFTER,
     DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_ASK_ON_DEPARTURE,
     DEFAULT_REMIND_AFTER,
     DOMAIN,
+    EVENT_DOMAIN,
     NOTIFY_DOMAIN,
     PERSON_DOMAIN,
     SUBENTRY_TYPE_TRACKER,
@@ -58,6 +69,26 @@ ISSUE_TRACKER_NOT_ASSIGNED = "tracker_not_assigned"
 ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER = "real_person_has_virtual_tracker"
 ISSUE_REAL_PERSON_MISSING = "real_person_missing"
 ISSUE_RECIPIENT_WITHOUT_PHONE = "recipient_without_phone"
+ISSUE_SOURCE_MISSING = "source_missing"
+
+# The domains an entity source of a tracker can have: `event` for the buttons
+# (M3d), `device_tracker` and `binary_sensor` for the presence sources (M3e).
+# Bluetooth addresses are no entities and are never reported: a tag that is out
+# of range is simply away, which is exactly what it is there to say.
+_SOURCE_DOMAINS = (EVENT_DOMAIN, DEVICE_TRACKER_DOMAIN, BINARY_SENSOR_DOMAIN)
+
+
+def person_key(entity_id: str) -> str:
+    """Return the neutral part of an issue ID that stands for a person.
+
+    Home Assistant appends the IDs of every issue of the domain to each
+    diagnostics download, outside of what the integration redacts, and a
+    person's entity ID is usually the person's name. A short hash keeps the
+    ID stable for the same person without naming anybody (changed
+    2026-10-19). The placeholders still name the person: of an issue that is
+    not persistent, nothing but the ID ends up in a download.
+    """
+    return hashlib.sha256(entity_id.lower().encode()).hexdigest()[:10]
 
 
 @callback
@@ -110,6 +141,36 @@ def _async_attached_trackers(
         for entity_id in state.attributes.get(ATTR_DEVICE_TRACKERS) or ()
         if entity_id in tracker_ids
     ]
+
+
+def async_entity_sources(subentry: ConfigSubentry) -> list[str]:
+    """Return the entity IDs a tracker follows, buttons first.
+
+    Lower case, without duplicates and in the order of the form, which is the
+    order the repair issue names them in.
+    """
+    return list(
+        dict.fromkeys(
+            str(entity_id).lower()
+            for key in (CONF_BUTTON_SOURCES, CONF_PRESENCE_SOURCES)
+            for entity_id in subentry.data.get(key, ())
+        )
+    )
+
+
+@callback
+def async_entity_missing(hass: HomeAssistant, entity_id: str) -> bool:
+    """Return whether an entity does not exist at all.
+
+    Only an entity with neither a state nor a registry entry is gone: deleted,
+    or renamed to another entity ID. One that is `unavailable` or `unknown`
+    still exists, and so does a disabled one or one whose integration is not
+    loaded right now - their registry entry is still there.
+    """
+    return (
+        hass.states.get(entity_id) is None
+        and er.async_get(hass).async_get(entity_id) is None
+    )
 
 
 @callback
@@ -191,6 +252,21 @@ class HouseholdIssues:
             self._unsubs.append(
                 hass.bus.async_listen(event_type, self._async_service_changed)
             )
+        # A source of a tracker exists while it has a state or a registry
+        # entry, so it can appear or go with either: an entity without a unique
+        # ID only ever has a state, and a renamed one leaves its old ID in the
+        # registry event. Both are followed for the domains a source can have
+        # rather than per source, so that nothing has to move when the sources
+        # of a tracker change - saving the form re-checks via async_recheck().
+        self._unsubs.append(
+            hass.bus.async_listen(
+                er.EVENT_ENTITY_REGISTRY_UPDATED, self._async_registry_changed
+            )
+        )
+        for track in (async_track_state_added_domain, async_track_state_removed_domain):
+            self._unsubs.append(
+                track(hass, _SOURCE_DOMAINS, self._async_source_state_changed)
+            )
         self._checking = True
         self._async_check()
 
@@ -199,6 +275,38 @@ class HouseholdIssues:
         """Re-check after a notify service appeared or disappeared."""
         if event.data.get(ATTR_DOMAIN) == NOTIFY_DOMAIN:
             self._async_check()
+
+    @callback
+    def _async_registry_changed(
+        self, event: Event[er.EventEntityRegistryUpdatedData]
+    ) -> None:
+        """Re-check after a source of a tracker was registered, removed or renamed.
+
+        Every other change of the registry - a new name, an area, an icon -
+        leaves the entity where it is, and so do the changes of entities that
+        no tracker follows.
+        """
+        data = event.data
+        if data["action"] == "update" and "old_entity_id" not in data:
+            return
+        involved = {data["entity_id"], data.get("old_entity_id")}
+        if involved & self._async_sources():
+            self._async_check()
+
+    @callback
+    def _async_source_state_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Re-check after the state of a source of a tracker appeared or went."""
+        if event.data["entity_id"] in self._async_sources():
+            self._async_check()
+
+    @callback
+    def _async_sources(self) -> set[str]:
+        """Return the entity sources of every tracker of this entry."""
+        return {
+            entity_id
+            for subentry in self.entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER)
+            for entity_id in async_entity_sources(subentry)
+        }
 
     @callback
     def _async_person_changed(self, event: Event[EventStateChangedData]) -> None:
@@ -255,6 +363,22 @@ class HouseholdIssues:
                 {"name": subentry.title, "entity_id": entity_id},
             )
 
+        # One issue per tracker that names every missing source of it: a
+        # deleted device usually takes several entities with it at once. The
+        # tracker behaves as it always did - a missing source says nothing, so
+        # it switches nothing - and the issue only makes that visible.
+        for subentry in subentries:
+            missing = [
+                entity_id
+                for entity_id in async_entity_sources(subentry)
+                if async_entity_missing(self.hass, entity_id)
+            ]
+            if missing:
+                issues[self._issue_id(ISSUE_SOURCE_MISSING, subentry.subentry_id)] = (
+                    ISSUE_SOURCE_MISSING,
+                    {"name": subentry.title, "sources": ", ".join(missing)},
+                )
+
         # A recipient without a phone is reported once per person: the same
         # person is usually chosen for several trackers, and one issue that
         # names them all is one notification instead of three.
@@ -266,21 +390,31 @@ class HouseholdIssues:
                 if not async_notify_services(self.hass, person):
                     without_phone.setdefault(person, []).append(subentry.title)
         for person, names in without_phone.items():
-            issues[self._issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person)] = (
+            issue_id = self._issue_id(ISSUE_RECIPIENT_WITHOUT_PHONE, person_key(person))
+            issues[issue_id] = (
                 ISSUE_RECIPIENT_WITHOUT_PHONE,
                 {"person": person, "tracker": ", ".join(names)},
             )
 
+        # The tracker of a hazard is named by its subentry ID in the issue
+        # ID, like every other per-tracker issue: its entity ID follows
+        # the tracker's name.
+        subentry_of = {
+            entity_id: subentry_id for subentry_id, entity_id in trackers.items()
+        }
         for person in self.entry.data.get(CONF_PERSONS, []):
             if self.hass.states.get(person) is None:
-                issues[self._issue_id(ISSUE_REAL_PERSON_MISSING, person)] = (
+                issue_id = self._issue_id(ISSUE_REAL_PERSON_MISSING, person_key(person))
+                issues[issue_id] = (
                     ISSUE_REAL_PERSON_MISSING,
                     {"person": person},
                 )
                 continue
             for entity_id in _async_attached_trackers(self.hass, person, tracker_ids):
                 issue_id = self._issue_id(
-                    ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER, person, entity_id
+                    ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER,
+                    person_key(person),
+                    subentry_of[entity_id],
                 )
                 issues[issue_id] = (
                     ISSUE_REAL_PERSON_HAS_VIRTUAL_TRACKER,
@@ -291,7 +425,13 @@ class HouseholdIssues:
 
     @callback
     def _async_apply(self, wanted: dict[str, tuple[str, dict[str, str]]]) -> None:
-        """Raise the wanted issues and delete every other issue of this entry."""
+        """Raise the wanted issues and delete every other issue of this entry.
+
+        "Every other" includes the inactive copies Home Assistant restores at
+        startup of the issues of a previous run, so an issue ID in an older
+        format (one that still carried an entity ID) is gone after the first
+        check.
+        """
         registry = ir.async_get(self.hass)
         for domain, issue_id in list(registry.issues):
             if (
@@ -314,5 +454,9 @@ class HouseholdIssues:
             )
 
     def _issue_id(self, translation_key: str, *parts: str) -> str:
-        """Return the stable ID of one issue of this entry."""
+        """Return the stable ID of one issue of this entry.
+
+        The parts are subentry IDs or `person_key()` values, never an entity
+        ID, a name or an address: the ID is what a diagnostics download shows.
+        """
         return "_".join((self.entry.entry_id, translation_key, *parts))

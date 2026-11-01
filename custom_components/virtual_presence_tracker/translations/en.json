@@ -284,6 +284,10 @@
     "real_person_missing": {
       "title": "The real person {person} no longer exists",
       "description": "{person} is configured as a real person of Virtual Presence Tracker, but that entity is gone (deleted or renamed). Its presence is no longer taken into account, so virtual trackers may not reset any more when somebody comes home.\n\nSelect your real persons again in Settings > Devices & services > Virtual Presence Tracker > Reconfigure."
+    },
+    "source_missing": {
+      "title": "The virtual tracker {name} follows sources that no longer exist",
+      "description": "{name} follows sources that no longer exist (deleted or renamed): `{sources}`. They switch {name} neither on nor off; its other sources, the switch and the questions keep working.\n\nRemove or replace them under Settings > Devices & services > Virtual Presence Tracker > Edit virtual tracker, in the section \"Sources (optional)\"."
     }
   },
   "selector": {

@@ -388,8 +388,9 @@ class HouseholdManager:
         )
         self._trackers: dict[str, TrackerState] = {}
         # Last *known* presence per configured person. A person whose state is
-        # unknown, unavailable or missing keeps their previous value and is
-        # absent from this mapping until their state is known once.
+        # unknown or unavailable keeps their previous value; a person whose
+        # state was never known, or was removed, is absent from this mapping
+        # until their state is known once.
         self._person_home: dict[str, bool] = {}
         self._listeners: list[Callable[[], None]] = []
         self._tracker_listeners: dict[str, list[Callable[[], None]]] = {}
@@ -779,6 +780,34 @@ class HouseholdManager:
                 return subentry_id
         return None
 
+    # Read-only views for the diagnostics. They hand out the manager's own
+    # objects; the caller copies what it needs and changes nothing.
+
+    @property
+    def presence(self) -> TrackerPresence:
+        """Return the follower of the presence sources."""
+        return self._presence
+
+    def person_home(self, entity_id: str) -> bool | None:
+        """Return the last known presence of a real person, None if not known."""
+        return self._person_home.get(entity_id.lower())
+
+    def tracker_state(self, subentry_id: str) -> TrackerState | None:
+        """Return the state of a tracker, if it is known."""
+        return self._trackers.get(subentry_id)
+
+    def prompt(self, subentry_id: str) -> Prompt | None:
+        """Return the open prompt of a tracker, if there is one."""
+        return self._prompts.get(subentry_id)
+
+    def prompt_scheduled(self, subentry_id: str) -> bool:
+        """Return whether a prompt of a tracker is waiting for its delay."""
+        return subentry_id in self._scheduled
+
+    def reminder(self, subentry_id: str) -> Reminder | None:
+        """Return the open reminder of a tracker, if there is one."""
+        return self._reminders.get(subentry_id)
+
     @callback
     def async_set_home(self, subentry_id: str, home: bool) -> None:
         """Set a virtual tracker home or away.
@@ -1165,13 +1194,28 @@ class HouseholdManager:
 
     @callback
     def _async_person_changed(self, event: Event[EventStateChangedData]) -> None:
-        """Handle a state change of a configured real person."""
-        home = _person_is_home(event.data["new_state"])
-        if home is None:
-            # Unknown, unavailable or removed: keep the last known value.
+        """Handle a state change of a configured real person.
+
+        A person whose state is *removed* - the entity was deleted or renamed -
+        stops counting at once. That is a change of the setup, not somebody
+        leaving: nothing is asked, reset, cancelled or started, only the
+        household sensor follows (changed 2026-10-19: the last known value used
+        to be kept until the next restart, so a deleted person who had been at
+        home kept the house occupied). A person who comes back later starts
+        from a baseline, as after a start.
+        """
+        entity_id = event.data["entity_id"]
+        if event.data["new_state"] is None:
+            if self._person_home.pop(entity_id, None) is not None:
+                _LOGGER.debug("Real person %s is gone and no longer counts", entity_id)
+                self._async_notify(self._listeners)
             return
 
-        entity_id = event.data["entity_id"]
+        home = _person_is_home(event.data["new_state"])
+        if home is None:
+            # Unknown or unavailable: keep the last known value.
+            return
+
         was_known = entity_id in self._person_home
         if was_known and self._person_home[entity_id] == home:
             return

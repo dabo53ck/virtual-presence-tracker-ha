@@ -164,6 +164,16 @@ class TrackerPresence:
         follow = self._follows.get(subentry_id)
         return follow.since if follow is not None else None
 
+    def known_presence(self, subentry_id: str) -> bool | None:
+        """Return the last known reading of a tracker's sources, None if none."""
+        follow = self._follows.get(subentry_id)
+        return follow.present if follow is not None else None
+
+    def absent_since(self, subentry_id: str) -> datetime | None:
+        """Return when the absence that has not switched off yet began."""
+        follow = self._follows.get(subentry_id)
+        return follow.absent_since if follow is not None else None
+
     def present_sources(self, subentry_id: str) -> list[str]:
         """Return the sources of a tracker that are present right now.
 

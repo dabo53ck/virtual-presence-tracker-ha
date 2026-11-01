@@ -63,6 +63,11 @@ body:
       label: Relevant logs
       description: Settings → System → Logs, filtered to `virtual_presence_tracker`.
       render: text
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Optional. Settings → Devices & services → Virtual Presence Tracker, three-dot menu, Download diagnostics, then drag the file in here. Names, devices and addresses in it are replaced by labels such as `tracker_1`.
   - type: checkboxes
     id: checks
     attributes:

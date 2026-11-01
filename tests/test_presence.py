@@ -86,7 +86,7 @@ TRACKER_B_ENTITY = "device_tracker.granny"
 EVENT_A = "event.kid_questions"
 SENSOR = "binary_sensor.only_virtual_trackers_home"
 
-ADDRESS = "7C:C6:B6:00:5D:C6"
+ADDRESS = "AA:BB:CC:11:22:33"
 OTHER_ADDRESS = "A4:C1:38:00:00:01"
 THIRD_ADDRESS = "D8:0B:CB:00:00:02"
 
@@ -1222,7 +1222,7 @@ async def test_the_bluetooth_devices_are_named_and_sorted(
     dr.async_get(hass).async_get_or_create(
         config_entry_id=bthome.entry_id,
         connections={(dr.CONNECTION_BLUETOOTH, ADDRESS)},
-        name="Shelly BLU Button1 5DC6",
+        name="Hallway tag",
     )
     bluetooth.advertise(OTHER_ADDRESS, name="ATC_000001", rssi=-80)
     bluetooth.advertise(ADDRESS, name="SBBT-002C", rssi=-60)
@@ -1239,7 +1239,7 @@ async def test_the_bluetooth_devices_are_named_and_sorted(
     ]
     config = field(result, CONF_BLE_SOURCES).config
     assert config["options"] == [
-        {"value": ADDRESS, "label": f"Shelly BLU Button1 5DC6 ({ADDRESS})"},
+        {"value": ADDRESS, "label": f"Hallway tag ({ADDRESS})"},
         {"value": OTHER_ADDRESS, "label": f"ATC_000001 ({OTHER_ADDRESS})"},
         {"value": THIRD_ADDRESS, "label": THIRD_ADDRESS},
     ]
@@ -1279,7 +1279,7 @@ async def test_a_typed_address_is_normalized(
         {
             CONF_NAME: "Kid",
             CONF_CREATE_PERSON: False,
-            SECTION_SOURCES: {CONF_BLE_SOURCES: [" 7c-c6-b6-00-5d-c6 ", ADDRESS]},
+            SECTION_SOURCES: {CONF_BLE_SOURCES: [" aa-bb-cc-11-22-33 ", ADDRESS]},
         },
     )
     await hass.async_block_till_done()
