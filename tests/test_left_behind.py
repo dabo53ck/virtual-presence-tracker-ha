@@ -73,6 +73,7 @@ from custom_components.virtual_presence_tracker.const import (
 )
 from custom_components.virtual_presence_tracker.issues import (
     ISSUE_RECIPIENT_WITHOUT_PHONE,
+    person_key,
 )
 from custom_components.virtual_presence_tracker.manager import OpenLeftBehindResult
 from custom_components.virtual_presence_tracker.messages import (
@@ -115,7 +116,7 @@ from .conftest import (
 TABLET = "device_tracker.xiaomi_tablet"
 TABLET_NAME = "Xiaomi Tablet"
 WATCH = "binary_sensor.kid_watch"
-ADDRESS = "7C:C6:B6:00:5D:C6"
+ADDRESS = "AA:BB:CC:11:22:33"
 
 SWITCH_A = "switch.kid_at_home"
 EVENT_A = "event.kid_questions"
@@ -545,7 +546,7 @@ async def test_a_tag_left_at_home_is_named_by_its_device(
     dr.async_get(hass).async_get_or_create(
         config_entry_id=other.entry_id,
         connections={(dr.CONNECTION_BLUETOOTH, ADDRESS)},
-        name="Shelly BLU Button1 5DC6",
+        name="Hallway tag",
     )
     set_person_state(hass, STATE_HOME)
     fake_bluetooth.advertise(ADDRESS)
@@ -559,9 +560,7 @@ async def test_a_tag_left_at_home_is_named_by_its_device(
 
     assert last_event(hass)[ATTR_SOURCES] == [ADDRESS]
     assert (
-        calls[0]
-        .data["message"]
-        .startswith("Nobody else is home, but Shelly BLU Button1 5DC6 is.")
+        calls[0].data["message"].startswith("Nobody else is home, but Hallway tag is.")
     )
 
     await answer(hass, ANSWER_YES)
@@ -1387,7 +1386,7 @@ async def test_a_recipient_without_a_phone_is_reported(hass: HomeAssistant) -> N
     entry = await setup_entry(hass, left_behind_entry())
     await hass.async_block_till_done()
 
-    reported = f"{ENTRY_ID}_{ISSUE_RECIPIENT_WITHOUT_PHONE}_{PERSON_A}"
+    reported = f"{ENTRY_ID}_{ISSUE_RECIPIENT_WITHOUT_PHONE}_{person_key(PERSON_A)}"
     assert ir.async_get(hass).async_get_issue(DOMAIN, reported) is not None
 
     await unload(hass, entry)

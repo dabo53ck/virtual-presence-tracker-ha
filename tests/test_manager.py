@@ -386,3 +386,72 @@ async def test_without_configured_persons(hass: HomeAssistant) -> None:
     assert manager.is_home(TRACKER_A) is True
 
     await manager.async_stop()
+
+
+async def test_a_removed_person_stops_counting_without_a_reset(
+    hass: HomeAssistant,
+) -> None:
+    """A deleted or renamed real person is dropped at once, and silently.
+
+    It is a change of the setup, not a departure: the trackers keep their
+    state, and the household listeners hear about it once.
+    """
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    hass.states.async_set(PERSON_B, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry(persons=[PERSON_A, PERSON_B]))
+    manager.async_set_home(TRACKER_A, True)
+    since = manager.since(TRACKER_A)
+    household: list[None] = []
+    manager.async_add_listener(lambda: household.append(None))
+
+    hass.states.async_remove(PERSON_A)
+    await hass.async_block_till_done()
+
+    assert manager.person_home(PERSON_A) is None
+    assert manager.real_persons_home == 0
+    assert manager.real_home is False
+    assert manager.only_virtual_home is True
+    assert manager.is_home(TRACKER_A) is True
+    assert manager.since(TRACKER_A) == since
+    assert len(household) == 1
+
+    # Back again, the first known state is a baseline: no reset, although the
+    # house was empty and the person is at home now.
+    await set_person(hass, PERSON_A, STATE_HOME)
+
+    assert manager.real_persons_home == 1
+    assert manager.is_home(TRACKER_A) is True
+    assert manager.since(TRACKER_A) == since
+
+    await manager.async_stop()
+
+
+async def test_removing_the_last_known_person_makes_presence_unknown(
+    hass: HomeAssistant,
+) -> None:
+    """Without any known person left, nothing is known about the house."""
+    hass.states.async_set(PERSON_A, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry(persons=[PERSON_A]))
+    assert manager.real_home is False
+
+    hass.states.async_remove(PERSON_A)
+    await hass.async_block_till_done()
+
+    assert manager.real_home is None
+
+    await manager.async_stop()
+
+
+async def test_an_unavailable_person_keeps_the_last_known_value(
+    hass: HomeAssistant,
+) -> None:
+    """Unknown and unavailable are not a removal: the last value stays."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    manager = await start_manager(hass, make_entry(persons=[PERSON_A]))
+
+    for state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        await set_person(hass, PERSON_A, state)
+        assert manager.person_home(PERSON_A) is True
+        assert manager.real_persons_home == 1
+
+    await manager.async_stop()

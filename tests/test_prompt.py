@@ -974,3 +974,49 @@ async def test_stopping_drops_the_timers(
 
     assert kid.types == [EVENT_PROMPT_STARTED]
     assert granny.types == []
+
+
+async def test_removing_the_last_person_at_home_asks_nothing(
+    hass: HomeAssistant,
+) -> None:
+    """A real person whose entity is deleted is no departure.
+
+    The house counts as empty from then on, but nobody left: no prompt opens
+    and no empty-house period starts for the question about a device left
+    behind.
+    """
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    hass.states.async_set(PERSON_B, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry(persons=[PERSON_A, PERSON_B]))
+    events = Recorder(manager, TRACKER_A)
+
+    hass.states.async_remove(PERSON_A)
+    await hass.async_block_till_done()
+
+    assert manager.real_persons_home == 0
+    assert events.types == []
+    assert manager.prompt_open(TRACKER_A) is False
+    assert manager.prompt_scheduled(TRACKER_A) is False
+    assert manager.tracker_state(TRACKER_A).wait_since is None
+
+    await manager.async_stop()
+
+
+async def test_removing_a_person_leaves_an_open_prompt_alone(
+    hass: HomeAssistant,
+) -> None:
+    """A removal is no arrival either: an open prompt stays open."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    hass.states.async_set(PERSON_B, STATE_NOT_HOME)
+    manager = await start_manager(hass, make_entry(persons=[PERSON_A, PERSON_B]))
+    events = Recorder(manager, TRACKER_A)
+    await leave(hass, PERSON_A)
+    assert events.types == [EVENT_PROMPT_STARTED]
+
+    hass.states.async_remove(PERSON_B)
+    await hass.async_block_till_done()
+
+    assert events.types == [EVENT_PROMPT_STARTED]
+    assert manager.prompt_open(TRACKER_A) is True
+
+    await manager.async_stop()

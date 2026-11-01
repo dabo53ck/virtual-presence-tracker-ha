@@ -284,6 +284,10 @@
     "real_person_missing": {
       "title": "La persona real {person} ya no existe",
       "description": "{person} figura como persona real de Virtual Presence Tracker, pero esa entidad ya no existe: se eliminó o se le cambió el nombre. Su presencia ya no se tiene en cuenta, así que puede que los rastreadores virtuales ya no se restablezcan cuando alguien llegue a casa.\n\nVuelve a seleccionar tus personas reales en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Reconfigurar."
+    },
+    "source_missing": {
+      "title": "El rastreador virtual {name} sigue fuentes que ya no existen",
+      "description": "{name} sigue fuentes que ya no existen (se eliminaron o se les cambió el nombre): `{sources}`. No encienden ni apagan {name}; sus otras fuentes, el interruptor y las preguntas siguen funcionando.\n\nQuítalas o sustitúyelas en Configuración > Dispositivos y servicios > Virtual Presence Tracker > Editar rastreador virtual, en la sección «Fuentes (opcional)»."
     }
   },
   "selector": {

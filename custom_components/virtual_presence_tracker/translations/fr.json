@@ -284,6 +284,10 @@
     "real_person_missing": {
       "title": "La personne réelle {person} n'existe plus",
       "description": "{person} figure parmi les personnes réelles de Virtual Presence Tracker, mais cette entité a disparu (supprimée ou renommée). Sa présence n'est plus prise en compte, les trackers virtuels risquent donc de ne plus être réinitialisés quand quelqu'un rentre à la maison.\n\nSélectionnez à nouveau vos personnes réelles dans Paramètres > Appareils et services > Virtual Presence Tracker > Reconfigurer."
+    },
+    "source_missing": {
+      "title": "Le tracker virtuel {name} suit des sources qui n'existent plus",
+      "description": "{name} suit des sources qui n'existent plus (supprimées ou renommées) : `{sources}`. Elles n'activent ni ne désactivent {name} ; ses autres sources, l'interrupteur et les questions continuent de fonctionner.\n\nRetirez-les ou remplacez-les dans Paramètres > Appareils et services > Virtual Presence Tracker > Modifier le tracker virtuel, dans la section « Sources (facultatif) »."
     }
   },
   "selector": {

@@ -21,7 +21,15 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .conftest import ENTRY_ID, PERSON_A, TRACKER_A, TRACKER_B
+from .conftest import (
+    ENTRY_ID,
+    PERSON_A,
+    PERSON_B,
+    TRACKER_A,
+    TRACKER_B,
+    make_entry,
+    make_subentry,
+)
 
 SENSOR = "binary_sensor.only_virtual_trackers_home"
 
@@ -132,3 +140,23 @@ async def test_attributes_name_who_is_home(
     assert state.attributes[ATTR_REAL_PERSONS_HOME] == 1
     # The arriving person resets both trackers, so nobody virtual is left.
     assert state.attributes[ATTR_VIRTUAL_TRACKERS_HOME] == []
+
+
+async def test_a_removed_person_updates_the_sensor(hass: HomeAssistant) -> None:
+    """A real person who is deleted stops keeping the house occupied."""
+    hass.states.async_set(PERSON_A, STATE_HOME)
+    hass.states.async_set(PERSON_B, STATE_NOT_HOME)
+    entry = make_entry(make_subentry(TRACKER_A, "Kid"), persons=[PERSON_A, PERSON_B])
+    await setup_entry(hass, entry)
+    entry.runtime_data.manager.async_set_home(TRACKER_A, True)
+    await hass.async_block_till_done()
+    assert hass.states.get(SENSOR).state == STATE_OFF
+
+    hass.states.async_remove(PERSON_A)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(SENSOR)
+    assert state.state == STATE_ON
+    assert state.attributes[ATTR_REAL_PERSONS_HOME] == 0
+    # Silently: the tracker was not reset or asked about.
+    assert state.attributes[ATTR_VIRTUAL_TRACKERS_HOME] == ["Kid"]

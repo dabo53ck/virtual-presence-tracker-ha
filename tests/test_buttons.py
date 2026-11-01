@@ -50,7 +50,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .conftest import TRACKER_A, TRACKER_B, make_entry, make_subentry
 
-BUTTON = "event.shelly_blu_button1_5dc6_taste"
+BUTTON = "event.hallway_button"
 OTHER_BUTTON = "event.hallway_remote"
 SHELLY_TYPES = [
     "press",
