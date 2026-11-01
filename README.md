@@ -368,11 +368,6 @@ values also takes effect without a reload.
 **Sources** also holds the buttons and the presence sources; see
 [Optional: buttons and presence sources](#optional-buttons-and-presence-sources).
 
-A tracker from an older version that never stored a value behaves as it did:
-**Ask when empty** off and **Remind after** 0. Before 0.1.0 these values were
-entities on the device page; see the
-[release notes](https://github.com/dabo53ck/virtual-presence-tracker-ha/releases).
-
 ### Rules at a glance
 
 - **Reset on return** switches a tracker off when the number of real persons
@@ -463,9 +458,8 @@ and [restarts](docs/AUTOMATIONS.md#after-a-restart).
 
 ## Troubleshooting
 
-The integration reports what it cannot fix by itself under **Settings → Devices
-& services → Repairs**. Every issue disappears on its own once its cause is
-gone.
+The integration reports what it cannot fix by itself under **Settings → System →
+Repairs**. Every issue disappears on its own once its cause is gone.
 
 | Repair issue | Cause and fix |
 |---|---|
@@ -492,8 +486,10 @@ No. There is one configuration per Home Assistant instance, with any number of
 trackers in it.
 
 **Does renaming a tracker break my automations?**
-No. Entity IDs and unique IDs do not change when you rename a tracker; only the
-displayed name does.
+Not if they use entity IDs: these and unique IDs do not change when you rename a
+tracker. The name itself does change, including the `tracker` field of the events
+and the `virtual_trackers_home` attribute, so anything that compares the name has
+to be adjusted.
 
 ## Help, translations and license
 
