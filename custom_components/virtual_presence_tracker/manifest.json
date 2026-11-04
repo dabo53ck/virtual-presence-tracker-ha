@@ -2,6 +2,7 @@
   "domain": "virtual_presence_tracker",
   "name": "Virtual Presence Tracker",
   "after_dependencies": ["bluetooth"],
+  "categories": ["presence_location.trackers"],
   "codeowners": ["@dabo53ck"],
   "config_flow": true,
   "documentation": "https://github.com/dabo53ck/virtual-presence-tracker-ha",
@@ -11,5 +12,5 @@
   "loggers": ["custom_components.virtual_presence_tracker"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.1.1"
+  "version": "0.1.2"
 }
