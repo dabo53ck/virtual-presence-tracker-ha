@@ -47,7 +47,7 @@ start to finish) and `tracker` (the tracker's name); every reminder event
 carries `reminder_id` and `tracker`; every `left_behind_` event carries
 `left_behind_id` and `tracker`. The IDs never mix: each event carries the ID of
 its own question only. The six `answered` events carry `answered_by`: the
-person who answered, or nothing if the caller did not say.
+person who answered, or `null` if the caller did not say.
 
 The switch has six matching attributes, so a dashboard or a template can see
 the same thing without listening for events: `prompt_open`,
@@ -190,7 +190,7 @@ automation:
     triggers:
       - trigger: state
         entity_id: event.kid_questions
-        not_from: ["unavailable", "unknown"]
+        not_from: "unavailable"
     conditions:
       - condition: template
         value_template: "{{ trigger.to_state.attributes.event_type == 'prompt_started' }}"
