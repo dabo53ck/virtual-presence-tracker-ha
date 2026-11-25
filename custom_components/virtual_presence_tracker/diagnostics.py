@@ -9,6 +9,7 @@ same label for the same value everywhere in one download, so that one person
 or one source can still be followed through it. Notify services, user IDs,
 `answered_by`, the entry and subentry IDs and the raw states of the sources
 (a device tracker's state can be the name of a zone) are left out altogether.
+The time windows (M5) name nobody and are shown as they are.
 Home Assistant's `async_redact_data` is not used: its `**REDACTED**` would
 make every tracker look the same.
 """
@@ -24,8 +25,9 @@ from homeassistant.const import STATE_HOME, STATE_ON, STATE_UNAVAILABLE, STATE_U
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.loader import async_get_integration
+from homeassistant.util import dt as dt_util
 
-from . import ble
+from . import ble, windows
 from .const import (
     BINARY_SENSOR_DOMAIN,
     CONF_AWAY_AFTER,
@@ -41,6 +43,7 @@ from .const import (
     DOMAIN,
     OPTION_DEFAULTS,
     SUBENTRY_TYPE_TRACKER,
+    WEEKDAYS,
 )
 from .delivery import async_notify_services
 from .issues import async_entity_missing
@@ -167,6 +170,7 @@ def _async_tracker(
         "buttons": _async_buttons(hass, stored, label),
         "presence_sources": _async_presence_sources(hass, stored, label),
         "ble_sources": _async_ble_sources(hass, stored, label),
+        "time_windows": _time_windows(stored),
     }
     if manager is None:
         return tracker
@@ -220,6 +224,29 @@ def _async_tracker(
         else None
     )
     return tracker
+
+
+def _time_windows(stored: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the time windows of a tracker and where they stand right now.
+
+    The seven windows are shown whether or not the box is ticked: unticking it
+    keeps the times. Whether a window is open and when the next one starts or
+    ends only means something while it is, so it is None otherwise.
+    """
+    tracker_windows = windows.parse(stored)
+    enabled = windows.enabled(stored)
+    now = dt_util.now()
+    return {
+        "enabled": enabled,
+        "windows": {
+            day: window.describe()
+            for day, window in zip(WEEKDAYS, tracker_windows, strict=True)
+        },
+        "in_window_now": windows.in_window(tracker_windows, now) if enabled else None,
+        "next_boundary": (
+            _iso(windows.next_boundary(tracker_windows, now)) if enabled else None
+        ),
+    }
 
 
 def _source_label(source: str, label: _Labels) -> str:

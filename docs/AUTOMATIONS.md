@@ -275,6 +275,45 @@ before you leave.
   the **Delay** when the tracker asks, so the advice above applies there
   too. A tracker that does not ask is switched on at the departure itself.
 
+### Time windows
+
+A tracker with **Use time windows** ticked in its form has 14 time entities
+on its device page, a start and an end for each weekday. Their values are
+stored in the tracker's settings under these keys, as `HH:MM:SS`:
+
+| Entity (tracker *Kid*, English) | Key |
+|---|---|
+| `time.kid_monday_start` | `window_monday_start` |
+| `time.kid_monday_end` | `window_monday_end` |
+| ... | `window_<day>_start`, `window_<day>_end` for `tuesday` to `sunday` |
+
+The box itself is `use_time_windows`, off when missing. Set a time with
+`time.set_value`; that takes effect at once, without a reload.
+
+- A window contains its start and not its end. The same start and end mean no
+  window that day; an end before the start runs past midnight and belongs to
+  the day it starts on.
+- Outside every window, a source becoming present switches nothing and the
+  departure rule treats the sources as away, so the prompt is asked instead.
+  Switching off by **Away after** works as without windows.
+- At the start of a window, a source that is present switches the tracker on
+  and the hold after a "no" or an unanswered question about a device left
+  behind ends. Two windows that meet (Monday until 00:00, Tuesday from 00:00)
+  count as one: no end and no start in between.
+- The question about a device left behind is not decided while a window is
+  open. At the end of a window, with no real person at home, it is decided
+  **Away after** minutes later, as after a departure.
+- Writing a time that opens the window the tracker is in right now counts as
+  a start, and one that closes it counts as an end. A written time that leaves
+  the tracker where it was only moves the next start or end.
+- A restart, a reload or a change of the time zone only takes in whether a
+  window is open. A window that is already open then is no start: a source
+  that is present switches the tracker on at its next change or at the next
+  start.
+- On the night the clocks go forward, a start or end the clocks skip (02:30
+  when they jump from 02:00 to 03:00) takes effect at the jump. On the night
+  they go back, a time that comes twice counts at its first occurrence.
+
 ## When the question about a device left behind comes
 
 It is decided once per absence of the real persons: **Away after** minutes after
@@ -343,6 +382,8 @@ A restart does not count as a change of a button or a presence source:
   away, until the integration has listened for **Away after**.
 - Changing a tracker's sources in its form starts from such a starting point
   too. Changing only **Away after** does not.
+- With time windows, a restart inside a window switches nothing on either; the
+  next change of a source or the next window start does.
 
 An open question about a device left behind survives a restart. When it comes
 back, it is first checked whether it has to be withdrawn

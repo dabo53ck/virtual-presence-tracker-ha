@@ -86,13 +86,15 @@
                 "button_sources": "Buttons",
                 "presence_sources": "Presence sources",
                 "ble_sources": "Bluetooth devices",
-                "away_after": "Away after"
+                "away_after": "Away after",
+                "use_time_windows": "Use time windows"
               },
               "data_description": {
                 "button_sources": "Event entities of buttons from any integration. Which press means home or away is chosen in the next step; every other press stays free for your automations.",
                 "presence_sources": "IMPORTANT: pick only sources that leave the house with the person. One present source keeps the tracker on. Pick device trackers (state home) or binary sensors (state on) of any integration, for example a Bluetooth tag or a device in your Wi-Fi. The tracker goes on when a source becomes present and off once all of them have been away for \"Away after\".",
                 "ble_sources": "IMPORTANT: pick only devices that leave the house with the person. Bluetooth tags and buttons with a fixed address, strongest signal first; present while heard within \"Away after\". Not in the list? Type the address, for example AA:BB:CC:DD:EE:FF. Phones change their address: use a device tracker above instead.",
-                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about."
+                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about.",
+                "use_time_windows": "The windows are set on the tracker's device page, a start and an end for each weekday. The same start and end mean no window that day; an end before the start runs past midnight. Outside a window the presence sources do not switch the tracker on."
               }
             }
           }
@@ -142,13 +144,15 @@
                 "button_sources": "Buttons",
                 "presence_sources": "Presence sources",
                 "ble_sources": "Bluetooth devices",
-                "away_after": "Away after"
+                "away_after": "Away after",
+                "use_time_windows": "Use time windows"
               },
               "data_description": {
                 "button_sources": "Event entities of buttons from any integration. Which press means home or away is chosen in the next step; every other press stays free for your automations.",
                 "presence_sources": "IMPORTANT: pick only sources that leave the house with the person. One present source keeps the tracker on. Pick device trackers (state home) or binary sensors (state on) of any integration, for example a Bluetooth tag or a device in your Wi-Fi. The tracker goes on when a source becomes present and off once all of them have been away for \"Away after\".",
                 "ble_sources": "IMPORTANT: pick only devices that leave the house with the person. Bluetooth tags and buttons with a fixed address, strongest signal first; present while heard within \"Away after\". Not in the list? Type the address, for example AA:BB:CC:DD:EE:FF. Phones change their address: use a device tracker above instead.",
-                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about."
+                "away_after": "How long all presence sources have to be away before the tracker is switched off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about.",
+                "use_time_windows": "The windows are set on the tracker's device page, a start and an end for each weekday. The same start and end mean no window that day; an end before the start runs past midnight. Outside a window the presence sources do not switch the tracker on."
               }
             }
           }
@@ -229,6 +233,50 @@
       },
       "reset_on_return": {
         "name": "Reset on return"
+      }
+    },
+    "time": {
+      "window_monday_start": {
+        "name": "Monday start"
+      },
+      "window_monday_end": {
+        "name": "Monday end"
+      },
+      "window_tuesday_start": {
+        "name": "Tuesday start"
+      },
+      "window_tuesday_end": {
+        "name": "Tuesday end"
+      },
+      "window_wednesday_start": {
+        "name": "Wednesday start"
+      },
+      "window_wednesday_end": {
+        "name": "Wednesday end"
+      },
+      "window_thursday_start": {
+        "name": "Thursday start"
+      },
+      "window_thursday_end": {
+        "name": "Thursday end"
+      },
+      "window_friday_start": {
+        "name": "Friday start"
+      },
+      "window_friday_end": {
+        "name": "Friday end"
+      },
+      "window_saturday_start": {
+        "name": "Saturday start"
+      },
+      "window_saturday_end": {
+        "name": "Saturday end"
+      },
+      "window_sunday_start": {
+        "name": "Sunday start"
+      },
+      "window_sunday_end": {
+        "name": "Sunday end"
       }
     }
   },

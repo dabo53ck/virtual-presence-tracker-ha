@@ -47,6 +47,50 @@
       "reset_on_return": {
         "default": "mdi:restore"
       }
+    },
+    "time": {
+      "window_monday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_monday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_tuesday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_tuesday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_wednesday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_wednesday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_thursday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_thursday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_friday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_friday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_saturday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_saturday_end": {
+        "default": "mdi:clock-end"
+      },
+      "window_sunday_start": {
+        "default": "mdi:clock-start"
+      },
+      "window_sunday_end": {
+        "default": "mdi:clock-end"
+      }
     }
   },
   "services": {

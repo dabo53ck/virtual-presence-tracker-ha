@@ -24,6 +24,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_BUTTON_SOURCES,
     CONF_CREATE_PERSON,
     CONF_NOTIFY_PERSONS,
+    CONF_USE_TIME_WINDOWS,
     DEFAULT_AWAY_AFTER,
     EVENT_CANCELLED,
     EVENT_REMINDER_CANCELLED,
@@ -683,6 +684,7 @@ async def test_removing_every_button_clears_the_types(hass: HomeAssistant) -> No
     assert dict(entry.subentries[TRACKER_A].data) == {
         CONF_NOTIFY_PERSONS: [],
         CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+        CONF_USE_TIME_WINDOWS: False,
     }
     assert entry.runtime_data.manager is manager
 

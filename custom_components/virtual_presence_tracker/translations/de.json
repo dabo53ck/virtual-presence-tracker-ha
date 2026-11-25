@@ -86,13 +86,15 @@
                 "button_sources": "Tasten",
                 "presence_sources": "Anwesenheitsquellen",
                 "ble_sources": "Bluetooth-Geräte",
-                "away_after": "Weg nach"
+                "away_after": "Weg nach",
+                "use_time_windows": "Zeitfenster verwenden"
               },
               "data_description": {
                 "button_sources": "Event-Entitäten von Tasten aus jeder Integration. Welcher Tastendruck zu Hause oder weg bedeutet, legst du im nächsten Schritt fest; jeder andere bleibt frei für deine Automationen.",
                 "presence_sources": "WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an. Wähle Device-Tracker (Zustand zu Hause) oder Binärsensoren (Zustand an) aus jeder Integration, zum Beispiel ein Bluetooth-Tag oder ein Gerät in deinem WLAN. Der Tracker geht an, wenn eine Quelle anwesend wird, und aus, wenn alle so lange weg waren, wie „Weg nach“ angibt.",
                 "ble_sources": "WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen. Bluetooth-Tags und -Taster mit fester Adresse, das stärkste Signal zuerst; anwesend, solange sie innerhalb von „Weg nach“ empfangen wurden. Nicht in der Liste? Gib die Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys wechseln ihre Adresse: Nimm dafür oben einen Device-Tracker.",
-                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird."
+                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird.",
+                "use_time_windows": "Die Zeitfenster stellst du auf der Geräteseite des Trackers ein, je Wochentag einen Beginn und ein Ende. Gleicher Beginn und gleiches Ende heißt kein Fenster an diesem Tag; ein Ende vor dem Beginn reicht über Mitternacht. Außerhalb eines Fensters schalten die Anwesenheitsquellen den Tracker nicht ein."
               }
             }
           }
@@ -142,13 +144,15 @@
                 "button_sources": "Tasten",
                 "presence_sources": "Anwesenheitsquellen",
                 "ble_sources": "Bluetooth-Geräte",
-                "away_after": "Weg nach"
+                "away_after": "Weg nach",
+                "use_time_windows": "Zeitfenster verwenden"
               },
               "data_description": {
                 "button_sources": "Event-Entitäten von Tasten aus jeder Integration. Welcher Tastendruck zu Hause oder weg bedeutet, legst du im nächsten Schritt fest; jeder andere bleibt frei für deine Automationen.",
                 "presence_sources": "WICHTIG: Nimm nur Quellen, die mit der Person das Haus verlassen. Schon eine anwesende Quelle hält den Tracker an. Wähle Device-Tracker (Zustand zu Hause) oder Binärsensoren (Zustand an) aus jeder Integration, zum Beispiel ein Bluetooth-Tag oder ein Gerät in deinem WLAN. Der Tracker geht an, wenn eine Quelle anwesend wird, und aus, wenn alle so lange weg waren, wie „Weg nach“ angibt.",
                 "ble_sources": "WICHTIG: Nimm nur Geräte, die mit der Person das Haus verlassen. Bluetooth-Tags und -Taster mit fester Adresse, das stärkste Signal zuerst; anwesend, solange sie innerhalb von „Weg nach“ empfangen wurden. Nicht in der Liste? Gib die Adresse ein, zum Beispiel AA:BB:CC:DD:EE:FF. Handys wechseln ihre Adresse: Nimm dafür oben einen Device-Tracker.",
-                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird."
+                "away_after": "Wie lange alle Anwesenheitsquellen weg sein müssen, bevor der Tracker ausgeschaltet wird, 1 bis 120 Minuten. So lange muss das Haus auch leer sein, bevor nach einem zurückgelassenen Gerät gefragt wird.",
+                "use_time_windows": "Die Zeitfenster stellst du auf der Geräteseite des Trackers ein, je Wochentag einen Beginn und ein Ende. Gleicher Beginn und gleiches Ende heißt kein Fenster an diesem Tag; ein Ende vor dem Beginn reicht über Mitternacht. Außerhalb eines Fensters schalten die Anwesenheitsquellen den Tracker nicht ein."
               }
             }
           }
@@ -229,6 +233,50 @@
       },
       "reset_on_return": {
         "name": "Zurücksetzen bei Rückkehr"
+      }
+    },
+    "time": {
+      "window_monday_start": {
+        "name": "Montag Beginn"
+      },
+      "window_monday_end": {
+        "name": "Montag Ende"
+      },
+      "window_tuesday_start": {
+        "name": "Dienstag Beginn"
+      },
+      "window_tuesday_end": {
+        "name": "Dienstag Ende"
+      },
+      "window_wednesday_start": {
+        "name": "Mittwoch Beginn"
+      },
+      "window_wednesday_end": {
+        "name": "Mittwoch Ende"
+      },
+      "window_thursday_start": {
+        "name": "Donnerstag Beginn"
+      },
+      "window_thursday_end": {
+        "name": "Donnerstag Ende"
+      },
+      "window_friday_start": {
+        "name": "Freitag Beginn"
+      },
+      "window_friday_end": {
+        "name": "Freitag Ende"
+      },
+      "window_saturday_start": {
+        "name": "Samstag Beginn"
+      },
+      "window_saturday_end": {
+        "name": "Samstag Ende"
+      },
+      "window_sunday_start": {
+        "name": "Sonntag Beginn"
+      },
+      "window_sunday_end": {
+        "name": "Sonntag Ende"
       }
     }
   },

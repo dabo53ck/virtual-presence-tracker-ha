@@ -14,21 +14,24 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 
-from .const import NO_RELOAD_KEYS
+from .const import CONF_USE_TIME_WINDOWS, NO_RELOAD_KEYS
 from .delivery import PromptDelivery
 from .issues import HouseholdIssues
 from .manager import HouseholdManager
 from .migration import (
     async_remove_legacy_household_device,
     async_remove_moved_option_entities,
+    async_remove_unused_window_entities,
 )
 from .persons import TrackerPersons
+from .windows import enabled as windows_enabled
 
 PLATFORMS = [
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
     Platform.BINARY_SENSOR,
     Platform.EVENT,
+    Platform.TIME,
 ]
 
 # Everything about an entry that a reload is needed for. The options of a
@@ -40,7 +43,10 @@ PLATFORMS = [
 # tracker that asked for a person is left out for the same reason: it is taken
 # off as soon as the person exists. So are the button sources (M3d) and the
 # presence sources (M3e): the manager moves its listeners to the new ones
-# instead.
+# instead, and the times of the time windows (M5), which the follower reads
+# where it uses them. The box of the time windows is in it, because it adds or
+# removes their entities - as a plain on/off, so that the first save of an
+# older tracker's form, which writes the box as off, does not reload.
 type ReloadFingerprint = tuple[str, dict[str, Any], dict[str, Any]]
 
 
@@ -72,9 +78,12 @@ def _async_reload_fingerprint(entry: ConfigEntry) -> ReloadFingerprint:
             subentry_id: (
                 subentry.title,
                 {
-                    key: value
-                    for key, value in subentry.data.items()
-                    if key not in NO_RELOAD_KEYS
+                    **{
+                        key: value
+                        for key, value in subentry.data.items()
+                        if key not in NO_RELOAD_KEYS
+                    },
+                    CONF_USE_TIME_WINDOWS: windows_enabled(subentry.data),
                 },
             )
             for subentry_id, subentry in entry.subentries.items()
@@ -111,6 +120,9 @@ async def async_setup_entry(
     # The option entities that moved into the tracker's form (M3g) would stay
     # behind as `unavailable` otherwise.
     async_remove_moved_option_entities(hass, entry)
+    # The time entities of a tracker whose box was unticked (M5) would stay
+    # behind as `unavailable` as well.
+    async_remove_unused_window_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Before resuming the prompts: a prompt that ends in the catch-up leaves a
     # message on the phones of a previous run, and this is what clears it.

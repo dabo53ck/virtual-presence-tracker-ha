@@ -86,13 +86,15 @@
                 "button_sources": "Boutons",
                 "presence_sources": "Sources de présence",
                 "ble_sources": "Appareils Bluetooth",
-                "away_after": "Absent après"
+                "away_after": "Absent après",
+                "use_time_windows": "Utiliser des plages horaires"
               },
               "data_description": {
                 "button_sources": "Entités d'événement de boutons de n'importe quelle intégration. L'appui qui signifie présent ou absent se choisit à l'étape suivante ; tout autre appui reste libre pour vos automatisations.",
                 "presence_sources": "IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé. Choisissez des trackers d'appareil (état home) ou des capteurs binaires (état on) de n'importe quelle intégration, par exemple une balise Bluetooth ou un appareil de votre Wi-Fi. Le tracker s'active quand une source devient présente et se désactive quand toutes ont été absentes pendant « Absent après ».",
                 "ble_sources": "IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne. Balises et boutons Bluetooth à adresse fixe, signal le plus fort en premier ; présents tant qu'ils ont été captés pendant « Absent après ». Pas dans la liste ? Saisissez l'adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones changent d'adresse : utilisez plutôt un tracker d'appareil ci-dessus.",
-                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié."
+                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié.",
+                "use_time_windows": "Les plages se règlent sur la page de l'appareil du tracker, un début et une fin pour chaque jour de la semaine. Un début égal à la fin signifie aucune plage ce jour-là ; une fin avant le début passe minuit. En dehors d'une plage, les sources de présence n'activent pas le tracker."
               }
             }
           }
@@ -142,13 +144,15 @@
                 "button_sources": "Boutons",
                 "presence_sources": "Sources de présence",
                 "ble_sources": "Appareils Bluetooth",
-                "away_after": "Absent après"
+                "away_after": "Absent après",
+                "use_time_windows": "Utiliser des plages horaires"
               },
               "data_description": {
                 "button_sources": "Entités d'événement de boutons de n'importe quelle intégration. L'appui qui signifie présent ou absent se choisit à l'étape suivante ; tout autre appui reste libre pour vos automatisations.",
                 "presence_sources": "IMPORTANT : ne choisissez que des sources qui quittent la maison avec la personne. Une seule source présente garde le tracker activé. Choisissez des trackers d'appareil (état home) ou des capteurs binaires (état on) de n'importe quelle intégration, par exemple une balise Bluetooth ou un appareil de votre Wi-Fi. Le tracker s'active quand une source devient présente et se désactive quand toutes ont été absentes pendant « Absent après ».",
                 "ble_sources": "IMPORTANT : ne choisissez que des appareils qui quittent la maison avec la personne. Balises et boutons Bluetooth à adresse fixe, signal le plus fort en premier ; présents tant qu'ils ont été captés pendant « Absent après ». Pas dans la liste ? Saisissez l'adresse, par exemple AA:BB:CC:DD:EE:FF. Les téléphones changent d'adresse : utilisez plutôt un tracker d'appareil ci-dessus.",
-                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié."
+                "away_after": "Durée pendant laquelle toutes les sources de présence doivent être absentes avant que le tracker soit désactivé, de 1 à 120 minutes. C'est aussi la durée pendant laquelle la maison doit être vide avant une question sur un appareil oublié.",
+                "use_time_windows": "Les plages se règlent sur la page de l'appareil du tracker, un début et une fin pour chaque jour de la semaine. Un début égal à la fin signifie aucune plage ce jour-là ; une fin avant le début passe minuit. En dehors d'une plage, les sources de présence n'activent pas le tracker."
               }
             }
           }
@@ -229,6 +233,50 @@
       },
       "reset_on_return": {
         "name": "Réinitialiser au retour"
+      }
+    },
+    "time": {
+      "window_monday_start": {
+        "name": "Lundi début"
+      },
+      "window_monday_end": {
+        "name": "Lundi fin"
+      },
+      "window_tuesday_start": {
+        "name": "Mardi début"
+      },
+      "window_tuesday_end": {
+        "name": "Mardi fin"
+      },
+      "window_wednesday_start": {
+        "name": "Mercredi début"
+      },
+      "window_wednesday_end": {
+        "name": "Mercredi fin"
+      },
+      "window_thursday_start": {
+        "name": "Jeudi début"
+      },
+      "window_thursday_end": {
+        "name": "Jeudi fin"
+      },
+      "window_friday_start": {
+        "name": "Vendredi début"
+      },
+      "window_friday_end": {
+        "name": "Vendredi fin"
+      },
+      "window_saturday_start": {
+        "name": "Samedi début"
+      },
+      "window_saturday_end": {
+        "name": "Samedi fin"
+      },
+      "window_sunday_start": {
+        "name": "Dimanche début"
+      },
+      "window_sunday_end": {
+        "name": "Dimanche fin"
       }
     }
   },
