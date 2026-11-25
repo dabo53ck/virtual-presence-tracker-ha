@@ -21,6 +21,13 @@ must not switch it straight back on. The lock lives in the manager, because it
 has to survive a restart; this follower asks for it before every switch-on and
 tells the manager when an absence has run its full `away_after`, which is one
 of the things that end it.
+
+The other is a tracker's time windows (M5): with them on, an on-edge outside a
+window is recorded but switches nothing, and the departure rule in the
+manager treats the sources as not present. The follower keeps one timer per
+tracker at the next start or end of a window. A start ends the lock and
+switches the tracker on if a source is present right then; an end hands over
+to the question about a device left behind. Switching off is never gated.
 """
 
 from __future__ import annotations
@@ -31,7 +38,13 @@ from functools import partial
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.const import STATE_HOME, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    EVENT_CORE_CONFIG_UPDATE,
+    STATE_HOME,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
@@ -42,12 +55,13 @@ from homeassistant.core import (
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
+    async_track_point_in_time,
     async_track_state_change_event,
     async_track_time_interval,
 )
 from homeassistant.util import dt as dt_util
 
-from . import ble
+from . import ble, windows
 from .const import (
     BINARY_SENSOR_DOMAIN,
     BLE_POLL_INTERVAL,
@@ -106,6 +120,10 @@ class _Follow:
     present: bool | None = None
     absent_since: datetime | None = None
     unsub_off: CALLBACK_TYPE | None = None
+    # M5: whether the tracker was in one of its time windows when the follower
+    # last looked, and the timer at the next start or end of one.
+    in_window: bool = False
+    unsub_window: CALLBACK_TYPE | None = None
 
 
 class TrackerPresence:
@@ -124,10 +142,18 @@ class TrackerPresence:
         self._entities: frozenset[str] = frozenset()
         self._unsub_entities: CALLBACK_TYPE | None = None
         self._unsub_poll: CALLBACK_TYPE | None = None
+        self._unsub_config: CALLBACK_TYPE | None = None
 
     @callback
     def async_start(self) -> None:
-        """Take the baseline of every tracker's sources and start following."""
+        """Take the baseline of every tracker's sources and start following.
+
+        A change of the time zone moves every window on the clock, so the
+        timers of the windows are set again when Home Assistant reports one.
+        """
+        self._unsub_config = self.hass.bus.async_listen(
+            EVENT_CORE_CONFIG_UPDATE, self._async_config_updated
+        )
         self.async_sources_changed()
 
     @callback
@@ -140,8 +166,12 @@ class TrackerPresence:
         if self._unsub_poll is not None:
             self._unsub_poll()
             self._unsub_poll = None
+        if self._unsub_config is not None:
+            self._unsub_config()
+            self._unsub_config = None
         for follow in self._follows.values():
             self._async_cancel_off(follow)
+            self._async_cancel_window(follow)
         self._follows.clear()
 
     def has_sources(self, subentry_id: str) -> bool:
@@ -196,6 +226,31 @@ class TrackerPresence:
                     present.append(address)
         return present
 
+    def time_windows(self, subentry_id: str) -> windows.Windows | None:
+        """Return the time windows of a tracker, None while it has none (M5)."""
+        subentry = self._entry.subentries.get(subentry_id)
+        if subentry is None or not windows.enabled(subentry.data):
+            return None
+        return windows.parse(subentry.data)
+
+    def outside_window(self, subentry_id: str) -> bool:
+        """Return whether a tracker's sources are kept from switching it on.
+
+        True only for a tracker with time windows, outside all of them right
+        now; a tracker without time windows is never gated.
+        """
+        tracker_windows = self.time_windows(subentry_id)
+        return tracker_windows is not None and not windows.in_window(
+            tracker_windows, dt_util.now()
+        )
+
+    def inside_window(self, subentry_id: str) -> bool:
+        """Return whether a tracker with time windows is in one right now."""
+        tracker_windows = self.time_windows(subentry_id)
+        return tracker_windows is not None and windows.in_window(
+            tracker_windows, dt_util.now()
+        )
+
     @callback
     def async_update(self, subentry_id: str) -> None:
         """Look at the sources of one tracker right now."""
@@ -210,34 +265,47 @@ class TrackerPresence:
         old value said something about other sources. A tracker whose sources
         are the same keeps what it knows, but its pending switch-off is moved,
         because `away_after` may have changed - and so may the window in which
-        a Bluetooth advertisement counts. Calling this twice changes nothing.
+        a Bluetooth advertisement counts. The timer of its time windows is set
+        again too, since a time may have been written. Calling this twice
+        changes nothing.
         """
         now = dt_util.utcnow()
         tracker_ids = self._manager.tracker_ids
         for subentry_id in list(self._follows):
             if subentry_id not in tracker_ids:
-                self._async_cancel_off(self._follows.pop(subentry_id))
+                self._async_drop(self._follows.pop(subentry_id))
         for subentry_id in tracker_ids:
             entities, addresses = self._sources(subentry_id)
             follow = self._follows.get(subentry_id)
             if not entities and not addresses:
                 if follow is not None:
-                    self._async_cancel_off(self._follows.pop(subentry_id))
+                    self._async_drop(self._follows.pop(subentry_id))
                     self._manager.async_sources_replaced(subentry_id)
                 continue
-            if follow is None or (follow.entities, follow.addresses) != (
+            fresh = follow is None or (follow.entities, follow.addresses) != (
                 entities,
                 addresses,
-            ):
+            )
+            if fresh:
                 if follow is not None:
-                    self._async_cancel_off(follow)
+                    self._async_drop(follow)
                     # The lock was about the old sources (M3f).
                     self._manager.async_sources_replaced(subentry_id)
                 follow = _Follow(entities, addresses, now)
                 self._follows[subentry_id] = follow
+            was_in_window = follow.in_window
+            self._async_schedule_window(subentry_id, follow)
             self._async_evaluate(subentry_id, follow)
             if self._follows.get(subentry_id) is follow:
                 self._async_schedule_off(subentry_id, follow)
+                if not fresh:
+                    # A written time that opens or closes the window the
+                    # tracker is in right now is a start or an end (M5). A
+                    # fresh baseline - the start of the entry, a reload, new
+                    # sources - only takes in where the tracker stands.
+                    self._async_window_changed(
+                        subentry_id, follow, was_in_window, dt_util.utcnow()
+                    )
         self._async_follow_entities()
         self._async_follow_addresses()
 
@@ -307,6 +375,14 @@ class TrackerPresence:
                     _LOGGER.debug(
                         "Not switching tracker %s on: it is locked against its "
                         "presence sources",
+                        subentry_id,
+                    )
+                    return
+                if self.outside_window(subentry_id):
+                    # Outside its time windows (M5) a tag that lies in the
+                    # house all week says nothing. The edge is still recorded.
+                    _LOGGER.debug(
+                        "Not switching tracker %s on: it is outside its time windows",
                         subentry_id,
                     )
                     return
@@ -443,6 +519,104 @@ class TrackerPresence:
         if follow.unsub_off is not None:
             follow.unsub_off()
             follow.unsub_off = None
+
+    @callback
+    def _async_drop(self, follow: _Follow) -> None:
+        """Drop every timer of a follow that is no longer used."""
+        self._async_cancel_off(follow)
+        self._async_cancel_window(follow)
+
+    @callback
+    def _async_schedule_window(self, subentry_id: str, follow: _Follow) -> None:
+        """Set the timer at the next start or end of a tracker's windows (M5).
+
+        The one place that timer is decided, from the windows of right now.
+        It also takes in whether the tracker is in a window now, so that the
+        timer can tell a start from an end. Without time windows there is no
+        timer, and a tracker is never in a window.
+        """
+        self._async_cancel_window(follow)
+        tracker_windows = self.time_windows(subentry_id)
+        if tracker_windows is None:
+            follow.in_window = False
+            return
+        now = dt_util.now()
+        follow.in_window = windows.in_window(tracker_windows, now)
+        if (boundary := windows.next_boundary(tracker_windows, now)) is None:
+            return
+        follow.unsub_window = async_track_point_in_time(
+            self.hass, partial(self._async_window_boundary, subentry_id), boundary
+        )
+
+    @callback
+    def _async_window_boundary(self, subentry_id: str, now: datetime) -> None:
+        """Act on a window that starts or ends, and set the next timer.
+
+        Two windows that meet - Monday until 06:00, Tuesday from 06:00 - are
+        neither an end nor a start: the tracker stays in a window.
+        """
+        follow = self._follows.get(subentry_id)
+        if follow is None:
+            return
+        follow.unsub_window = None
+        was_in_window = follow.in_window
+        self._async_schedule_window(subentry_id, follow)
+        self._async_window_changed(
+            subentry_id, follow, was_in_window, dt_util.as_utc(now)
+        )
+
+    @callback
+    def _async_window_changed(
+        self, subentry_id: str, follow: _Follow, was_in_window: bool, when: datetime
+    ) -> None:
+        """Act on a tracker that went into a window or out of one."""
+        if follow.in_window and not was_in_window:
+            self._async_window_started(subentry_id, follow)
+        elif was_in_window and not follow.in_window:
+            _LOGGER.debug("Time window of tracker %s ended", subentry_id)
+            self._manager.async_window_ended(subentry_id, when)
+
+    @callback
+    def _async_window_started(self, subentry_id: str, follow: _Follow) -> None:
+        """Let the sources in: end the lock, and switch on if one is present.
+
+        The person who arrives five minutes early has been heard already, so a
+        source that is present at the start counts like an on-edge. The lock
+        goes first (M3f): a "no" to the question about a device left behind
+        must not keep next week's visit from switching the tracker on.
+        """
+        _LOGGER.debug("Time window of tracker %s started", subentry_id)
+        self._manager.async_window_started(subentry_id)
+        self._async_evaluate(subentry_id, follow)
+        if (
+            self._follows.get(subentry_id) is follow
+            and follow.present is True
+            and not self._manager.is_home(subentry_id)
+            and not self._manager.source_locked(subentry_id)
+        ):
+            _LOGGER.debug(
+                "Switching tracker %s on: its time window started and a "
+                "presence source is present",
+                subentry_id,
+            )
+            self._manager.async_set_home(subentry_id, True)
+
+    @callback
+    def _async_cancel_window(self, follow: _Follow) -> None:
+        """Drop the timer of a tracker's windows, if there is one."""
+        if follow.unsub_window is not None:
+            follow.unsub_window()
+            follow.unsub_window = None
+
+    @callback
+    def _async_config_updated(self, _event: Event) -> None:
+        """Set the timers of the windows again after the time zone changed.
+
+        Only the timers: a window that opens or closes because the clock moved
+        under it is no start and no end, as after a restart.
+        """
+        for subentry_id, follow in list(self._follows.items()):
+            self._async_schedule_window(subentry_id, follow)
 
     @callback
     def _async_follow_entities(self) -> None:

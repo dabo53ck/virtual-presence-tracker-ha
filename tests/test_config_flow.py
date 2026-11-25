@@ -26,6 +26,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
+    CONF_USE_TIME_WINDOWS,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_AWAY_AFTER,
@@ -68,7 +69,8 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
 
     Every option is spelled out, so that the entities on the tracker's device
     page have a value from the start - and a new tracker asks and reminds, but
-    does not ask about a device left behind (M3f).
+    does not ask about a device left behind (M3f) and has no time windows
+    (M5).
     """
     return {
         CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
@@ -83,6 +85,7 @@ def tracker_data(**overrides: Any) -> dict[str, Any]:
         CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
         CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
         CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
+        CONF_USE_TIME_WINDOWS: False,
     } | overrides
 
 
@@ -452,6 +455,7 @@ async def test_the_form_has_the_general_fields_and_three_sections(
         CONF_BUTTON_SOURCES,
         CONF_PRESENCE_SOURCES,
         CONF_AWAY_AFTER,
+        CONF_USE_TIME_WINDOWS,
     ]
     assert all(value.options["collapsed"] for value in sections(result).values())
     # A section key has no default: the frontend would take an empty default
@@ -475,6 +479,7 @@ async def test_the_form_has_the_general_fields_and_three_sections(
         CONF_BUTTON_SOURCES: [],
         CONF_PRESENCE_SOURCES: [],
         CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+        CONF_USE_TIME_WINDOWS: False,
     }
 
 
@@ -644,6 +649,7 @@ async def test_the_edit_form_of_an_old_tracker_shows_what_applies(
         CONF_REMIND_AFTER: 0,
         CONF_REMINDER_TIMEOUT: DEFAULT_REMINDER_TIMEOUT,
         CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
+        CONF_USE_TIME_WINDOWS: False,
     }
 
 

@@ -65,6 +65,7 @@ from .const import (
     CONF_REMIND_AFTER,
     CONF_REMINDER_TIMEOUT,
     CONF_RESET_ON_RETURN,
+    CONF_USE_TIME_WINDOWS,
     DEFAULT_ANSWER_TIMEOUT,
     DEFAULT_ASK_LEFT_BEHIND,
     DEFAULT_AWAY_AFTER,
@@ -75,9 +76,11 @@ from .const import (
     DEFAULT_PROMPT_DELAY,
     DEFAULT_REMINDER_TIMEOUT,
     DEFAULT_RESET_ON_RETURN,
+    DEFAULT_USE_TIME_WINDOWS,
     DEVICE_TRACKER_DOMAIN,
     DOMAIN,
     EVENT_DOMAIN,
+    FORM_DEFAULTS,
     FORM_OPTION_SECTIONS,
     MAX_ANSWER_TIMEOUT,
     MAX_AWAY_AFTER,
@@ -91,7 +94,6 @@ from .const import (
     MIN_REMINDER_TIMEOUT,
     NEW_TRACKER_ASK_ON_DEPARTURE,
     NEW_TRACKER_REMIND_AFTER,
-    OPTION_DEFAULTS,
     PERSON_DOMAIN,
     SECTION_SOURCES,
     SUBENTRY_TYPE_TRACKER,
@@ -120,7 +122,8 @@ PERSONS_SCHEMA = vol.Schema(
 # switches on the tracker's device page have something to show from the start
 # - and a new tracker asks and reminds (the default of a *missing* key stays
 # "no" and "never", which is what every tracker from before the prompt and the
-# reminder relies on).
+# reminder relies on). A new tracker has no time windows unless the box is
+# ticked (M5).
 NEW_TRACKER_OPTIONS: dict[str, bool | int] = {
     CONF_RESET_ON_RETURN: DEFAULT_RESET_ON_RETURN,
     CONF_ASK_ON_DEPARTURE: NEW_TRACKER_ASK_ON_DEPARTURE,
@@ -133,6 +136,7 @@ NEW_TRACKER_OPTIONS: dict[str, bool | int] = {
     CONF_AWAY_AFTER: DEFAULT_AWAY_AFTER,
     CONF_ASK_LEFT_BEHIND: DEFAULT_ASK_LEFT_BEHIND,
     CONF_LEFT_BEHIND_OVERRIDE_DND: DEFAULT_LEFT_BEHIND_OVERRIDE_DND,
+    CONF_USE_TIME_WINDOWS: DEFAULT_USE_TIME_WINDOWS,
 }
 
 # The timings of the form (M3g): range and unit of each.
@@ -188,7 +192,7 @@ def _applied_options(subentry: ConfigSubentry | None) -> dict[str, Any]:
     keys = [key for keys in FORM_OPTION_SECTIONS.values() for key in keys]
     if subentry is None:
         return {key: NEW_TRACKER_OPTIONS[key] for key in keys}
-    return {key: subentry.data.get(key, OPTION_DEFAULTS[key]) for key in keys}
+    return {key: subentry.data.get(key, FORM_DEFAULTS[key]) for key in keys}
 
 
 @callback
@@ -222,10 +226,12 @@ def _tracker_schema(
     of the questions and the expiry notice, the reminder, and the optional
     sources - buttons (M3d), whose meaning is asked in a second step, presence
     sources (M3e) and, only while Bluetooth is set up (``ble_options`` is not
-    None), Bluetooth devices, plus "Away after". The integration's own event
-    entities (``own_events``) and its own device trackers and sensor
-    (``own_presence``) are not offered. What is switched depending on the
-    situation is a switch on the tracker's device page instead.
+    None), Bluetooth devices, plus "Away after" and the box of the time
+    windows (M5), whose times are entities on the device page. The
+    integration's own event entities (``own_events``) and its own device
+    trackers and sensor (``own_presence``) are not offered. What is switched
+    depending on the situation is a switch on the tracker's device page
+    instead.
 
     Two rules of Home Assistant's sections shape this. A section key never
     gets a default: the frontend would take that empty default as the

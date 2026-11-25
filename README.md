@@ -188,7 +188,9 @@ For a tracker named *Kid*:
 | `device_tracker.kid` | Follows the switch (`home` / `not_home`). Assigned to Kid's person. |
 | `event.kid_questions` | Announces the prompt, the reminder and the question about a device left behind (see below). |
 
-Next to them sit five settings switches; see [Settings](#settings).
+Next to them sit five settings switches; see [Settings](#settings). A tracker
+with [time windows](#time-windows) also gets a start and an end time for each
+weekday.
 
 Entity IDs are built from the tracker's name and the entity names in the
 **language of your Home Assistant**. This README uses English; on a German
@@ -364,6 +366,7 @@ values also takes effect without a reload.
 | Reminder | **Remind after** | After how many hours on the tracker asks whether the person is still there, 0 to 168 hours. 0 means never. | 24 |
 | Reminder | **Answer time** | How long a reminder stays open, 1 to 360 minutes. | 60 |
 | Sources | **Away after** | Only for a tracker with presence sources: how long all of them have to report "away" before it switches off, 1 to 120 minutes. Also how long the house has to be empty before a device left behind is asked about. | 10 |
+| Sources | **Use time windows** | Only for a tracker with presence sources: they switch it on only inside the windows set on its device page; see [Time windows](#time-windows). Ticking or unticking it reloads the integration once. | off |
 
 **Sources** also holds the buttons and the presence sources; see
 [Optional: buttons and presence sources](#optional-buttons-and-presence-sources).
@@ -455,6 +458,42 @@ always work. More in docs/AUTOMATIONS.md:
 [timing](docs/AUTOMATIONS.md#when-the-question-about-a-device-left-behind-comes),
 [the lock and the actions](docs/AUTOMATIONS.md#the-device-left-behind-actions)
 and [restarts](docs/AUTOMATIONS.md#after-a-restart).
+
+### Time windows
+
+For somebody who only comes at certain times, such as a cleaner on Monday
+mornings with a Bluetooth tag that may stay in the house all week. Tick **Use
+time windows** under **Sources** in the tracker's form, and its device page
+gets a start and an end for each weekday (**Monday start**, **Monday end**, and
+so on). Outside these windows the presence sources do not switch the tracker
+on.
+
+- The same start and end mean no window that day. All of them start at 00:00,
+  so ticking the box alone switches nothing on until you set times.
+- An end before the start runs past midnight: Monday 22:00 to 06:00 ends on
+  Tuesday morning and counts as Monday's window.
+- Outside a window, a source that becomes present is ignored, and at the last
+  departure the tracker asks (with **Ask when empty** on) instead of switching
+  on. Switching off is not affected: the tracker still goes off once its
+  sources have been away for **Away after**, so somebody who stays longer
+  stays at home.
+- At the start of a window, a source that is already there switches the
+  tracker on, and sources that were ignored after a "no" to
+  [a device left behind](#a-device-left-behind) count again.
+- With **Ask about a device left behind** on, that question does not come by
+  itself while a window is open. At the end of a window, with no real person
+  at home, it comes **Away after** minutes later if a source still reports
+  present.
+- The switch, buttons, automations and the actions are never limited by the
+  windows. The times follow the time zone of Home Assistant, daylight saving
+  time included.
+
+The cleaner's tracker with **Monday start** 09:00 and **Monday end** 12:00
+goes on when the tag arrives on Monday, at 09:00 at the earliest, and off
+**Away after** minutes after the tag left. If the tag stays behind and **Ask
+about a device left behind** is on, the question comes at 12:10 with **Away
+after** at 10 minutes; for the rest of the week the tag cannot switch the
+tracker on.
 
 ## Troubleshooting
 

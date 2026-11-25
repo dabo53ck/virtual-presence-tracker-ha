@@ -38,6 +38,7 @@ from custom_components.virtual_presence_tracker.const import (
     CONF_PRESENCE_SOURCES,
     CONF_PROMPT_DELAY,
     CONF_RESET_ON_RETURN,
+    CONF_USE_TIME_WINDOWS,
     CONF_USER_ID,
     EVENT_CANCELLED,
     EVENT_REMINDER_CANCELLED,
@@ -1188,6 +1189,7 @@ async def test_removing_every_source_clears_the_keys(
     assert dict(entry.subentries[TRACKER_A].data) == {
         CONF_NOTIFY_PERSONS: [],
         CONF_AWAY_AFTER: 10,
+        CONF_USE_TIME_WINDOWS: False,
     }
     assert entry.runtime_data.manager is manager
 
@@ -1236,6 +1238,7 @@ async def test_the_bluetooth_devices_are_named_and_sorted(
         CONF_PRESENCE_SOURCES,
         CONF_BLE_SOURCES,
         CONF_AWAY_AFTER,
+        CONF_USE_TIME_WINDOWS,
     ]
     config = field(result, CONF_BLE_SOURCES).config
     assert config["options"] == [

@@ -109,6 +109,41 @@ DEFAULT_ASK_LEFT_BEHIND: Final = False
 CONF_LEFT_BEHIND_OVERRIDE_DND: Final = "left_behind_override_dnd"
 DEFAULT_LEFT_BEHIND_OVERRIDE_DND: Final = False
 
+# Time windows for the presence sources (M5): a tracker with the box ticked is
+# only switched on by its presence sources inside a window - for somebody who
+# comes on certain days at certain hours and leaves a Bluetooth tag in the
+# house the rest of the week. The box is in the form and is the one key here
+# that reloads the entry, because it adds or removes the 14 time entities. A
+# missing key means "no windows", which is what every tracker from before M5
+# looks like.
+CONF_USE_TIME_WINDOWS: Final = "use_time_windows"
+DEFAULT_USE_TIME_WINDOWS: Final = False
+
+# A start and an end per weekday, stored as `HH:MM:SS` (`time.isoformat()`)
+# under `window_<day>_start` / `window_<day>_end` and written by a `time`
+# entity each, without a reload. Start = end means "no window that day", which
+# is also what a missing key gives; an end before the start runs past midnight
+# and belongs to the day it starts on.
+WEEKDAYS: Final = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+DEFAULT_WINDOW_TIME: Final = "00:00:00"
+WINDOW_DAY_KEYS: Final[tuple[tuple[str, str], ...]] = tuple(
+    (f"window_{day}_start", f"window_{day}_end") for day in WEEKDAYS
+)
+WINDOW_KEYS: Final[tuple[str, ...]] = tuple(
+    key for keys in WINDOW_DAY_KEYS for key in keys
+)
+WINDOW_DEFAULTS: Final[dict[str, str]] = dict.fromkeys(WINDOW_KEYS, DEFAULT_WINDOW_TIME)
+# The platform of the window entities, spelled out like the other domains.
+TIME_DOMAIN: Final = "time"
+
 # Every per-tracker option, with the value that applies while the key is
 # missing. None of them reloads the config entry when it changes: a reload
 # would take the trackers and their persons away for a moment, which neither a
@@ -140,7 +175,14 @@ SECTION_SOURCES: Final = "sources"
 FORM_OPTION_SECTIONS: Final[dict[str, tuple[str, ...]]] = {
     SECTION_QUESTIONS: (CONF_ANSWER_TIMEOUT, CONF_PROMPT_DELAY, CONF_NOTIFY_ON_EXPIRY),
     SECTION_REMINDER: (CONF_REMIND_AFTER, CONF_REMINDER_TIMEOUT),
-    SECTION_SOURCES: (CONF_AWAY_AFTER,),
+    SECTION_SOURCES: (CONF_AWAY_AFTER, CONF_USE_TIME_WINDOWS),
+}
+
+# What a missing key of a form field means. The options above, plus the box of
+# the time windows, which is no live option: ticking it reloads the entry.
+FORM_DEFAULTS: Final[dict[str, bool | int]] = {
+    **OPTION_DEFAULTS,
+    CONF_USE_TIME_WINDOWS: DEFAULT_USE_TIME_WINDOWS,
 }
 
 # The option entities that M3g removed, as (platform domain, option key): the
@@ -203,12 +245,17 @@ BLE_POLL_INTERVAL: Final = 30
 
 # Every key of a subentry that may change while the config entry stays loaded:
 # the options (written by a switch or by the form), the marker above, the button sources and the
-# presence sources, whose listeners the manager moves by itself. A reload
+# presence sources, whose listeners the manager moves by itself, and the times
+# of the windows (M5), which the follower reads where it uses them. A reload
 # would take the trackers and their persons to `unavailable` for a moment, and
 # none of these is allowed to do that (see the reload fingerprint in
 # __init__.py).
 NO_RELOAD_KEYS: Final = (
-    LIVE_OPTION_KEYS | {CONF_CREATE_PERSON} | BUTTON_KEYS | PRESENCE_KEYS
+    LIVE_OPTION_KEYS
+    | {CONF_CREATE_PERSON}
+    | BUTTON_KEYS
+    | PRESENCE_KEYS
+    | frozenset(WINDOW_KEYS)
 )
 
 # State attributes of the integration's own entities.

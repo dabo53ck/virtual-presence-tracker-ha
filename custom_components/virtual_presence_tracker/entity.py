@@ -105,6 +105,6 @@ class VirtualTrackerOptionEntity(VirtualTrackerEntity):
         return self._manager.option(self._subentry_id, self._option_key)
 
     @callback
-    def _async_set_option(self, value: bool | int) -> None:
+    def _async_set_option(self, value: bool | int | str) -> None:
         """Write this option of the tracker."""
         self._manager.async_set_option(self._subentry_id, self._option_key, value)

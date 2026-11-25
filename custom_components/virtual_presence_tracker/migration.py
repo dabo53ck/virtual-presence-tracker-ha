@@ -16,6 +16,10 @@ Up to M3f every timing of a tracker and its expiry notice had an entity of its
 own. Since M3g they are set in the tracker's form, and
 `async_remove_moved_option_entities` drops their registry entries, which Home
 Assistant would otherwise show as `unavailable` for good.
+
+The 14 time entities of a tracker's time windows (M5) only exist while its
+"Use time windows" box is ticked. `async_remove_unused_window_entities` drops
+them once it is unticked; the times stay in the subentry data.
 """
 
 from __future__ import annotations
@@ -24,7 +28,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .const import DOMAIN, REMOVED_OPTION_ENTITIES, SUBENTRY_TYPE_TRACKER
+from .const import (
+    DOMAIN,
+    REMOVED_OPTION_ENTITIES,
+    SUBENTRY_TYPE_TRACKER,
+    TIME_DOMAIN,
+    WINDOW_KEYS,
+)
+from .windows import enabled as windows_enabled
 
 
 @callback
@@ -75,6 +86,28 @@ def async_remove_moved_option_entities(hass: HomeAssistant, entry: ConfigEntry) 
         for domain, key in REMOVED_OPTION_ENTITIES:
             entity_id = entity_registry.async_get_entity_id(
                 domain, DOMAIN, f"{subentry.subentry_id}_{key}"
+            )
+            if entity_id is not None:
+                entity_registry.async_remove(entity_id)
+
+
+@callback
+def async_remove_unused_window_entities(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Remove the time entities of every tracker without time windows (M5).
+
+    By their exact unique ID - `<subentry_id>_<window key>` on the platform of
+    this integration - and never by name, like the clean-up above. A tracker
+    whose box is ticked keeps them; nothing found means nothing to do.
+    """
+    entity_registry = er.async_get(hass)
+    for subentry in entry.get_subentries_of_type(SUBENTRY_TYPE_TRACKER):
+        if windows_enabled(subentry.data):
+            continue
+        for key in WINDOW_KEYS:
+            entity_id = entity_registry.async_get_entity_id(
+                TIME_DOMAIN, DOMAIN, f"{subentry.subentry_id}_{key}"
             )
             if entity_id is not None:
                 entity_registry.async_remove(entity_id)

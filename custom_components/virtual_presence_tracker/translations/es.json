@@ -86,13 +86,15 @@
                 "button_sources": "Botones",
                 "presence_sources": "Fuentes de presencia",
                 "ble_sources": "Dispositivos Bluetooth",
-                "away_after": "Ausente después de"
+                "away_after": "Ausente después de",
+                "use_time_windows": "Usar franjas horarias"
               },
               "data_description": {
                 "button_sources": "Entidades de evento de botones de cualquier integración. Qué pulsación significa en casa o fuera se elige en el siguiente paso; cualquier otra queda libre para tus automatizaciones.",
                 "presence_sources": "IMPORTANTE: elige solo fuentes que salgan de casa con la persona. Basta una fuente presente para mantener el rastreador encendido. Elige rastreadores de dispositivos (estado home) o sensores binarios (estado on) de cualquier integración, por ejemplo una etiqueta Bluetooth o un dispositivo de tu Wi-Fi. El rastreador se enciende cuando una fuente pasa a estar presente y se apaga cuando todas han estado ausentes durante «Ausente después de».",
                 "ble_sources": "IMPORTANTE: elige solo dispositivos que salgan de casa con la persona. Etiquetas y botones Bluetooth con dirección fija, la señal más fuerte primero; presentes mientras se hayan recibido dentro de «Ausente después de». ¿No está en la lista? Escribe la dirección, por ejemplo AA:BB:CC:DD:EE:FF. Los teléfonos cambian de dirección: usa en su lugar un rastreador de dispositivo de arriba.",
-                "away_after": "Cuánto tiempo tienen que estar ausentes todas las fuentes de presencia antes de que se apague el rastreador, de 1 a 120 minutos. También cuánto tiempo tiene que estar vacía la casa antes de preguntar por un dispositivo olvidado."
+                "away_after": "Cuánto tiempo tienen que estar ausentes todas las fuentes de presencia antes de que se apague el rastreador, de 1 a 120 minutos. También cuánto tiempo tiene que estar vacía la casa antes de preguntar por un dispositivo olvidado.",
+                "use_time_windows": "Las franjas se ajustan en la página del dispositivo del rastreador, un inicio y un fin para cada día de la semana. El mismo inicio y fin significa que ese día no hay franja; un fin antes del inicio pasa de medianoche. Fuera de una franja, las fuentes de presencia no encienden el rastreador."
               }
             }
           }
@@ -142,13 +144,15 @@
                 "button_sources": "Botones",
                 "presence_sources": "Fuentes de presencia",
                 "ble_sources": "Dispositivos Bluetooth",
-                "away_after": "Ausente después de"
+                "away_after": "Ausente después de",
+                "use_time_windows": "Usar franjas horarias"
               },
               "data_description": {
                 "button_sources": "Entidades de evento de botones de cualquier integración. Qué pulsación significa en casa o fuera se elige en el siguiente paso; cualquier otra queda libre para tus automatizaciones.",
                 "presence_sources": "IMPORTANTE: elige solo fuentes que salgan de casa con la persona. Basta una fuente presente para mantener el rastreador encendido. Elige rastreadores de dispositivos (estado home) o sensores binarios (estado on) de cualquier integración, por ejemplo una etiqueta Bluetooth o un dispositivo de tu Wi-Fi. El rastreador se enciende cuando una fuente pasa a estar presente y se apaga cuando todas han estado ausentes durante «Ausente después de».",
                 "ble_sources": "IMPORTANTE: elige solo dispositivos que salgan de casa con la persona. Etiquetas y botones Bluetooth con dirección fija, la señal más fuerte primero; presentes mientras se hayan recibido dentro de «Ausente después de». ¿No está en la lista? Escribe la dirección, por ejemplo AA:BB:CC:DD:EE:FF. Los teléfonos cambian de dirección: usa en su lugar un rastreador de dispositivo de arriba.",
-                "away_after": "Cuánto tiempo tienen que estar ausentes todas las fuentes de presencia antes de que se apague el rastreador, de 1 a 120 minutos. También cuánto tiempo tiene que estar vacía la casa antes de preguntar por un dispositivo olvidado."
+                "away_after": "Cuánto tiempo tienen que estar ausentes todas las fuentes de presencia antes de que se apague el rastreador, de 1 a 120 minutos. También cuánto tiempo tiene que estar vacía la casa antes de preguntar por un dispositivo olvidado.",
+                "use_time_windows": "Las franjas se ajustan en la página del dispositivo del rastreador, un inicio y un fin para cada día de la semana. El mismo inicio y fin significa que ese día no hay franja; un fin antes del inicio pasa de medianoche. Fuera de una franja, las fuentes de presencia no encienden el rastreador."
               }
             }
           }
@@ -229,6 +233,50 @@
       },
       "reset_on_return": {
         "name": "Restablecer al volver"
+      }
+    },
+    "time": {
+      "window_monday_start": {
+        "name": "Lunes inicio"
+      },
+      "window_monday_end": {
+        "name": "Lunes fin"
+      },
+      "window_tuesday_start": {
+        "name": "Martes inicio"
+      },
+      "window_tuesday_end": {
+        "name": "Martes fin"
+      },
+      "window_wednesday_start": {
+        "name": "Miércoles inicio"
+      },
+      "window_wednesday_end": {
+        "name": "Miércoles fin"
+      },
+      "window_thursday_start": {
+        "name": "Jueves inicio"
+      },
+      "window_thursday_end": {
+        "name": "Jueves fin"
+      },
+      "window_friday_start": {
+        "name": "Viernes inicio"
+      },
+      "window_friday_end": {
+        "name": "Viernes fin"
+      },
+      "window_saturday_start": {
+        "name": "Sábado inicio"
+      },
+      "window_saturday_end": {
+        "name": "Sábado fin"
+      },
+      "window_sunday_start": {
+        "name": "Domingo inicio"
+      },
+      "window_sunday_end": {
+        "name": "Domingo fin"
       }
     }
   },

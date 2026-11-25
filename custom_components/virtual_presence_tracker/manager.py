@@ -73,7 +73,7 @@ from .const import (
     EVENT_REMINDER_CANCELLED,
     EVENT_REMINDER_EXPIRED,
     EVENT_REMINDER_STARTED,
-    OPTION_DEFAULTS,
+    FORM_DEFAULTS,
     REASON_OPTION_DISABLED,
     REASON_PERSON_HOME,
     REASON_SWITCHED_OFF,
@@ -82,6 +82,7 @@ from .const import (
     STORAGE_SAVE_DELAY,
     STORAGE_VERSION,
     SUBENTRY_TYPE_TRACKER,
+    WINDOW_DEFAULTS,
 )
 from .presence import TrackerPresence
 
@@ -104,6 +105,10 @@ type PromptListener = Callable[[str, dict[str, Any]], None]
 # As the state an event goes *to*, `unknown` carries no event at all.
 _BUTTON_IGNORED_FROM_STATES = frozenset({STATE_UNAVAILABLE})
 _BUTTON_IGNORED_TO_STATES = frozenset({STATE_UNAVAILABLE, STATE_UNKNOWN})
+
+# What a missing key means, for every key `option()` hands out: the options,
+# the box of the time windows and the times of the windows (M5).
+_OPTION_DEFAULTS: dict[str, Any] = {**FORM_DEFAULTS, **WINDOW_DEFAULTS}
 
 
 @callback
@@ -988,6 +993,33 @@ class HouseholdManager:
         """
         self._async_unlock(subentry_id)
 
+    @callback
+    def async_window_started(self, subentry_id: str) -> None:
+        """Take in that one of a tracker's time windows started (M5).
+
+        The lock ends: otherwise a "no" about a tag that stayed in the house
+        would keep the next visit from switching the tracker on. Whether a
+        source is present right now is the follower's to act on.
+        """
+        self._async_unlock(subentry_id)
+
+    @callback
+    def async_window_ended(self, subentry_id: str, when: datetime) -> None:
+        """Hand a tracker over to the question about a device left behind (M5).
+
+        With nobody real at home, the waiting mark is set to the end of the
+        window, replacing an older one, so that the usual decision follows
+        `away_after` later: a tag that is still present then is a device left
+        behind. With somebody real at home there is no empty house to ask
+        about.
+        """
+        tracker = self._trackers.get(subentry_id)
+        if tracker is None or self.real_persons_home > 0:
+            return
+        tracker.wait_since = when
+        self._async_schedule_save()
+        self._async_schedule_left_behind(subentry_id)
+
     def option(self, subentry_id: str, key: str) -> Any:
         """Return one of the options of a tracker.
 
@@ -995,10 +1027,12 @@ class HouseholdManager:
         the option switches are views on it, exactly as the tracker's switch is
         a view on the tracker state, and the form writes into it directly.
         """
-        return self._option(subentry_id, key, OPTION_DEFAULTS[key])
+        return self._option(subentry_id, key, _OPTION_DEFAULTS[key])
 
     @callback
-    def async_set_option(self, subentry_id: str, key: str, value: bool | int) -> None:
+    def async_set_option(
+        self, subentry_id: str, key: str, value: bool | int | str
+    ) -> None:
         """Write one option of a tracker and let everything follow at once.
 
         The write goes into the subentry data, where the option has always
@@ -1034,7 +1068,8 @@ class HouseholdManager:
         used, so it is enough to let the entities write their new state. The
         button sources and the presence sources are followed rather than read,
         so their listeners move to the sources that are configured now - and
-        a changed `away_after` moves a pending switch-off.
+        a changed `away_after` moves a pending switch-off, a changed time of a
+        window (M5) the timer of the next start or end.
         """
         self._async_follow_buttons()
         for subentry_id in list(self._trackers):
@@ -1420,6 +1455,10 @@ class HouseholdManager:
             # allowed to overrule that, not even at the next departure of the
             # last real person. Ask a human instead, as if it were absent.
             return False
+        if self._presence.outside_window(subentry_id):
+            # Outside its time windows (M5) the sources say nothing: ask a
+            # human instead, as for a tracker whose sources are absent.
+            return False
         if not self.is_home(subentry_id):
             _LOGGER.debug(
                 "Switching tracker %s on: the house is empty and a presence "
@@ -1766,6 +1805,10 @@ class HouseholdManager:
         with the last person is no longer counted. Whatever the outcome, the
         period's decision is made: a source that becomes present later is an
         arrival, which is what sources are for.
+
+        Not inside one of the tracker's time windows (M5): the person the
+        window is for may well be alone in the empty house. The mark stays,
+        and the end of the window sets it again.
         """
         tracker = self._trackers.get(subentry_id)
         if tracker is None or tracker.wait_since is None:
@@ -1773,6 +1816,12 @@ class HouseholdManager:
         if not self._ask_left_behind(subentry_id) or not self._presence.has_sources(
             subentry_id
         ):
+            return
+        if self._presence.inside_window(subentry_id):
+            _LOGGER.debug(
+                "Not deciding about tracker %s: it is inside a time window",
+                subentry_id,
+            )
             return
         tracker.wait_since = None
         self._async_schedule_save()
